@@ -1,0 +1,17 @@
+# 개인 키, 로컬 DB, 도구, 빌드 결과는 저장소에 포함하지 않습니다.
+.env
+.env.*
+!.env.example
+**/node_modules/
+**/dist/
+**/target/
+**/.data/
+.tools/
+.idea/
+.vscode/
+*.log
+*.local
+*.tsbuildinfo
+playwright-report/
+test-results/
+.DS_Store

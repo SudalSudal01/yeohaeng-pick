@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: yeohaeng-pick
+  profiles:
+    default: local
+  jackson:
+    time-zone: Asia/Seoul
+  flyway:
+    enabled: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+server:
+  port: ${SERVER_PORT:18081}
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        http-only: true
+        same-site: lax
+  error:
+    include-message: never
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-statement-timeout: 10
+app:
+  # 키는 서버 환경변수로만 주입합니다. 브라우저용 지도 키와 서버용 REST 키를 분리합니다.
+  kakao-rest-key: ${KAKAO_REST_KEY:}
+  kakao-js-key: ${KAKAO_JS_KEY:}
+  gemini-key: ${GEMINI_API_KEY:}
+  gemini-model: ${GEMINI_MODEL:gemini-2.5-flash}
+  ai-daily-limit: ${AI_DAILY_LIMIT:20}
+  public-url: ${PUBLIC_URL:http://127.0.0.1:5173}
+  mail-from: ${MAIL_FROM:}
+  mail-enabled: ${MAIL_ENABLED:false}
+  admin-email: ${ADMIN_EMAIL:}
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    # 설치 없이 실행하는 로컬 DB입니다. 운영 프로필에서는 PostgreSQL만 사용합니다.
+    url: jdbc:h2:file:./.data/travel;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password: ""
+app:
+  sample-data: true
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+app:
+  sample-data: false
