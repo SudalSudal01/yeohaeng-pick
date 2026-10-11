@@ -139,8 +139,9 @@ export function ComparisonModal({
               {comparison.data.estimatedCost + lodgingEstimate(trip) >
               trip.budget
                 ? " · 설정한 예산을 초과해요."
-                : " · 설정한 예산 이내예요."}{" "}
-              실제 객실 요금과 교통비는 별도 확인이 필요해요.
+                : " · 현재 합산 금액은 예산 이내예요."}{" "}
+              실제 객실 요금과 교통비는 별도 확인이 필요해요. 미확인 장소 비용과
+              미선택 숙소 비용은 포함하지 않았어요.
             </p>
             {comparison.data.conflicts.map((c) => (
               <p className="field-error" key={c}>

@@ -42,4 +42,6 @@ Codex 브라우저에서 화면을 직접 조작했습니다. 화면 캡처는 `
 - PostgreSQL 및 HTTPS 배포, 다중 서버의 세션/요청 제한, 동시 요청 부하
 - 실제 iOS Safari/Android 기기, 보조기술 전체, 공식 접근성 적합성
 
-GitHub Actions는 Java 21/Node 24에서 같은 빌드와 테스트를 수행하도록 설정했습니다. 로컬 통과와 원격 CI 결과는 별도로 확인해야 합니다. 운영 출시를 위한 후속 항목은 [기능 상태표](status.md)에 기록했습니다.
+GitHub Actions의 [첫 실행](https://github.com/SudalSudal01/yeohaeng-pick/actions/runs/38163042394)은 Java 21/Node 24에서 서버 검증·프론트 테스트·포맷·빌드 모두 성공했습니다(커밋 `4405259`, 1분 24초). 실행 시 나온 기존 액션의 지원 종료 경고를 반영해 [checkout](https://github.com/actions/checkout), [setup-java](https://github.com/actions/setup-java), [setup-node](https://github.com/actions/setup-node)의 공식 버전을 확인하고 커밋 SHA로 고정했습니다. 이후 실행 결과는 저장소 Actions에서 확인할 수 있습니다.
+
+시작/종료 스크립트로 여행픽의 두 포트가 실제로 닫히고 다시 열리는 것, 기록한 PID가 실제 리스너와 일치하는 것도 확인했습니다. 로컬 DB는 유지됩니다. 운영 출시를 위한 후속 항목은 [기능 상태표](status.md)에 기록했습니다.
