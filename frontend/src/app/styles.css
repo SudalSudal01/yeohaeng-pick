@@ -2566,6 +2566,17 @@ textarea {
 .profile-summary > .text-button {
   margin-top: 8px;
 }
+/* 여섯 가지 취향을 같은 너비로 배치해 마지막 항목만 다음 줄로 밀리지 않게 합니다.
+   작은 화면은 3개씩 두 줄로, 넓은 화면은 아래 미디어 쿼리에서 한 줄로 표시합니다. */
+.profile-page .preference-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.profile-page .preference-choice {
+  min-width: 0;
+  padding-inline: 6px;
+  gap: 8px;
+}
 /* 대화 수신 안내와 저장 동작을 구분하도록 여백을 둡니다. 모바일에서도 같은 간격을 유지합니다. */
 .profile-save-actions {
   margin-top: 24px;
@@ -2621,6 +2632,9 @@ textarea {
 /* 태블릿은 비교를 유지하고, 모바일은 한 열과 하단 내비게이션으로 전환합니다.
    안전 영역과 키보드, 긴 장소명·메시지 때문에 가로 스크롤이 생기지 않도록 min-width를 제어합니다. */
 @media (min-width: 1100px) {
+  .profile-page .preference-choices {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
   .itinerary-layout > aside {
     position: sticky;
     top: 24px;
@@ -3752,8 +3766,8 @@ textarea {
     grid-column: 1;
   }
   .profile-page .preference-choice {
-    padding: 12px 17px;
-    min-width: 80px;
+    padding: 12px 6px;
+    min-width: 0;
   }
   .integration-status {
     gap: 10px;

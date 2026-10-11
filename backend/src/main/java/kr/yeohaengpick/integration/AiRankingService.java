@@ -9,7 +9,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-/** Geminiには候補ID・分類・地域・旅行の好みだけを送り、個人名・メール・チャット・予約番号を送信しません。 */
+/**
+ * Gemini는 이미 조회한 장소 후보의 취향 순위만 평가합니다.
+ * 후보 ID·분류·지역·여행 취향만 전송하고 이름·이메일·채팅·예약 번호는 보내지 않습니다.
+ * 응답의 ID를 다시 검사하고, 키 미설정·한도·외부 오류에서는 서버의 규칙 추천으로 전환합니다.
+ */
 @Service
 public class AiRankingService {
 

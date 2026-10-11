@@ -103,7 +103,9 @@ scripts/                # Windows 개발 서버 시작/종료
 
 Gmail을 발송 계정으로 사용할 때는 [로컬 연결 안내](docs/gmail-setup.md)를 참고하세요. 이메일 주소와 SMTP 인증 정보는 `.env`에만 보관합니다.
 
-무료 할당량과 이용 조건은 계정·앱·시점에 따라 달라집니다. 무료 사용을 보장하는 값으로 하드코딩하지 않았습니다. [Kakao Local](https://developers.kakao.com/docs/latest/ko/local/dev-guide), [Gemini 모델](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash), [구조화 출력](https://ai.google.dev/gemini-api/docs/structured-output)을 확인하세요.
+지도와 AI 키 발급·도메인 등록·무료 등급 확인은 [Kakao·Gemini 연결 안내](docs/maps-ai-setup.md)를 참고하세요. 기본 AI 모델은 `gemini-3.5-flash-lite`이며 프로젝트의 모델 접근·무료 할당량을 확인한 뒤 실제 호출을 검증합니다.
+
+무료 할당량과 이용 조건은 계정·앱·시점에 따라 달라집니다. 무료 사용을 보장하는 값으로 하드코딩하지 않았습니다. [Kakao Local](https://developers.kakao.com/docs/ko/local/dev-guide), [Gemini 모델](https://ai.google.dev/gemini-api/docs/models), [구조화 출력](https://ai.google.dev/gemini-api/docs/structured-output)을 확인하세요.
 
 ## 검증
 
@@ -120,6 +122,6 @@ npm run format:check
 
 ## 운영 전 남은 작업
 
-현재 구현은 운영 출시 완료가 아닙니다. 실제 교통 경로/시간표/요금, 숙소 재고와 제휴 예약 콜백, Kakao·Gemini·SMTP 실제 계정 검증, 소셜 로그인, 전국 데이터 확장, 권한 회수/회원 탈퇴, 개인정보 처리방침, 백업·모니터링·분산 요청 제한이 후속 작업입니다. 운영 DB에서는 `prod` 프로필과 PostgreSQL, HTTPS 및 동일 출처 프록시를 사용해야 합니다. 자세한 순서는 [기능 상태표](docs/status.md)에 남겼습니다.
+현재 구현은 운영 출시 완료가 아닙니다. 실제 교통 경로/시간표/요금, 숙소 재고와 제휴 예약 콜백, Kakao·Gemini 실제 계정 검증, 실제 비밀번호 재설정 메일 흐름, 소셜 로그인, 전국 데이터 확장, 권한 회수/회원 탈퇴, 개인정보 처리방침, 백업·모니터링·분산 요청 제한이 후속 작업입니다. Gmail 발송·수신·이메일 인증은 로컬에서 확인했습니다. 운영 DB에서는 `prod` 프로필과 PostgreSQL, HTTPS 및 동일 출처 프록시를 사용해야 합니다. 자세한 순서는 [기능 상태표](docs/status.md)에 남겼습니다.
 
 사진 출처는 [에셋 기록](docs/assets.md)을 참고하세요. 저장소는 포트폴리오 공개 전까지 비공개로 관리합니다.
