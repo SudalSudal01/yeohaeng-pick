@@ -82,4 +82,81 @@ class PlannerTest {
       planner.estimateMinutes(places.get(0), places.get(5), "CAR")
     );
   }
+
+  @Test
+  void equalPriceLiveCandidatesProduceDifferentVisitSets() {
+    // Kakao처럼 같은 분류의 비용이 동일한 실제 검색 조건을 재현합니다.
+    // 이름·순서가 아니라 방문 장소의 집합이 달라야 비교 가능한 코스입니다.
+    List<Place> candidates = new ArrayList<>();
+    for (String category : List.of("관광", "맛집", "카페", "전시")) {
+      for (int i = 0; i < 2; i++) candidates.add(
+        new Place(
+          category + i,
+          "검증 후보 " + category + i,
+          "서울",
+          category,
+          37.55,
+          126.98,
+          60,
+          category.equals("맛집") ? 18000 : category.equals("카페") ? 7000 : 0,
+          !category.equals("관광"),
+          "KAKAO",
+          "https://example.com/place"
+        )
+      );
+    }
+    var courses = planner.build(
+      request(List.of("서울"), 1),
+      candidates,
+      candidates.stream().map(Place::id).toList(),
+      "GEMINI"
+    );
+    assertThat(courses).hasSize(3);
+    assertThat(
+      courses.stream().map(c ->
+        new HashSet<>(
+          c
+            .items()
+            .stream()
+            .map(s -> s.place().id())
+            .toList()
+        )
+      )
+    ).doesNotHaveDuplicates();
+    for (var course : courses) {
+      assertThat(
+        course
+          .items()
+          .stream()
+          .map(s -> s.place().category())
+      ).contains("관광", "맛집", "카페", "전시");
+      assertThat(
+        course
+          .items()
+          .stream()
+          .map(s -> s.place().id())
+      )
+        .doesNotHaveDuplicates()
+        .isSubsetOf(candidates.stream().map(Place::id).toList());
+      assertThat(course.subtitle()).doesNotContain("유료");
+    }
+  }
+
+  @Test
+  void scarceCandidatesAreDisclosedWithoutInventingPlaces() {
+    Place only = places.getFirst();
+    var courses = planner.build(
+      request(List.of("서울"), 1),
+      List.of(only),
+      List.of(only.id()),
+      "GEMINI"
+    );
+    for (var course : courses) {
+      assertThat(course.items()).hasSize(1);
+      assertThat(course.items().getFirst().place().id()).isEqualTo(only.id());
+      assertThat(course.warnings()).anyMatch(w ->
+        w.contains("방문 구성이 같아요")
+      );
+    }
+  }
 }

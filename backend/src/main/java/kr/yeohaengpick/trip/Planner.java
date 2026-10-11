@@ -77,7 +77,11 @@ public class Planner {
             )
             .toList()
         );
-        pool.sort(Comparator.comparingDouble(p -> score(p, r, v, aiOrder)));
+        pool.sort(
+          Comparator.<Place>comparingDouble(p ->
+            score(p, r, v, aiOrder)
+          ).thenComparing(Place::id)
+        );
         if (pool.isEmpty()) throw DomainException.bad(
           region +
             "에 일정을 구성할 장소가 부족해요. 여행 일수를 줄이거나 지역을 추가해 주세요."
@@ -102,13 +106,25 @@ public class Planner {
           .filter(p -> !selected.contains(p))
           .findFirst()
           .ifPresent(selected::add);
+        // 실제 검색은 같은 분류의 비용을 동일한 추정치로 반환합니다. 가격 가중치만으로는
+        // 첫 두 코스가 같아지므로, 겹치는 날에는 조회된 같은 분류의 대안 하나를 선택합니다.
+        // 여행 안에서 이미 방문한 장소는 pool에서 제외되어 날짜 간 중복도 발생하지 않습니다.
+        List<Place> distinct = diversify(
+          selected,
+          pool,
+          courses,
+          day,
+          r,
+          v,
+          aiOrder
+        );
         // 지리상 가까운 후보부터 연결합니다. 최종 이동 시간은 API 조회 전까지 추정으로 표시합니다.
         Place anchor = lodgings
           .stream()
           .filter(p -> p.region().equals(region))
           .findFirst()
           .orElse(null);
-        List<Place> ordered = nearest(selected, anchor, r.transport());
+        List<Place> ordered = nearest(distinct, anchor, r.transport());
         int time =
           10 * 60 +
           (anchor == null
@@ -195,7 +211,7 @@ public class Planner {
           List.of(
             "부담 적은 장소를 중심으로",
             "취향과 이동의 균형을 고려해",
-            "유료 전시와 새로운 경험까지"
+            "새로운 장소와 경험을 더 담아"
           ).get(variant),
           engine,
           stops,
@@ -207,7 +223,106 @@ public class Planner {
         )
       );
     }
-    return courses;
+    // 후보 부족 또는 시간 제약으로 끝내 같은 구성이 나온 경우에는 차이를 꾸미지 않습니다.
+    // 중복된 양쪽 카드에 안내를 넣어 어느 코스를 선택해도 비교의 한계를 알 수 있게 합니다.
+    return courses
+      .stream()
+      .map(c -> {
+        boolean duplicate = courses
+          .stream()
+          .anyMatch(other -> other != c && visits(other).equals(visits(c)));
+        if (!duplicate) return c;
+        var warnings = new ArrayList<>(c.warnings());
+        warnings.add(
+          "일부 코스의 방문 구성이 같아요. 후보나 방문 가능 시간이 제한되어 다른 구성을 만들지 못했어요. 여행 조건을 바꿔 확인해 주세요."
+        );
+        return new Course(
+          c.variant(),
+          c.title(),
+          c.subtitle(),
+          c.engine(),
+          c.items(),
+          c.estimatedCost(),
+          c.travelMinutes(),
+          warnings,
+          c.lodgings(),
+          c.lodgingEstimate()
+        );
+      })
+      .toList();
+  }
+
+  /**
+   * 같은 날의 장소 집합이 앞 코스와 같을 때만 최소 점수 차이의 대안으로 교체합니다.
+   * 분류별 균형과 AI 평가·비용 점수를 유지하며, 이름이나 순서만 바꾼 코스를 만들지 않습니다.
+   * 대안도 최종 동선/종료 시간 검사를 거치므로, 시간 제한으로 다시 겹치면 경고로 알립니다.
+   */
+  private List<Place> diversify(
+    List<Place> selected,
+    List<Place> pool,
+    List<Course> courses,
+    int day,
+    TripRequest r,
+    int variant,
+    List<String> aiOrder
+  ) {
+    List<Set<String>> earlier = courses
+      .stream()
+      .<Set<String>>map(c ->
+        new HashSet<>(
+          c
+            .items()
+            .stream()
+            .filter(s -> s.dayIndex() == day)
+            .map(s -> s.place().id())
+            .toList()
+        )
+      )
+      .toList();
+    Set<String> ids = new HashSet<>(selected.stream().map(Place::id).toList());
+    if (!earlier.contains(ids)) return selected;
+    List<Place> best = selected;
+    double bestDelta = Double.POSITIVE_INFINITY;
+    for (int i = 0; i < selected.size(); i++) {
+      Place current = selected.get(i);
+      for (Place alternative : pool) {
+        if (
+          ids.contains(alternative.id()) ||
+          !slot(current).equals(slot(alternative))
+        ) continue;
+        Set<String> changed = new HashSet<>(ids);
+        changed.remove(current.id());
+        changed.add(alternative.id());
+        if (earlier.contains(changed)) continue;
+        double delta =
+          score(alternative, r, variant, aiOrder) -
+          score(current, r, variant, aiOrder);
+        if (delta < bestDelta) {
+          bestDelta = delta;
+          best = new ArrayList<>(selected);
+          best.set(i, alternative);
+        }
+      }
+    }
+    return best;
+  }
+
+  /** 자연·체험은 기존 관광 방문 슬롯에 포함하되 식사·카페·전시 슬롯은 유지합니다. */
+  private String slot(Place place) {
+    return List.of("관광", "자연", "체험").contains(place.category())
+      ? "관광"
+      : place.category();
+  }
+
+  /** 순서만 다른 동일 방문 구성을 구별하려고 날짜와 장소 ID의 집합으로 비교합니다. */
+  private Set<String> visits(Course course) {
+    return new HashSet<>(
+      course
+        .items()
+        .stream()
+        .map(s -> s.dayIndex() + ":" + s.place().id())
+        .toList()
+    );
   }
 
   private double score(Place p, TripRequest r, int variant, List<String> ai) {
