@@ -41,9 +41,10 @@ public class CatalogController {
 
   @GetMapping("/api/catalog/places")
   public Object places(
-    @RequestParam(defaultValue = "") String region,
-    @RequestParam(defaultValue = "") String query
+    @RequestParam(defaultValue = "서울") String region,
+    @RequestParam(defaultValue = "") String query,
+    @RequestParam(defaultValue = "전체") String category
   ) {
-    return catalog.search(region, query);
+    return catalog.search(region, query, category);
   }
 }

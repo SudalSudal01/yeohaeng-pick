@@ -31,6 +31,71 @@ class TravelFlowTest {
   @LocalServerPort
   int port;
 
+  @Test
+  void transportChecksMembershipAndSavedEndpointsBeforeExternalCalls()
+    throws Exception {
+    var owner = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id") + "/transport";
+    var request = Map.of(
+      "from",
+      Map.of("kind", "ITEM", "id", items(trip).getFirst().get("id")),
+      "to",
+      Map.of("kind", "ITEM", "id", items(trip).getLast().get("id")),
+      "mode",
+      "TRANSIT"
+    );
+    assertThat(
+      outsider.request("POST", base + "/routes", request, true).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      outsider
+        .request("POST", base + "/origins", Map.of("query", "서울역"), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/routes",
+          Map.of(
+            "from",
+            Map.of("kind", "ITEM", "id", "other-trip-item"),
+            "to",
+            request.get("to"),
+            "mode",
+            "WALK"
+          ),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(400);
+    assertThat(
+      owner.request("POST", base + "/routes", request, true).statusCode()
+    ).isEqualTo(503);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/routes",
+          Map.of(
+            "from",
+            request.get("from"),
+            "to",
+            request.get("from"),
+            "mode",
+            "CAR"
+          ),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(400);
+    assertThat(
+      owner.call("GET", "/trips/" + trip.get("id"), null).get("version")
+    ).isEqualTo(trip.get("version"));
+  }
+
   @Autowired
   JsonCodec json;
 

@@ -3881,3 +3881,247 @@ textarea {
 .narrow-page .panel {
   padding: 32px;
 }
+
+/* 경로 비교는 좁은 모바일에서도 출발·도착·수단·결과 순서로 읽히도록 한 열을 유지합니다. */
+.transport-panel {
+  border: 1px solid #dfe7e1;
+  border-radius: 16px;
+  background: #fff;
+  margin-bottom: 20px;
+  overflow: hidden;
+  min-width: 0;
+  scroll-margin-top: 90px;
+  margin-top: 24px;
+}
+.transport-heading {
+  padding: 24px 22px 20px;
+  background: #f0f5ee;
+}
+.transport-heading .eyebrow {
+  font-size: 9px;
+  letter-spacing: 1.8px;
+}
+.transport-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 10px;
+  font-size: 20px;
+}
+.transport-heading p {
+  margin: 0;
+  color: #61756d;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.transport-form {
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+.transport-form label {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+.transport-form select,
+.transport-form input {
+  min-width: 0;
+  width: 100%;
+  font-size: 13px;
+}
+.transport-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+.transport-modes button {
+  min-height: 48px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 4px;
+  font-size: 12px;
+  border: 1px solid #dfe7e1;
+  border-radius: 8px;
+  background: #fafbf8;
+  color: #405b50;
+}
+.transport-modes button.selected {
+  border-color: #247463;
+  background: #eaf3e8;
+  color: #1a6856;
+  font-weight: 700;
+}
+.transport-query,
+.transport-option > .button {
+  width: 100%;
+  justify-content: center;
+}
+.origin-search,
+.transport-booking,
+.route-steps {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.transport-panel summary {
+  cursor: pointer;
+  padding: 8px 0;
+  font-weight: 600;
+}
+.origin-search form {
+  display: grid;
+  gap: 10px;
+}
+.origin-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+.origin-results button {
+  padding: 11px;
+  border: 1px solid #dfe7e1;
+  background: #f8faf7;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.origin-results button[aria-pressed="true"] {
+  border-color: #247463;
+  color: #247463;
+}
+.transport-results {
+  padding: 0 22px;
+}
+.transport-endpoints {
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.7;
+  margin: 0 0 18px;
+}
+.transport-endpoints > span {
+  display: block;
+  color: #247463;
+}
+.transport-option {
+  padding: 16px;
+  border: 1px solid #dfe7e1;
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+.transport-option.active {
+  border-color: #247463;
+  background: #f6f9f3;
+}
+.transport-option-top {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.transport-option-top strong {
+  font-size: 22px;
+}
+.transport-option-top .badge {
+  font-size: 10px;
+}
+.transport-metrics {
+  font-size: 12px;
+  color: #708076;
+  margin: 9px 0;
+}
+.transport-fare {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 16px;
+}
+.route-steps {
+  margin-top: 12px;
+}
+.route-steps ol {
+  padding-left: 19px;
+  margin: 6px 0;
+}
+.route-steps li {
+  margin: 10px 0;
+  padding-left: 3px;
+}
+.route-steps li > span {
+  color: #247463;
+  font-weight: 600;
+}
+.route-steps li p {
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+}
+.transport-feedback {
+  padding: 16px 22px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.transport-disclaimer {
+  padding: 18px 22px;
+  margin: 0;
+  line-height: 1.9;
+}
+.transport-booking {
+  border-top: 1px solid #e7ece5;
+  padding: 12px 22px 18px;
+}
+.transport-jump {
+  margin-left: auto;
+  order: 2;
+  font-size: 13px;
+  align-self: center;
+}
+.map-container {
+  position: relative;
+}
+#trip-route-map {
+  scroll-margin-top: 90px;
+}
+.map-status {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  background: #f0f5ee;
+  margin: 0;
+  font-size: 13px;
+  z-index: 2;
+}
+.map-route-caption,
+.map-selected-route {
+  padding: 0 20px;
+  line-height: 1.8;
+}
+.map-selected-route {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  padding-bottom: 16px;
+}
+@media (max-width: 400px) {
+  .transport-heading,
+  .transport-form,
+  .transport-results {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .transport-option {
+    padding: 13px;
+  }
+  .transport-jump {
+    width: 100%;
+    margin: 8px 0 0;
+  }
+}

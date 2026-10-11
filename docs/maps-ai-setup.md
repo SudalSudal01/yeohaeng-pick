@@ -21,7 +21,7 @@ REST 키는 백엔드만 사용합니다. JavaScript 키는 지도 SDK 로드에
 3. `GEMINI_MODEL=gemini-3.5-flash-lite`와 `AI_DAILY_LIMIT=20`을 사용합니다. 신규 프로젝트의 Gemini 2.5 접근 제한을 반영해 기본 모델을 변경했습니다. [모델 목록](https://ai.google.dev/gemini-api/docs/models)과 [가격·무료 등급](https://ai.google.dev/gemini-api/docs/pricing)에서 해당 프로젝트의 지원 여부를 다시 확인합니다.
 4. AI Studio에서 모델별 실제 한도를 확인합니다. 앱의 하루 20회 제한은 단일 서버 프로세스의 제한이고 공급자의 무료 한도를 보장하지 않습니다. 한도 초과 시 유료 모델로 자동 전환하지 않고 규칙 추천을 사용합니다.
 
-AI에는 조회된 장소 ID·분류·지역과 여행 취향만 보냅니다. 이름·이메일·개인 대화·예약 번호는 보내지 않습니다. [구조화 출력](https://ai.google.dev/gemini-api/docs/structured-output)으로 후보 ID 목록을 받고 서버에서 허용된 ID인지 다시 검사합니다. AI가 요금·재고·영업시간을 만들어 내는 데 사용하지 않습니다.
+AI에는 공개 장소의 ID·이름·분류·지역·좌표와 여행 취향만 보냅니다. 회원 이름·이메일·개인 대화·예약 번호·출발지 주소는 보내지 않습니다. [구조화 출력](https://ai.google.dev/gemini-api/docs/structured-output)으로 후보 ID 목록을 받고 서버에서 허용된 ID인지 다시 검사합니다. AI가 요금·재고·영업시간을 만들어 내는 데 사용하지 않습니다.
 
 참고: [키 관리](https://ai.google.dev/gemini-api/docs/api-key), [등급·결제](https://ai.google.dev/gemini-api/docs/billing).
 

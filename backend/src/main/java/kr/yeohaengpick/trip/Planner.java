@@ -87,6 +87,11 @@ public class Planner {
             "에 일정을 구성할 장소가 부족해요. 여행 일수를 줄이거나 지역을 추가해 주세요."
         );
         List<Place> selected = new ArrayList<>();
+        Place anchor = lodgings
+          .stream()
+          .filter(p -> p.region().equals(region))
+          .findFirst()
+          .orElse(null);
         // 맛집·카페와 방문 장소의 균형을 잡고, 동일 여행 안에서는 같은 장소를 반복하지 않습니다.
         for (String category : List.of("관광", "맛집", "카페", "전시")) {
           pool
@@ -97,14 +102,28 @@ public class Planner {
                 : p.category().equals(category)
             )
             .filter(p -> !selected.contains(p))
-            .findFirst()
+            .min(
+              Comparator.<Place>comparingDouble(
+                p ->
+                  score(p, r, v, aiOrder) +
+                  proximity(p, selected, anchor) *
+                    distanceWeight(r.transport(), v)
+              ).thenComparing(Place::id)
+            )
             .ifPresent(selected::add);
         }
         if (selected.isEmpty()) selected.add(pool.getFirst());
         if (variant == 2 && pool.size() > selected.size()) pool
           .stream()
           .filter(p -> !selected.contains(p))
-          .findFirst()
+          .min(
+            Comparator.<Place>comparingDouble(
+              p ->
+                score(p, r, v, aiOrder) +
+                proximity(p, selected, anchor) *
+                  distanceWeight(r.transport(), v)
+            ).thenComparing(Place::id)
+          )
           .ifPresent(selected::add);
         // 실제 검색은 같은 분류의 비용을 동일한 추정치로 반환합니다. 가격 가중치만으로는
         // 첫 두 코스가 같아지므로, 겹치는 날에는 조회된 같은 분류의 대안 하나를 선택합니다.
@@ -119,37 +138,32 @@ public class Planner {
           aiOrder
         );
         // 지리상 가까운 후보부터 연결합니다. 최종 이동 시간은 API 조회 전까지 추정으로 표시합니다.
-        Place anchor = lodgings
-          .stream()
-          .filter(p -> p.region().equals(region))
-          .findFirst()
-          .orElse(null);
         List<Place> ordered = nearest(distinct, anchor, r.transport());
-        int time =
-          10 * 60 +
-          (anchor == null
-            ? 0
-            : estimateMinutes(anchor, ordered.getFirst(), r.transport()));
+        int time = 10 * 60;
+        Place previous = anchor;
+        int order = 0;
         for (int i = 0; i < ordered.size(); i++) {
           Place p = ordered.get(i);
-          if (i > 0) time += estimateMinutes(
-            ordered.get(i - 1),
-            p,
-            r.transport()
-          );
-          if (time + p.duration() > 21 * 60) continue;
+          // 제외된 장소를 경유한 것으로 시간을 더하지 않습니다. 실제 채택한 마지막 장소에서 계산합니다.
+          int arrival =
+            time +
+            (previous == null
+              ? 0
+              : estimateMinutes(previous, p, r.transport()));
+          if (arrival + p.duration() > 21 * 60) continue;
           stops.add(
             new Stop(
               UUID.randomUUID().toString(),
               day,
-              i,
+              order++,
               p,
-              String.format("%02d:%02d", time / 60, time % 60),
+              String.format("%02d:%02d", arrival / 60, arrival % 60),
               false,
               "NONE"
             )
           );
-          time += p.duration() + 20;
+          time = arrival + p.duration() + 20;
+          previous = p;
           used.add(p.id());
         }
       }
@@ -296,7 +310,24 @@ public class Planner {
         if (earlier.contains(changed)) continue;
         double delta =
           score(alternative, r, variant, aiOrder) -
-          score(current, r, variant, aiOrder);
+          score(current, r, variant, aiOrder) +
+          (proximity(
+            alternative,
+            selected
+              .stream()
+              .filter(p -> p != current)
+              .toList(),
+            null
+          ) -
+            proximity(
+              current,
+              selected
+                .stream()
+                .filter(p -> p != current)
+                .toList(),
+              null
+            )) *
+            distanceWeight(r.transport(), variant);
         if (delta < bestDelta) {
           bestDelta = delta;
           best = new ArrayList<>(selected);
@@ -331,12 +362,28 @@ public class Planner {
     if (index >= 0) preference -= 50.0 / (index + 1);
     return (
       preference +
-      (variant == 0
-        ? p.cost() / 1000.0
-        : variant == 2
-          ? -p.cost() / 2000.0
-          : 0) +
-      Math.abs(p.id().hashCode() % 13)
+      (variant == 0 ? p.cost() / 1000.0 : variant == 2 ? -p.cost() / 2000.0 : 0)
+    );
+  }
+
+  /** 장소를 다 고른 후 정렬하는 것만으로는 먼 후보를 줄일 수 없어 선택 단계부터 거리 부담을 반영합니다. */
+  private double proximity(Place p, List<Place> selected, Place anchor) {
+    double total = selected
+      .stream()
+      .mapToDouble(other -> distance(p, other))
+      .sum();
+    int count = selected.size();
+    if (anchor != null) {
+      total += distance(p, anchor);
+      count++;
+    }
+    return count == 0 ? 0 : total / count;
+  }
+
+  private double distanceWeight(String mode, int variant) {
+    return (
+      (mode.equals("WALK") ? 28 : mode.equals("CAR") ? 8 : 14) *
+      (variant == 0 ? 1.3 : variant == 2 ? 0.8 : 1)
     );
   }
 

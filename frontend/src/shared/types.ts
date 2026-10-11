@@ -164,3 +164,41 @@ export type ExternalBooking = {
   status: string;
   reason: string;
 };
+
+/** 경로 조회값은 일정의 추정 시간/활동비와 분리합니다. null 요금은 미제공이며 무료를 뜻하지 않습니다. */
+export type TransportPoint = {
+  id: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+};
+export type TransportOption = {
+  id: string;
+  mode: Conditions["transport"];
+  distanceMeters: number;
+  minutes: number;
+  transfers: number | null;
+  fare: number | null;
+  toll: number | null;
+  walkingMinutes: number | null;
+  steps: {
+    type: string;
+    guidance: string;
+    minutes: number;
+    vehicles: string[];
+  }[];
+  paths: { latitude: number; longitude: number }[][];
+};
+export type TransportResult = {
+  from: TransportPoint;
+  to: TransportPoint;
+  mode: Conditions["transport"];
+  queriedAt: string;
+  source: string;
+  options: TransportOption[];
+  externalUrl: string;
+};
+export type SelectedRoute = {
+  result: TransportResult;
+  option: TransportOption;
+};

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,7 +28,7 @@ import {
   bookingLabels,
   dateLabel,
 } from "../../shared/api";
-import type { Trip, Item } from "../../shared/types";
+import type { Trip, Item, SelectedRoute } from "../../shared/types";
 import { useAuth, useToast } from "../../shared/providers";
 import { Loading, ErrorState, Modal } from "../../shared/ui";
 import RouteMap from "./RouteMap";
@@ -51,6 +51,15 @@ export default function TripPage() {
     refetchInterval: 15000,
   });
   const [day, setDay] = useState(0);
+  const items = useMemo(
+    () => query.data?.items.filter((i) => i.dayIndex === day) ?? [],
+    [query.data?.items, day],
+  );
+  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(
+    null,
+  );
+  // 날짜나 공동 편집 내용이 달라지면 이전 구간의 경로가 남지 않도록 초기화합니다.
+  useEffect(() => setSelectedRoute(null), [id, day, query.data?.version]);
   const [tab, setTab] = useState("일정");
   const [compare, setCompare] = useState<Item | null>(null);
   const [booking, setBooking] = useState<Item | null>(null);
@@ -95,7 +104,6 @@ export default function TripPage() {
   if (query.error || !query.data) return <ErrorState error={query.error} />;
   const trip = query.data;
   const days = [...new Set(trip.items.map((i) => i.dayIndex))];
-  const items = trip.items.filter((i) => i.dayIndex === day);
   const activity = trip.items.reduce((s, i) => s + i.cost * trip.partySize, 0);
   const stayEstimate = lodgingEstimate(trip);
   const plannedEstimate = activity + stayEstimate;
@@ -251,6 +259,10 @@ export default function TripPage() {
       {tab === "일정" ? (
         <>
           <div className="day-tabs">
+            <a className="text-button transport-jump" href="#transport-routes">
+              <TrainFront size={16} />
+              이동 경로 비교
+            </a>
             {days.map((d) => (
               <button
                 className={day === d ? "active" : ""}
@@ -348,11 +360,21 @@ export default function TripPage() {
                 운영시간·휴무·현재 요금은 장소 상세에서 확인해 주세요. 숙박비와
                 출발지 왕복 교통비는 활동비 합계에 포함되지 않아요.
               </div>
+              <TransportPanel
+                key={`${trip.id}:${day}:${trip.version}`}
+                trip={trip}
+                day={day}
+                selected={selectedRoute}
+                onSelect={setSelectedRoute}
+              />
+              <LodgingPanel trip={trip} refresh={refresh} />
             </div>
             <aside>
-              <RouteMap items={items} />
-              <LodgingPanel trip={trip} refresh={refresh} />
-              <TransportPanel trip={trip} />
+              <RouteMap
+                items={items}
+                route={selectedRoute}
+                onClear={() => setSelectedRoute(null)}
+              />
               <div className="trip-note">
                 <strong>출발과 숙박</strong>
                 <p>
@@ -362,7 +384,7 @@ export default function TripPage() {
                 <p>
                   {trip.lodging ||
                     (trip.lodgings?.length
-                      ? "선택한 숙소는 위의 베이스캠프에서 확인해요."
+                      ? "선택한 숙소는 베이스캠프에서 확인해요."
                       : "숙소가 아직 정해지지 않았어요.")}
                 </p>
                 <Link

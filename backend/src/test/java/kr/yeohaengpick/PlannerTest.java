@@ -15,6 +15,109 @@ class PlannerTest {
   final Planner planner = new Planner();
   final List<Place> places = new CatalogService(new JsonCodec()).examples();
 
+  @Test
+  void selectionPrefersNearbyCategoryBeforeOrderingTheRoute() {
+    List<Place> candidates = new ArrayList<>();
+    for (String category : List.of("관광", "맛집", "카페", "전시"))
+      for (int i = 0; i < 3; i++) candidates.add(
+        new Place(
+          category + i,
+          category + i,
+          "서울",
+          category,
+          37.55 + i * 0.001,
+          126.98,
+          60,
+          0,
+          true,
+          "KAKAO",
+          "https://example.com"
+        )
+      );
+    Place far = new Place(
+      "far",
+      "멀리 있는 카페",
+      "서울",
+      "카페",
+      37.65,
+      127.15,
+      60,
+      0,
+      true,
+      "KAKAO",
+      "https://example.com"
+    );
+    candidates.add(far);
+    for (var course : planner.build(
+      request(List.of("서울"), 1),
+      candidates,
+      List.of("far"),
+      "GEMINI"
+    ))
+      assertThat(
+        course
+          .items()
+          .stream()
+          .map(s -> s.place().id())
+      ).doesNotContain("far");
+  }
+
+  @Test
+  void skippedStopDoesNotAddTravelTimeToNextAcceptedStop() {
+    List<Place> candidates = List.of(
+      new Place(
+        "tour",
+        "긴 방문",
+        "서울",
+        "관광",
+        37.55,
+        126.98,
+        600,
+        0,
+        false,
+        "SAMPLE",
+        ""
+      ),
+      new Place(
+        "meal",
+        "늦은 식사",
+        "서울",
+        "맛집",
+        37.55,
+        126.98,
+        120,
+        0,
+        true,
+        "SAMPLE",
+        ""
+      ),
+      new Place(
+        "cafe",
+        "짧은 방문",
+        "서울",
+        "카페",
+        37.55,
+        126.98,
+        10,
+        0,
+        true,
+        "SAMPLE",
+        ""
+      )
+    );
+    var course = planner
+      .build(request(List.of("서울"), 1), candidates, List.of(), "RULES")
+      .getFirst();
+    assertThat(
+      course
+        .items()
+        .stream()
+        .map(s -> s.place().id())
+    ).containsExactly("tour", "cafe");
+    assertThat(course.items().getLast().startTime()).isEqualTo("20:30");
+    assertThat(course.items().getLast().sortOrder()).isEqualTo(1);
+  }
+
   TripRequest request(List<String> regions, int days) {
     return new TripRequest(
       "엔진 검증",

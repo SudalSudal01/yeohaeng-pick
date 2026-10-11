@@ -39,7 +39,28 @@ public class CatalogService {
   }
 
   public List<Place> search(String region, String query) {
-    if (!kakaoKey.isBlank()) return external(region, query);
+    return search(region, query, "전체");
+  }
+
+  /** 분류를 서버 검색에 반영합니다. 먼저 무관한 15곳을 받은 뒤 화면에서만 거르면 빈 목록이 됩니다. */
+  public List<Place> search(String region, String query, String category) {
+    if (
+      !List.of("서울", "부산", "제주", "강릉").contains(region) ||
+      query.length() > 100 ||
+      (!QUERIES.containsKey(category) && !category.equals("전체"))
+    ) throw DomainException.bad("지원 지역과 검색 조건을 확인해 주세요.");
+    if (!kakaoKey.isBlank()) {
+      if (!query.isBlank()) return external(region, query)
+        .stream()
+        .filter(p -> category.equals("전체") || p.category().equals(category))
+        .toList();
+      return category.equals("전체")
+        ? candidates(List.of(region))
+        : external(region, QUERIES.get(category))
+            .stream()
+            .filter(p -> p.category().equals(category))
+            .toList();
+    }
     if (!sample) throw new DomainException(
       503,
       "장소 검색 서비스가 준비 중이에요. 운영자가 API 설정을 확인해야 해요."
@@ -48,6 +69,7 @@ public class CatalogService {
       .stream()
       .filter(p -> region.isBlank() || p.region().equals(region))
       .filter(p -> query.isBlank() || (p.name() + p.category()).contains(query))
+      .filter(p -> category.equals("전체") || p.category().equals(category))
       .toList();
   }
 
@@ -57,9 +79,12 @@ public class CatalogService {
       if (kakaoKey.isBlank()) all.addAll(search(region, ""));
       else for (String query : List.of(
         "관광명소",
+        "공원",
         "음식점",
         "카페",
-        "전시",
+        "미술관",
+        "박물관",
+        "체험학습장",
         "숙소"
       ))
         all.addAll(external(region, query));
@@ -79,7 +104,40 @@ public class CatalogService {
       .toList();
   }
 
+  private static final Map<String, String> QUERIES =
+    Collections.unmodifiableMap(
+      new LinkedHashMap<>(
+        Map.of(
+          "관광",
+          "관광명소",
+          "자연",
+          "공원",
+          "맛집",
+          "음식점",
+          "카페",
+          "카페",
+          "전시",
+          "미술관",
+          "체험",
+          "체험학습장",
+          "숙소",
+          "숙소"
+        )
+      )
+    );
+
+  private record Cached(long expires, List<Place> places) {}
+
+  private final Map<String, Cached> cache = new LinkedHashMap<>();
+
   private List<Place> external(String region, String query) {
+    String cacheKey = region + ":" + query;
+    synchronized (cache) {
+      var hit = cache.get(cacheKey);
+      if (
+        hit != null && hit.expires() > System.currentTimeMillis()
+      ) return hit.places();
+    }
     try {
       String response = client
         .get()
@@ -94,13 +152,17 @@ public class CatalogService {
       List<Place> places = new ArrayList<>();
       for (var p : root.path("documents")) {
         String group = p.path("category_group_code").asText();
-        String category = switch (group) {
-          case "FD6" -> "맛집";
-          case "CE7" -> "카페";
-          case "AD5" -> "숙소";
-          case "CT1" -> "전시";
-          default -> "관광";
-        };
+        String category = KakaoPlaceClassifier.category(
+          group,
+          p.path("category_name").asText()
+        );
+        if (
+          category == null ||
+          !KakaoPlaceClassifier.inRegion(
+            region,
+            p.path("address_name").asText()
+          )
+        ) continue;
         places.add(
           new Place(
             "kakao-" + p.path("id").asText(),
@@ -115,10 +177,21 @@ public class CatalogService {
               : category.equals("카페")
                 ? 7000
                 : 0,
-            !category.equals("관광"),
+            !List.of("관광", "자연", "체험").contains(category),
             "KAKAO",
             p.path("place_url").asText()
           )
+        );
+      }
+      // 동일 조건의 추천·저장 시 결과가 갑자기 바뀌는 일을 줄이고 무료 쿼터를 아낍니다.
+      synchronized (cache) {
+        cache
+          .entrySet()
+          .removeIf(e -> e.getValue().expires() < System.currentTimeMillis());
+        if (cache.size() >= 200) cache.remove(cache.keySet().iterator().next());
+        cache.put(
+          cacheKey,
+          new Cached(System.currentTimeMillis() + 300_000, List.copyOf(places))
         );
       }
       return places;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, Link } from "react-router-dom";
 import {
@@ -18,17 +18,20 @@ export default function ExplorePage() {
   const [params, setParams] = useSearchParams();
   const region = params.get("region") || "서울";
   const category = params.get("category") || "전체";
-  const [text, setText] = useState("");
   const query = params.get("query") || "";
+  const [text, setText] = useState(query);
+  useEffect(() => setText(query), [query]);
   const config = useConfig();
   const places = useQuery({
-    queryKey: ["places", region, query],
+    queryKey: ["places", region, query, category],
     queryFn: () =>
       api<Place[]>(
         "/catalog/places?region=" +
           encodeURIComponent(region) +
           "&query=" +
-          encodeURIComponent(query),
+          encodeURIComponent(query) +
+          "&category=" +
+          encodeURIComponent(category),
       ),
   });
   const update = (key: string, value: string) =>
@@ -120,7 +123,12 @@ export default function ExplorePage() {
               </div>
               <div className="place-card-body">
                 <span className="badge subtle">
-                  {p.category} · {p.indoor ? "실내" : "야외"}
+                  {p.category} ·{" "}
+                  {p.source === "KAKAO"
+                    ? "실내·야외 확인 필요"
+                    : p.indoor
+                      ? "실내"
+                      : "야외"}
                 </span>
                 <h3>{p.name}</h3>
                 <p>
