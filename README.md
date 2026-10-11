@@ -101,6 +101,8 @@ scripts/                # Windows 개발 서버 시작/종료
 - `GEMINI_API_KEY`: 서버 후보 평가. 키 미설정/한도/응답 오류 시 화면에 규칙 추천임을 표시합니다. 기본 호출 제한은 **서버 프로세스당 하루 20회**이며 공급자의 무료 할당량과 동일하지 않습니다.
 - `MAIL_ENABLED=true` + SMTP + `MAIL_FROM`: 이메일 인증과 재설정. 관리자 이메일은 인증을 완료하고 재로그인해야 권한이 적용됩니다.
 
+Gmail을 발송 계정으로 사용할 때는 [로컬 연결 안내](docs/gmail-setup.md)를 참고하세요. 이메일 주소와 SMTP 인증 정보는 `.env`에만 보관합니다.
+
 무료 할당량과 이용 조건은 계정·앱·시점에 따라 달라집니다. 무료 사용을 보장하는 값으로 하드코딩하지 않았습니다. [Kakao Local](https://developers.kakao.com/docs/latest/ko/local/dev-guide), [Gemini 모델](https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash), [구조화 출력](https://ai.google.dev/gemini-api/docs/structured-output)을 확인하세요.
 
 ## 검증

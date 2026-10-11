@@ -2566,6 +2566,10 @@ textarea {
 .profile-summary > .text-button {
   margin-top: 8px;
 }
+/* 대화 수신 안내와 저장 동작을 구분하도록 여백을 둡니다. 모바일에서도 같은 간격을 유지합니다. */
+.profile-save-actions {
+  margin-top: 24px;
+}
 .blocked-panel {
   grid-column: 2;
 }

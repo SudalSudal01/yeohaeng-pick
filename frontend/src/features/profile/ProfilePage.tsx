@@ -150,9 +150,11 @@ export default function ProfilePage() {
             기본적으로 첫 연락은 요청함에 도착해요. 이미 수락한 대화는 유지되며
             특정 사용자를 별도로 차단할 수 있어요.
           </p>
-          <button className="button primary" disabled={busy}>
-            {busy ? "저장 중" : "설정 저장하기"}
-          </button>
+          <div className="profile-save-actions">
+            <button className="button primary" disabled={busy}>
+              {busy ? "저장 중" : "설정 저장하기"}
+            </button>
+          </div>
         </form>
         <section className="panel blocked-panel">
           <h2>
