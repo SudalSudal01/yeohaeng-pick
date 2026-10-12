@@ -6,8 +6,13 @@ import org.apache.ibatis.annotations.*;
 /** 공개 커뮤니티 쿼리는 이메일·개인 취향·예약 정보에 접근하지 않습니다. */
 @Mapper
 public interface CommunityMapper {
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
   @Select(
-    "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE hidden=FALSE AND deleted_at IS NULL ORDER BY p.created_at DESC LIMIT 100"
+    value = "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.hidden=0 AND p.deleted_at IS NULL ORDER BY p.created_at DESC FETCH FIRST 100 ROWS ONLY",
+    databaseId = "oracle"
+  )
+  @Select(
+    "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.hidden=FALSE AND p.deleted_at IS NULL ORDER BY p.created_at DESC FETCH FIRST 100 ROWS ONLY"
   )
   List<Map<String, Object>> posts();
 
@@ -22,15 +27,25 @@ public interface CommunityMapper {
 
   /** 휴지통은 로그인한 작성자만 읽습니다. 목록에 본문·댓글을 내려보내지 않습니다. */
   @Select(
-    "SELECT id,category,region,title,version,deleted_at,hidden FROM posts WHERE author_id=#{member} AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100"
+    "SELECT id,category,region,title,version,deleted_at,hidden FROM posts WHERE author_id=#{member} AND deleted_at IS NOT NULL ORDER BY deleted_at DESC FETCH FIRST 100 ROWS ONLY"
   )
   List<Map<String, Object>> trash(String member);
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
   @Update(
-    "UPDATE posts SET region=#{region},title=#{title},body=#{body},recruitment_date=#{recruitmentDate},capacity=#{capacity},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NULL"
+    value = "UPDATE posts SET region=#{region},title=#{title},body=#{body,jdbcType=CLOB},recruitment_date=#{recruitmentDate},capacity=#{capacity},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=0 AND deleted_at IS NULL",
+    databaseId = "oracle"
+  )
+  @Update(
+    "UPDATE posts SET region=#{region},title=#{title},body=#{body,jdbcType=CLOB},recruitment_date=#{recruitmentDate},capacity=#{capacity},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NULL"
   )
   int edit(Map<String, Object> data);
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=0 AND deleted_at IS NULL",
+    databaseId = "oracle"
+  )
   @Update(
     "UPDATE posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NULL"
   )
@@ -40,6 +55,11 @@ public interface CommunityMapper {
     @Param("version") int version
   );
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE posts SET deleted_at=NULL,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=0 AND deleted_at IS NOT NULL",
+    databaseId = "oracle"
+  )
   @Update(
     "UPDATE posts SET deleted_at=NULL,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NOT NULL"
   )
@@ -50,7 +70,7 @@ public interface CommunityMapper {
   );
 
   @Insert(
-    "INSERT INTO posts(id,author_id,category,region,title,body,recruitment_date,capacity) VALUES(#{id},#{authorId},#{category},#{region},#{title},#{body},#{recruitmentDate},#{capacity})"
+    "INSERT INTO posts(id,author_id,category,region,title,body,recruitment_date,capacity) VALUES(#{id},#{authorId},#{category},#{region},#{title},#{body,jdbcType=CLOB},#{recruitmentDate},#{capacity})"
   )
   void insert(Map<String, Object> p);
 
@@ -67,7 +87,7 @@ public interface CommunityMapper {
   );
 
   @Update(
-    "UPDATE comments SET body=#{body},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND post_id=#{post} AND author_id=#{member} AND version=#{version} AND deleted_at IS NULL"
+    "UPDATE comments SET body=#{body,jdbcType=CLOB},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND post_id=#{post} AND author_id=#{member} AND version=#{version} AND deleted_at IS NULL"
   )
   int editComment(
     @Param("post") String post,
@@ -89,7 +109,7 @@ public interface CommunityMapper {
   );
 
   @Insert(
-    "INSERT INTO comments(id,post_id,author_id,body) VALUES(#{id},#{post},#{member},#{body})"
+    "INSERT INTO comments(id,post_id,author_id,body) VALUES(#{id},#{post},#{member},#{body,jdbcType=CLOB})"
   )
   void comment(
     @Param("id") String id,
@@ -98,6 +118,11 @@ public interface CommunityMapper {
     @Param("body") String body
   );
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE posts SET status=#{status},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND category='동행' AND hidden=0 AND deleted_at IS NULL",
+    databaseId = "oracle"
+  )
   @Update(
     "UPDATE posts SET status=#{status},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND category='동행' AND hidden=FALSE AND deleted_at IS NULL"
   )
@@ -135,7 +160,9 @@ public interface CommunityMapper {
     @Param("reason") String reason
   );
 
-  @Select("SELECT * FROM reports ORDER BY created_at DESC LIMIT 100")
+  @Select(
+    "SELECT * FROM reports ORDER BY created_at DESC FETCH FIRST 100 ROWS ONLY"
+  )
   List<Map<String, Object>> reports();
 
   @Select("SELECT * FROM reports WHERE id=#{id}")

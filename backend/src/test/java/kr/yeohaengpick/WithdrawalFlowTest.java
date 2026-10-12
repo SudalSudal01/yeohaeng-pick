@@ -27,7 +27,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
     "app.tour-api-key=",
   }
 )
-class WithdrawalFlowTest {
+class WithdrawalFlowTest extends HttpFlowDatabase {
 
   @LocalServerPort
   int port;
@@ -451,18 +451,23 @@ class WithdrawalFlowTest {
         "SELECT title,body,region,status FROM posts WHERE author_id=?",
         writer.id
       )
-    ).allSatisfy(p ->
+    ).allSatisfy(p -> {
       assertThat(p)
         .containsEntry("title", "탈퇴한 회원의 게시글")
-        .containsEntry("body", "")
-        .containsEntry("region", "")
-        .containsEntry("status", "CLOSED")
-    );
+        .containsEntry("status", "CLOSED");
+      // DB 직접 조회에서는 Oracle의 지운 문자열이 NULL입니다. 공개 API의 빈 문자열 계약과
+      // 별개로 원문이 남지 않았는지 검사하고, JDBC CLOB 객체로 반환되는 잔존 본문도 거절합니다.
+      assertThat(Objects.toString(p.get("body"), "")).isEmpty();
+      assertThat(Objects.toString(p.get("region"), "")).isEmpty();
+    });
     assertThat(
-      db.queryForObject(
-        "SELECT body FROM comments WHERE author_id=?",
-        String.class,
-        writer.id
+      Objects.toString(
+        db.queryForObject(
+          "SELECT body FROM comments WHERE author_id=?",
+          String.class,
+          writer.id
+        ),
+        ""
       )
     ).isEmpty();
     assertThat(
@@ -636,7 +641,7 @@ class WithdrawalFlowTest {
     }
     assertThat(
       db.queryForObject(
-        "SELECT COUNT(*) FROM posts WHERE author_id=? AND (deleted_at IS NULL OR body <> '')",
+        "SELECT COUNT(*) FROM posts WHERE author_id=? AND (deleted_at IS NULL OR LENGTH(body) > 0)",
         Integer.class,
         owner.id
       )

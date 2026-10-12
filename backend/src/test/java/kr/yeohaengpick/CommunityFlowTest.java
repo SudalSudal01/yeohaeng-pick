@@ -24,7 +24,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
     "app.tour-api-key=",
   }
 )
-class CommunityFlowTest {
+class CommunityFlowTest extends HttpFlowDatabase {
 
   @LocalServerPort
   int port;
@@ -233,9 +233,9 @@ class CommunityFlowTest {
     assertThat(
       visitor.request("GET", base, null, false).statusCode()
     ).isEqualTo(404);
-    assertThat(
-      visitor.request("GET", "/community/posts", null, false).body()
-    ).doesNotContain(id);
+    assertThat(json.write(visitor.callList("/community/posts"))).doesNotContain(
+      id
+    );
     assertThat(
       reader
         .request(
@@ -798,6 +798,13 @@ class CommunityFlowTest {
     final HttpClient client = HttpClient.newBuilder()
       .cookieHandler(new CookieManager(null, CookiePolicy.ACCEPT_ALL))
       .build();
+
+    List<?> callList(String path) throws Exception {
+      var response = request("GET", path, null, false);
+      // 오류 본문에 ID가 없다는 이유만으로 공개 제외 검사가 통과하지 않게 정상 응답도 검사합니다.
+      assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+      return json.read(response.body(), List.class);
+    }
 
     HttpResponse<String> request(
       String method,

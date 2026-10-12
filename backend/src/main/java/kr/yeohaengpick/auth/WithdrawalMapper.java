@@ -54,6 +54,11 @@ public interface WithdrawalMapper {
   )
   void eraseComments(String member);
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE members SET email=#{replacement},password_hash='!withdrawn',nickname='탈퇴한 회원',role='USER',verified=0,preferences='[]',dm_scope='OFF',credential_version=credential_version+1,deleted_at=CURRENT_TIMESTAMP WHERE id=#{member} AND deleted_at IS NULL",
+    databaseId = "oracle"
+  )
   @Update(
     "UPDATE members SET email=#{replacement},password_hash='!withdrawn',nickname='탈퇴한 회원',role='USER',verified=FALSE,preferences='[]',dm_scope='OFF',credential_version=credential_version+1,deleted_at=CURRENT_TIMESTAMP WHERE id=#{member} AND deleted_at IS NULL"
   )

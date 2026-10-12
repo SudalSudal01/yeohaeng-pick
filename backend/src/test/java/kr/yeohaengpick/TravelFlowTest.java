@@ -29,7 +29,30 @@ import org.springframework.boot.test.web.server.LocalServerPort;
     "app.tour-api-key=",
   }
 )
-class TravelFlowTest {
+class TravelFlowTest extends HttpFlowDatabase {
+
+  @Autowired
+  kr.yeohaengpick.trip.TripMapper databaseTrips;
+
+  /** 8,192자 청크 경계에 이모지를 걸쳐 큰 JSON이 DB 왕복에서 손상되지 않는지 검사합니다. */
+  @Test
+  void largeHistoryAndRouteJsonPreserveUnicodeAtChunkBoundaries()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String tripId = trip.get("id").toString();
+    String historyId = UUID.randomUUID().toString();
+    String text = "{\"note\":\"" + "여행 한글 🧭".repeat(12000) + "\"}";
+    String memberId = user.call("GET", "/auth/me", null).get("id").toString();
+    databaseTrips.history(historyId, tripId, memberId, 1, "합성 긴 이력", text);
+    assertThat(databaseTrips.historyById(historyId).get("snapshot")).isEqualTo(
+      text
+    );
+    String itemId = items(trip).getFirst().get("id").toString();
+    databaseTrips.routeTiming(tripId, itemId, text);
+    assertThat(databaseTrips.routeTimings(tripId)).containsExactly(text);
+    databaseTrips.clearRouteTiming(tripId, itemId);
+  }
 
   @LocalServerPort
   int port;

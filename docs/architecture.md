@@ -1,5 +1,9 @@
 # 구조와 주요 결정
 
+## Oracle 저장소
+
+실제 DB는 Oracle 19c 전용 스키마를 사용합니다. `oracle` 프로필은 전용 Flyway 위치와 JDBC 연결을 선택하고, MyBatis는 명시적인 Oracle BOOLEAN SQL 및 Map의 열 이름/숫자/CLOB/날짜 변환으로 기존 API 계약을 유지합니다. 자동 테스트의 기본 H2 이력은 그대로 보존합니다. 실제 전체 HTTP 시나리오는 별도 Oracle QA 스키마에서도 실행하며 이전은 앱 시작과 분리한 도구에서 FK 순서·단일 커밋·전체 값 해시 검증을 거칩니다. [접속·이전·복구 상세](oracle-setup.md)
+
 ## 여행 소유권 이전
 
 `TripOwnershipService`는 여행 행을 잠근 뒤 현재 소유자·대상 참여·요청 버전을 검사해 소유권/버전 변경, 대기 초대 종료, 변경 기록을 한 트랜잭션에 저장합니다. V10의 별도 기록은 방문 일정 복원과 분리하며 공개 공유에서 제외합니다. 기존 소유자는 동행으로 남습니다. `TripOwnershipPanel`이 대상 선택·권한 확인·충돌 안내·최근 기록을 담당합니다. [권한 변화와 보존 계약](trip-ownership.md)
@@ -28,7 +32,7 @@ flowchart LR
   API --> AUTH[객체 접근 권한]
   AUTH --> PLAN[일정·대안 계산]
   API --> DATA[MyBatis / Flyway]
-  DATA --> DB[(로컬 H2 / 운영 PostgreSQL)]
+  DATA --> DB[(Oracle 19c / 격리 테스트 H2)]
   PLAN --> PLACE[조회된 장소 후보]
   PLACE --> KAKAO[Kakao Local]
   PLAN --> AI[Gemini 후보 평가]
@@ -117,4 +121,4 @@ AI에는 공개 장소의 ID·이름·분류·지역·좌표와 여행 취향을
 
 ## 운영 구성
 
-프론트 정적 파일과 `/api`를 같은 HTTPS 출처로 서비스합니다. Vite 개발 서버는 운영 서버로 쓰지 않습니다. `SPRING_PROFILES_ACTIVE=prod`, PostgreSQL JDBC 환경변수, `PUBLIC_URL`을 설정합니다. 운영자는 비밀 키, TLS, 프록시/요청 제한, 세션 저장, 백업, 모니터링, 개인정보 정책을 구성해야 합니다. 실제 운영 배포나 PostgreSQL 연결은 아직 검증하지 않았습니다.
+프론트 정적 파일과 `/api`를 같은 HTTPS 출처로 서비스합니다. Vite 개발 서버는 운영 서버로 쓰지 않습니다. `SPRING_PROFILES_ACTIVE=prod,oracle`, Oracle JDBC 환경변수, `PUBLIC_URL`을 설정합니다. 운영자는 비밀 키, TLS, 프록시/요청 제한, 세션 저장, 백업, 모니터링, 개인정보 정책을 구성해야 합니다. 로컬 Oracle 연결·이전·HTTP 검증은 수행했으며 공개 운영 배포·다중 서버는 아직 검증하지 않았습니다.

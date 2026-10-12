@@ -36,7 +36,7 @@ public interface TripOwnershipMapper {
 
   /** 현재 참여자에게 최근 변경 20건만 반환합니다. 공개 공유 데이터에는 이 기록을 넣지 않습니다. */
   @Select(
-    "SELECT h.id,h.previous_owner_id,h.new_owner_id,h.version,h.revoked_invitations,h.created_at,p.nickname AS previous_owner_name,n.nickname AS new_owner_name FROM trip_ownership_history h JOIN members p ON p.id=h.previous_owner_id JOIN members n ON n.id=h.new_owner_id WHERE h.trip_id=#{trip} ORDER BY h.version DESC LIMIT 20"
+    "SELECT h.id,h.previous_owner_id,h.new_owner_id,h.version,h.revoked_invitations,h.created_at,p.nickname AS previous_owner_name,n.nickname AS new_owner_name FROM trip_ownership_history h JOIN members p ON p.id=h.previous_owner_id JOIN members n ON n.id=h.new_owner_id WHERE h.trip_id=#{trip} ORDER BY h.version DESC FETCH FIRST 20 ROWS ONLY"
   )
   List<Map<String, Object>> history(String trip);
 }

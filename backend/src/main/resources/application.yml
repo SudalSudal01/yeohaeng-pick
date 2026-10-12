@@ -29,6 +29,8 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     default-statement-timeout: 10
+    # Oracle은 타입을 모르는 NULL 바인딩에 OTHER(1111)를 허용하지 않습니다.
+    jdbc-type-for-null: "NULL"
 app:
   # 키는 서버 환경변수로만 주입합니다. 브라우저용 지도 키와 서버용 REST 키를 분리합니다.
   kakao-rest-key: ${KAKAO_REST_KEY:}
@@ -48,7 +50,7 @@ spring:
     activate:
       on-profile: local
   datasource:
-    # 설치 없이 실행하는 로컬 DB입니다. 운영 프로필에서는 PostgreSQL만 사용합니다.
+    # 설치 없이 실행하는 개발/테스트 DB입니다. local,oracle을 함께 선택하면 아래 Oracle 설정이 우선합니다.
     url: jdbc:h2:file:./.data/travel;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH
     username: sa
     password: ""
@@ -70,3 +72,21 @@ server:
         secure: true
 app:
   sample-data: false
+---
+spring:
+  config:
+    activate:
+      on-profile: oracle
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      data-source-properties:
+        # DATE는 날짜로, TIMESTAMP는 표준 JDBC 시각으로 받아 기존 API 형식을 유지합니다.
+        oracle.jdbc.mapDateToTimestamp: false
+        oracle.jdbc.J2EE13Compliant: true
+  flyway:
+    # 기존 H2/PostgreSQL에 적용한 파일의 체크섬을 바꾸지 않고 Oracle 전용 이력을 관리합니다.
+    locations: classpath:db/oracle

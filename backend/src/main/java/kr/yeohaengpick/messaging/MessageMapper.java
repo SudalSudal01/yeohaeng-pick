@@ -14,11 +14,13 @@ public interface MessageMapper {
   @Select("SELECT * FROM conversations WHERE id=#{id}")
   Map<String, Object> room(String id);
 
-  @Select("SELECT * FROM conversations WHERE trip_id=#{trip} LIMIT 1")
+  @Select(
+    "SELECT * FROM conversations WHERE trip_id=#{trip} FETCH FIRST 1 ROWS ONLY"
+  )
   Map<String, Object> group(String trip);
 
   @Select(
-    "SELECT * FROM conversations WHERE trip_id IS NULL AND ((requester_id=#{a} AND recipient_id=#{b}) OR (requester_id=#{b} AND recipient_id=#{a})) AND status <> 'DECLINED' LIMIT 1"
+    "SELECT * FROM conversations WHERE trip_id IS NULL AND ((requester_id=#{a} AND recipient_id=#{b}) OR (requester_id=#{b} AND recipient_id=#{a})) AND status <> 'DECLINED' FETCH FIRST 1 ROWS ONLY"
   )
   Map<String, Object> existing(@Param("a") String a, @Param("b") String b);
 
@@ -34,12 +36,12 @@ public interface MessageMapper {
   );
 
   @Select(
-    "SELECT msg.*,m.nickname FROM messages msg JOIN members m ON m.id=msg.sender_id WHERE conversation_id=#{id} ORDER BY msg.created_at LIMIT 300"
+    "SELECT msg.*,m.nickname FROM messages msg JOIN members m ON m.id=msg.sender_id WHERE conversation_id=#{id} ORDER BY msg.created_at FETCH FIRST 300 ROWS ONLY"
   )
   List<Map<String, Object>> messages(String id);
 
   @Insert(
-    "INSERT INTO messages(id,conversation_id,sender_id,body) VALUES(#{id},#{room},#{sender},#{body})"
+    "INSERT INTO messages(id,conversation_id,sender_id,body) VALUES(#{id},#{room},#{sender},#{body,jdbcType=CLOB})"
   )
   void send(
     @Param("id") String id,

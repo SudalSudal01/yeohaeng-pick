@@ -17,7 +17,7 @@ public interface TripMapper {
   void clearRouteTiming(@Param("trip") String trip, @Param("item") String item);
 
   @Insert(
-    "INSERT INTO trip_route_timings(trip_id,to_item_id,payload) VALUES(#{trip},#{item},#{payload})"
+    "INSERT INTO trip_route_timings(trip_id,to_item_id,payload) VALUES(#{trip},#{item},#{payload,jdbcType=CLOB})"
   )
   void routeTiming(
     @Param("trip") String trip,
@@ -30,8 +30,13 @@ public interface TripMapper {
   )
   List<Map<String, Object>> externalBookings(String trip);
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
   @Insert(
-    "INSERT INTO external_bookings(id,trip_id,label,category,departure,arrival,departure_place,arrival_place,before_minutes,after_minutes,schedule_linked,amount,status,reason,updated_by) VALUES(#{id},#{trip},#{b.label},#{b.category},#{b.departure},NULLIF(#{b.arrival},''),COALESCE(#{b.departurePlace},''),COALESCE(#{b.arrivalPlace},''),COALESCE(#{b.beforeMinutes},30),COALESCE(#{b.afterMinutes},30),COALESCE(#{b.scheduleLinked},FALSE),#{b.amount},#{b.status},#{b.reason},#{member})"
+    value = "INSERT INTO external_bookings(id,trip_id,label,category,departure,arrival,departure_place,arrival_place,before_minutes,after_minutes,schedule_linked,amount,status,reason,updated_by) VALUES(#{id},#{trip},#{b.label},#{b.category},#{b.departure},NULLIF(#{b.arrival,jdbcType=VARCHAR},''),COALESCE(#{b.departurePlace,jdbcType=VARCHAR},''),COALESCE(#{b.arrivalPlace,jdbcType=VARCHAR},''),COALESCE(#{b.beforeMinutes,jdbcType=INTEGER},30),COALESCE(#{b.afterMinutes,jdbcType=INTEGER},30),COALESCE(#{b.scheduleLinked,jdbcType=INTEGER},0),#{b.amount,jdbcType=INTEGER},#{b.status},#{b.reason},#{member})",
+    databaseId = "oracle"
+  )
+  @Insert(
+    "INSERT INTO external_bookings(id,trip_id,label,category,departure,arrival,departure_place,arrival_place,before_minutes,after_minutes,schedule_linked,amount,status,reason,updated_by) VALUES(#{id},#{trip},#{b.label},#{b.category},#{b.departure},NULLIF(#{b.arrival,jdbcType=VARCHAR},''),COALESCE(#{b.departurePlace,jdbcType=VARCHAR},''),COALESCE(#{b.arrivalPlace,jdbcType=VARCHAR},''),COALESCE(#{b.beforeMinutes,jdbcType=INTEGER},30),COALESCE(#{b.afterMinutes,jdbcType=INTEGER},30),COALESCE(#{b.scheduleLinked,jdbcType=INTEGER},FALSE),#{b.amount,jdbcType=INTEGER},#{b.status},#{b.reason},#{member})"
   )
   void addExternalBooking(
     @Param("id") String id,
@@ -40,8 +45,13 @@ public interface TripMapper {
     @Param("member") String member
   );
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
   @Update(
-    "UPDATE external_bookings SET label=#{b.label},category=#{b.category},departure=#{b.departure},arrival=NULLIF(#{b.arrival},''),departure_place=COALESCE(#{b.departurePlace},''),arrival_place=COALESCE(#{b.arrivalPlace},''),before_minutes=COALESCE(#{b.beforeMinutes},30),after_minutes=COALESCE(#{b.afterMinutes},30),schedule_linked=COALESCE(#{b.scheduleLinked},FALSE),amount=#{b.amount},status=#{b.status},reason=#{b.reason},updated_by=#{member} WHERE id=#{id} AND trip_id=#{trip}"
+    value = "UPDATE external_bookings SET label=#{b.label},category=#{b.category},departure=#{b.departure},arrival=NULLIF(#{b.arrival,jdbcType=VARCHAR},''),departure_place=COALESCE(#{b.departurePlace,jdbcType=VARCHAR},''),arrival_place=COALESCE(#{b.arrivalPlace,jdbcType=VARCHAR},''),before_minutes=COALESCE(#{b.beforeMinutes,jdbcType=INTEGER},30),after_minutes=COALESCE(#{b.afterMinutes,jdbcType=INTEGER},30),schedule_linked=COALESCE(#{b.scheduleLinked,jdbcType=INTEGER},0),amount=#{b.amount,jdbcType=INTEGER},status=#{b.status},reason=#{b.reason},updated_by=#{member} WHERE id=#{id} AND trip_id=#{trip}",
+    databaseId = "oracle"
+  )
+  @Update(
+    "UPDATE external_bookings SET label=#{b.label},category=#{b.category},departure=#{b.departure},arrival=NULLIF(#{b.arrival,jdbcType=VARCHAR},''),departure_place=COALESCE(#{b.departurePlace,jdbcType=VARCHAR},''),arrival_place=COALESCE(#{b.arrivalPlace,jdbcType=VARCHAR},''),before_minutes=COALESCE(#{b.beforeMinutes,jdbcType=INTEGER},30),after_minutes=COALESCE(#{b.afterMinutes,jdbcType=INTEGER},30),schedule_linked=COALESCE(#{b.scheduleLinked,jdbcType=INTEGER},FALSE),amount=#{b.amount,jdbcType=INTEGER},status=#{b.status},reason=#{b.reason},updated_by=#{member} WHERE id=#{id} AND trip_id=#{trip}"
   )
   void updateExternalBooking(
     @Param("id") String id,
@@ -86,7 +96,7 @@ public interface TripMapper {
   );
 
   @Insert(
-    "INSERT INTO trips(id,owner_id,title,regions,start_date,end_date,origin,party_size,budget,transport,preferences,lodging) VALUES(#{id},#{ownerId},#{title},#{regions},#{startDate},#{endDate},#{origin},#{partySize},#{budget},#{transport},#{preferences},#{lodging})"
+    "INSERT INTO trips(id,owner_id,title,regions,start_date,end_date,origin,party_size,budget,transport,preferences,lodging) VALUES(#{id},#{ownerId},#{title},#{regions,jdbcType=CLOB},#{startDate},#{endDate},#{origin},#{partySize},#{budget},#{transport},#{preferences,jdbcType=CLOB},#{lodging})"
   )
   void insert(Map<String, Object> trip);
 
@@ -150,7 +160,7 @@ public interface TripMapper {
   int bump(@Param("id") String id, @Param("version") int version);
 
   @Insert(
-    "INSERT INTO trip_history(id,trip_id,member_id,version,summary,snapshot) VALUES(#{id},#{trip},#{member},#{version},#{summary},#{snapshot})"
+    "INSERT INTO trip_history(id,trip_id,member_id,version,summary,snapshot) VALUES(#{id},#{trip},#{member},#{version},#{summary},#{snapshot,jdbcType=CLOB})"
   )
   void history(
     @Param("id") String id,
@@ -162,7 +172,7 @@ public interface TripMapper {
   );
 
   @Select(
-    "SELECT h.id,h.version,h.summary,h.created_at,m.nickname FROM trip_history h JOIN members m ON m.id=h.member_id WHERE h.trip_id=#{trip} ORDER BY h.version DESC LIMIT 30"
+    "SELECT h.id,h.version,h.summary,h.created_at,m.nickname FROM trip_history h JOIN members m ON m.id=h.member_id WHERE h.trip_id=#{trip} ORDER BY h.version DESC FETCH FIRST 30 ROWS ONLY"
   )
   List<Map<String, Object>> historyList(String trip);
 

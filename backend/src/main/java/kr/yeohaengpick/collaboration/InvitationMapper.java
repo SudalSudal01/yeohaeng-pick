@@ -45,7 +45,7 @@ public interface InvitationMapper {
   void revoke(@Param("trip") String trip, @Param("member") String member);
 
   @Update(
-    "UPDATE trips SET preferences=#{preferences},version=version+1 WHERE id=#{trip}"
+    "UPDATE trips SET preferences=#{preferences,jdbcType=CLOB},version=version+1 WHERE id=#{trip}"
   )
   void preferences(
     @Param("trip") String trip,

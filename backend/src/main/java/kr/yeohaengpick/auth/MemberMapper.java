@@ -29,7 +29,7 @@ public interface MemberMapper {
   );
 
   @Update(
-    "UPDATE members SET nickname=#{nickname}, preferences=#{preferences}, dm_scope=#{scope} WHERE id=#{id}"
+    "UPDATE members SET nickname=#{nickname}, preferences=#{preferences,jdbcType=CLOB}, dm_scope=#{scope} WHERE id=#{id}"
   )
   void update(
     @Param("id") String id,
@@ -69,9 +69,19 @@ public interface MemberMapper {
     @Param("purpose") String purpose
   );
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE members SET role='ADMIN' WHERE id=#{id} AND verified=1",
+    databaseId = "oracle"
+  )
   @Update("UPDATE members SET role='ADMIN' WHERE id=#{id} AND verified=TRUE")
   void promote(String id);
 
+  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
+  @Update(
+    value = "UPDATE members SET verified=1 WHERE id=#{id}",
+    databaseId = "oracle"
+  )
   @Update("UPDATE members SET verified=TRUE WHERE id=#{id}")
   void verify(String id);
 

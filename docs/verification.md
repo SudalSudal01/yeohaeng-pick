@@ -1,5 +1,16 @@
 # 검증 기록
 
+## 2026-10-12 Oracle 전환과 전체 데이터 보존
+
+- 사용자 요청으로 실제 로컬 DB를 H2에서 Oracle 19c 19.3으로 전환. 리스너 localhost:1521, non-CDB ORCL/서비스 orcl, AL32UTF8 문자셋 확인. 실사용/HTTP QA/이전 QA를 서로 다른 전용 계정으로 분리하고 CREATE SESSION·CREATE TABLE·256MB USERS 할당량만 부여. 기존 다른 프로젝트 계정은 변경하지 않음.
+- 기존 H2/PostgreSQL V1~V11 파일은 수정하지 않고 Oracle 전용 V1~V11, JDBC/Flyway 모듈·프로필 추가. NUMBER(1) Boolean/대문자 열/CLOB/정수/날짜/NULL 바인딩 차이를 API 계약에 맞게 처리. 공개 글 목록의 JOIN에서 동명 deleted_at 열을 명시하고 목록의 200 응답까지 검사해 오류 본문으로 공개 제외 검사가 통과하는 문제도 수정.
+- 최종 기본 H2 전체 133개, Oracle 모드 전체 133개 통과. 각 모드에 실제 HTTP 시나리오 76개와 엔진·공급자·값 변환·기존 H2 이력 이전 검사 57개 포함. Oracle HTTP는 YEOHAENG_PICK_QA에서만 실행하도록 제한. 회원가입/세션/CSRF/비밀번호/탈퇴, 여행 생성·편집·버전 경합·예약·숙소·방문/경로 조건·공유, 초대·참여 종료·소유권 이전, 글/댓글·대화·차단을 합성 계정으로 검증. 실제 외부 AI·관광·메일은 호출하지 않음.
+- 추가 회귀 검사: 96,011자 한글/이모지 JSON을 MyBatis 이력 Map와 경로 String 목록으로 왕복. 이 PC에서 setString/setCharacterStream의 8,192자 청크 경계 서로게이트 손상을 재현했고, LongTextTypeHandler의 명시적 setClob(Reader)로 해결. H2/PostgreSQL에는 기존 setString 바인딩 유지. NULL 금액과 0원, Boolean·날짜/시각·빈 본문 변환 검사 2개도 추가.
+- scripts/Test-OracleMigration.ps1로 20개 테이블을 모두 채운 합성 H2를 이전 QA에 복사. 한글/이모지·대용량 CLOB·시각 소수·날짜·정밀 좌표·NULL/0/빈 문자열·FK 관계의 전체 값 해시 일치 확인. 부모 회원 삽입 후 여행 제약 실패를 주입해 전체 롤백, 성공 뒤 재복사 거절/verify 성공을 확인. 검증한 합성 행만 FK 자식부터 정리해 재실행 가능. 실패 데이터는 보존.
+- 실제 여행픽만 중지하고 `.tools/db-backups/oracle-migration-20261012-195417/`에 H2와 환경설정 백업. 원본은 읽기 전용으로 열고 20개 테이블·모든 열을 PK 순서로 비교했으며 Oracle의 알려진 빈 문자열/NULL 차이만 정규화한 행 수·SHA-256이 전부 일치. 한 트랜잭션 커밋 후 새 연결과 별도 verify에서도 일치. 기존 회원 비밀번호·인증 여부·여행/방문/숙소·예약·공동 기록·공유 토큰 보존. 원문/비밀번호를 로그나 Git에 남기지 않음. H2 원본 파일 자체도 이전 전 백업과 SHA-256 동일.
+- 프론트 19개, TypeScript/Vite 빌드, 전체 소스/이전 도구 포맷 검사 통과. 화면 구조는 변경하지 않음. Oracle 공개 배포·운영 백업/복구·분산 잠금/세션은 후속이며 이번 검증을 운영 출시 완료로 간주하지 않음. [접속·재현·복구 안내](oracle-setup.md)
+- 최종 실행 JAR의 local,oracle 프로필·Oracle JDBC 연결·YEOHAENG_PICK V11 확인. 웹 5173과 API 공개 글 목록 200, 지도/AI/관광/메일 설정 true 및 sampleData=false 유지. 프로세스는 시작 스크립트가 기록한 여행픽 5173/18081만 사용. 서버 메모리 세션은 재시작으로 종료되어 기존 계정으로 재로그인 필요.
+
 ## 2026-10-12 회원 탈퇴
 
 - 전체 백엔드 130개 통과: 실제 HTTP 75개 + 엔진·공급자·DB 이전 등 55개. 프론트 19개·TypeScript/Vite 빌드·전체 포맷 검사 통과. 초기 JS 496.39kB(gzip 146.74kB), 크기 경고 없음.
