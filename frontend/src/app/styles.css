@@ -4537,11 +4537,51 @@ textarea {
     padding: 14px;
   }
 }
-.transport-jump {
-  margin-left: auto;
-  order: 2;
+/* 비교 링크끼리는 12px, 날짜 선택과는 24px 떨어뜨려 관련 도구를 한눈에 찾습니다. */
+.trip-schedule-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 27px;
+}
+.trip-schedule-toolbar .day-tabs {
+  margin: 0;
+}
+.trip-compare-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.trip-compare-links > a {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
   font-size: var(--text-support);
-  align-self: center;
+}
+.trip-compare-links > a > span {
+  word-break: keep-all;
+  overflow-wrap: normal;
+}
+@media (max-width: 600px) {
+  .trip-compare-links {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+  .trip-compare-links > a {
+    justify-content: center;
+    padding-inline: 10px;
+    text-align: center;
+    white-space: normal;
+  }
+  .trip-compare-links > a:only-child {
+    grid-column: 1 / -1;
+  }
 }
 .map-container {
   position: relative;
@@ -4581,10 +4621,6 @@ textarea {
   }
   .transport-option {
     padding: 13px;
-  }
-  .transport-jump {
-    width: 100%;
-    margin: 8px 0 0;
   }
 }
 /* 조회 시간 반영: 설정과 비교 결과의 경계를 분명히 하고 좁은 화면에서는 세로로 읽습니다. */
@@ -4811,6 +4847,55 @@ textarea {
 }
 .saved-overnight {
   margin-top: 12px;
+}
+/* 숙박 조건은 넓은 화면에서 두 열, 휴대폰에서 한 열로 읽고 안내와 실행을 24px 분리합니다. */
+.lodging-stay-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin: 24px 0;
+}
+.lodging-stay-grid label {
+  margin: 0;
+  min-width: 0;
+}
+.lodging-stay-modal input {
+  min-width: 0;
+}
+.lodging-stay-modal p {
+  line-height: 1.8;
+}
+.lodging-stay-review {
+  margin-top: 24px;
+}
+.lodging-stay-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.lodging-stay-summary {
+  margin: 24px 0;
+  padding: 16px;
+  background: #f7faf7;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.lodging-stay-summary p {
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.lodging-stay-summary .button {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .lodging-stay-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lodging-stay-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 @media (max-width: 760px) {
   .overnight-controls,

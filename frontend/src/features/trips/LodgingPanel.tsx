@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Hotel, ArrowUpRight, Check, Loader2 } from "lucide-react";
-import type { Trip } from "../../shared/types";
+import type { Trip, Lodging } from "../../shared/types";
+import LodgingStayModal from "./LodgingStayModal";
 import { api, bookingLabels, money } from "../../shared/api";
 import { useToast } from "../../shared/providers";
 
@@ -14,6 +15,11 @@ export default function LodgingPanel({
 }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // 편집을 시작한 조건과 version을 보존합니다. 자동 갱신된 최신 version으로 오래된 입력을 덮어쓰지 않습니다.
+  const [editing, setEditing] = useState<{ hotel: Lodging; trip: Trip } | null>(
+    null,
+  );
+  const close = useCallback(() => setEditing(null), []);
   async function change(placeId: string, status: string) {
     setBusy(true);
     try {
@@ -60,6 +66,41 @@ export default function LodgingPanel({
             위치·리뷰·예약 안내
             <ArrowUpRight size={14} />
           </a>
+          <div className="lodging-stay-summary">
+            {p.checkInDate ? (
+              <>
+                <p>
+                  체크인 {p.checkInDate.slice(0, 10)}{" "}
+                  {p.checkInTime ?? "· 시각 미정"}
+                  <br />
+                  체크아웃 {p.checkOutDate?.slice(0, 10)}{" "}
+                  {p.checkOutTime ?? "· 시각 미정"}
+                </p>
+                <p>
+                  {p.guestCount}명 · {p.roomCount}객실
+                  <br />
+                  {p.totalAmount == null
+                    ? "총 숙박비 미확인"
+                    : `총 숙박비 ${money(p.totalAmount)} · 직접 입력`}
+                </p>
+              </>
+            ) : (
+              <p className="small muted">
+                숙박 날짜·인원·객실 수가 아직 미정이에요.
+              </p>
+            )}
+            <button
+              className="button secondary"
+              disabled={
+                busy ||
+                trip.startDate.slice(0, 10) === trip.endDate.slice(0, 10)
+              }
+              onClick={() => setEditing({ hotel: p, trip })}
+              aria-label={`${p.name} 숙박 조건 ${p.checkInDate ? "수정" : "입력"}`}
+            >
+              숙박 조건 {p.checkInDate ? "수정" : "입력"}
+            </button>
+          </div>
           <label>
             예약 확인 상태
             <select
@@ -86,9 +127,18 @@ export default function LodgingPanel({
         </div>
       ))}
       <p className="small muted">
-        객실 한 개 기준 예시 요금이에요. 인원별 객실 수와 날짜별 실제 가격은
-        예약 사이트에서 확인해 주세요.
+        숙박 조건은 직접 확인한 내용이에요. 객실 재고·정원·날짜별 가격은
+        예약처에서 확인해 주세요.
       </p>
+      {editing && (
+        <LodgingStayModal
+          key={`${editing.hotel.placeId}:${editing.trip.version}`}
+          trip={editing.trip}
+          hotel={editing.hotel}
+          refresh={refresh}
+          close={close}
+        />
+      )}
     </div>
   );
 }

@@ -135,13 +135,17 @@ public class RouteTimingService {
         "이동 출발은 출발 방문일 또는 다음 방문일 안에서 분 단위로 선택해 주세요."
       );
     }
-    return schedule.compare(
+    return LodgingStay.protect(
+      schedule.compare(
+        LocalDate.parse(trip.get("startDate").toString()),
+        items,
+        mapper.externalBookings(id),
+        trips.routeTimings(id, items, lodgings),
+        timing,
+        trip.get("transport").toString()
+      ),
       LocalDate.parse(trip.get("startDate").toString()),
-      items,
-      mapper.externalBookings(id),
-      trips.routeTimings(id, items, lodgings),
-      timing,
-      trip.get("transport").toString()
+      lodgings
     );
   }
 

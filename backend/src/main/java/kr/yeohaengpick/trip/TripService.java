@@ -165,7 +165,19 @@ public class TripService {
     result.put("tasks", trips.tasks(id));
     result.put("expenses", trips.expenses(id));
     result.put("history", trips.historyList(id));
-    result.put("lodgings", lodgings);
+    // SQL DATE가 시각/시간대를 포함한 JSON으로 바뀌지 않도록 숙박 날짜의 계약을 yyyy-MM-dd로 고정합니다.
+    result.put(
+      "lodgings",
+      lodgings
+        .stream()
+        .map(h -> {
+          var copy = new HashMap<>(h);
+          for (String key : List.of("checkInDate", "checkOutDate"))
+            copy.computeIfPresent(key, (k, v) -> v.toString());
+          return copy;
+        })
+        .toList()
+    );
     result.put("routeTimings", timings);
     result.put("externalBookings", reserved);
     result.put(
@@ -202,6 +214,17 @@ public class TripService {
     RouteSchedule.Plan plan
   ) {
     access(id, member);
+    if (
+      !LodgingStay.conflicts(
+        plan.timing(),
+        java.time.LocalDate.parse(trips.get(id).get("startDate").toString()),
+        plan.items(),
+        trips.lodgings(id)
+      ).isEmpty()
+    ) throw new DomainException(
+      409,
+      "입력한 숙박 조건과 경로가 충돌해요. 다시 비교해 주세요."
+    );
     revision(id, version, member, "조회 경로 반영 · " + plan.title());
     replace(id, plan.items());
     trips.clearRouteTiming(id, plan.timing().toItemId());
@@ -612,6 +635,53 @@ public class TripService {
     boolean fixed,
     int version
   ) {}
+
+  /** 숙박 조건만 저장하며 예약/결제 상태나 방문 시각은 변경하지 않습니다. 동행의 수정은 version으로 보호합니다. */
+  @Transactional
+  public Object lodgingStay(
+    String id,
+    String place,
+    LodgingStay.Request r,
+    String member
+  ) {
+    var trip = access(id, member);
+    var hotels = trips.lodgings(id);
+    var hotel = hotels
+      .stream()
+      .filter(h -> h.get("placeId").equals(place))
+      .findFirst()
+      .orElseThrow(() -> new DomainException(404, "숙소를 찾을 수 없어요."));
+    var conditions = LodgingStay.validate(r, trip);
+    var items = trips.items(id);
+    var conflicts = routeTimings(id, items, hotels)
+      .stream()
+      .filter(t -> LodgingStay.uses(t, place))
+      .flatMap(t ->
+        LodgingStay.conflicts(
+          conditions,
+          hotel.get("name").toString(),
+          t,
+          java.time.LocalDate.parse(trip.get("startDate").toString()),
+          items
+        ).stream()
+      )
+      .toList();
+    if (!conflicts.isEmpty()) throw new DomainException(
+      409,
+      conflicts.getFirst() +
+        " 반영한 숙소 연결을 해제하거나 조건을 조정해 주세요."
+    );
+    revision(
+      id,
+      r.version(),
+      member,
+      conditions.checkInDate() == null
+        ? "숙박 조건 초기화"
+        : "숙박 조건 변경 · " + hotel.get("name")
+    );
+    trips.lodgingStay(id, place, conditions);
+    return detail(id, member);
+  }
 
   /** 숙소 상태는 일정 스냅샷과 별도로 관리하므로 방문 장소를 복원해도 예약 정보가 유지됩니다. */
   @Transactional

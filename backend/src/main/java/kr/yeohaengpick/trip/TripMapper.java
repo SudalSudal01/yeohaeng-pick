@@ -62,6 +62,15 @@ public interface TripMapper {
   List<Map<String, Object>> lodgings(String trip);
 
   @Update(
+    "UPDATE trip_lodgings SET check_in_date=#{s.checkInDate},check_out_date=#{s.checkOutDate},guest_count=#{s.guestCount},room_count=#{s.roomCount},total_amount=#{s.totalAmount},check_in_time=#{s.checkInTime},check_out_time=#{s.checkOutTime} WHERE trip_id=#{trip} AND place_id=#{place}"
+  )
+  int lodgingStay(
+    @Param("trip") String trip,
+    @Param("place") String place,
+    @Param("s") LodgingStay.Conditions stay
+  );
+
+  @Update(
     "UPDATE trip_lodgings SET booking_status=#{status},booking_reason=#{reason} WHERE trip_id=#{trip} AND place_id=#{place}"
   )
   int lodgingBooking(

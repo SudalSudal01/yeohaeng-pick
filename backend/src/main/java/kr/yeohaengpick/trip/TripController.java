@@ -111,6 +111,16 @@ public class TripController {
 
   public record Restore(String historyId, int version) {}
 
+  @PutMapping("/trips/{id}/lodgings/{place}/stay")
+  Object lodgingStay(
+    @PathVariable String id,
+    @PathVariable String place,
+    @RequestBody LodgingStay.Request r,
+    Authentication a
+  ) {
+    return trips.lodgingStay(id, place, r, auth.id(a));
+  }
+
   @PostMapping("/trips/{id}/undo")
   Object undo(
     @PathVariable String id,

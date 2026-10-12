@@ -240,6 +240,203 @@ class TravelFlowTest {
     return c;
   }
 
+  Map<String, Object> stayRequest(int version) {
+    return new HashMap<>(
+      Map.of(
+        "version",
+        version,
+        "checkInDate",
+        "2026-11-01",
+        "checkOutDate",
+        "2026-11-02",
+        "guestCount",
+        2,
+        "roomCount",
+        2,
+        "totalAmount",
+        180000,
+        "checkInTime",
+        "15:00",
+        "checkOutTime",
+        "13:00"
+      )
+    );
+  }
+
+  @Test
+  void lodgingStayPersistsWithoutMarkingPaidAndProtectsAccessVersionAndSharing()
+    throws Exception {
+    var owner = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id"),
+      path = base + "/lodgings/sample-11/stay";
+    var request = stayRequest(0);
+    request.put("totalAmount", 0);
+    request.put("bookingStatus", "PARTNER_CONFIRMED");
+    assertThat(
+      outsider.request("PUT", path, request, true).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner.request("PUT", path, request, false).statusCode()
+    ).isEqualTo(403);
+    var saved = owner.call("PUT", path, request);
+    var hotel = json.mapper().valueToTree(saved).path("lodgings").get(0);
+    assertThat(hotel.path("checkInDate").asText()).isEqualTo("2026-11-01");
+    assertThat(hotel.path("totalAmount").asInt()).isZero();
+    assertThat(hotel.path("roomCount").asInt()).isEqualTo(2);
+    assertThat(hotel.path("bookingStatus").asText()).isEqualTo("NONE");
+    assertThat(saved.get("items")).isEqualTo(trip.get("items"));
+    assertThat(saved.get("expenses")).isEqualTo(trip.get("expenses"));
+    assertThat(saved.get("version")).isEqualTo(1);
+    assertThat(owner.call("GET", base, null).get("lodgings")).isEqualTo(
+      saved.get("lodgings")
+    );
+    assertThat(
+      owner.request("PUT", path, request, true).statusCode()
+    ).isEqualTo(409);
+    String token = owner
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    assertThat(
+      outsider.call("GET", "/share/" + token, null)
+    ).doesNotContainKeys("lodgings", "totalAmount", "roomCount", "guestCount");
+    var reset = owner.call("PUT", path, Map.of("version", 1));
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(reset)
+        .path("lodgings")
+        .get(0)
+        .hasNonNull("totalAmount")
+    ).isFalse();
+    assertThat(reset.get("items")).isEqualTo(trip.get("items"));
+  }
+
+  @Test
+  void lodgingStayRejectsInvalidDatesCountsAndFractionalAmountsWithoutMutation()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id"),
+      path = base + "/lodgings/sample-11/stay";
+    for (var bad : List.of(
+      Map.entry("checkInDate", (Object) "2026-10-31"),
+      Map.entry("checkOutDate", (Object) "2026-11-01"),
+      Map.entry("checkOutDate", (Object) "2026-11-03"),
+      Map.entry("checkInDate", (Object) "2026-02-30"),
+      Map.entry("checkInTime", (Object) "25:00"),
+      Map.entry("guestCount", (Object) 3),
+      Map.entry("roomCount", (Object) 0),
+      Map.<String, Object>entry("totalAmount", -1),
+      Map.entry("totalAmount", (Object) 1.5),
+      Map.entry("guestCount", (Object) 1.5)
+    )) {
+      var request = stayRequest(0);
+      request.put(bad.getKey(), bad.getValue());
+      var response = owner.request("PUT", path, request, true);
+      assertThat(response.statusCode()).as(response.body()).isEqualTo(400);
+    }
+    assertThat(
+      owner
+        .request("PUT", path, Map.of("version", 0, "guestCount", 2), true)
+        .statusCode()
+    ).isEqualTo(400);
+    assertThat(
+      owner
+        .request(
+          "PUT",
+          base + "/lodgings/another-hotel/stay",
+          stayRequest(0),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(404);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(0);
+  }
+
+  @Test
+  void lodgingConditionsBlockNewOvernightPlansAndCannotBreakAppliedConnection()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id"),
+      path = base + "/lodgings/sample-11/stay";
+    var request = stayRequest(0);
+    request.put("checkOutTime", "11:00");
+    trip = owner.call("PUT", path, request);
+    var route = overnightRequest(owner, trip);
+    var plans = json
+      .mapper()
+      .readTree(
+        owner
+          .request("POST", base + "/transport/overnight/preview", route, true)
+          .body()
+      );
+    assertThat(plans.get(0).path("canApply").asBoolean()).isFalse();
+    assertThat(plans.get(0).path("conflicts").toString()).contains("체크아웃");
+    assertThat(
+      owner
+        .request("POST", base + "/transport/overnight/apply", route, true)
+        .statusCode()
+    ).isEqualTo(409);
+    request = stayRequest(1);
+    trip = owner.call("PUT", path, request);
+    route = overnightRequest(owner, trip);
+    var applied = owner.call(
+      "POST",
+      base + "/transport/overnight/apply",
+      route
+    );
+    request = stayRequest(3);
+    request.put("checkOutTime", "11:00");
+    assertThat(
+      owner.request("PUT", path, request, true).statusCode()
+    ).isEqualTo(409);
+    var unchanged = owner.call("GET", base, null);
+    assertThat(unchanged.get("version")).isEqualTo(3);
+    assertThat(unchanged.get("routeTimings")).isEqualTo(
+      applied.get("routeTimings")
+    );
+    var cleared = owner.call("PUT", path, Map.of("version", 3));
+    assertThat(cleared.get("routeTimings")).isEqualTo(
+      applied.get("routeTimings")
+    );
+  }
+
+  @Test
+  void acceptedCompanionCanEditStayAndOwnerStaleEditIsRejected()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String id = trip.get("id").toString(),
+      path = "/trips/" + id + "/lodgings/sample-11/stay";
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", id, "email", companion.email)
+    );
+    assertThat(
+      companion.request("PUT", path, stayRequest(0), true).statusCode()
+    ).isEqualTo(403);
+    var invitations = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body());
+    companion.call(
+      "POST",
+      "/invitations/" + invitations.get(0).path("id").asText() + "/respond",
+      Map.of("accept", true)
+    );
+    var current = owner.call("GET", "/trips/" + id, null);
+    var request = stayRequest(((Number) current.get("version")).intValue());
+    companion.call("PUT", path, request);
+    assertThat(
+      owner.request("PUT", path, request, true).statusCode()
+    ).isEqualTo(409);
+  }
+
   @Test
   void overnightApplyPersistsBothLegsWithoutCountingStayAsTravelOrSharingIt()
     throws Exception {
@@ -1041,6 +1238,17 @@ class TravelFlowTest {
         .toString()
     );
     assertThat(timing.path("source").asText()).isEqualTo("KAKAO_MOBILITY");
+    // 숙소에서 출발하는 단일 조회 구간도 이후 숙박 조건 수정으로 무효화할 수 없습니다.
+    var stay = stayRequest(1);
+    String stayPath = "/trips/" + trip.get("id") + "/lodgings/sample-11/stay";
+    assertThat(
+      user.request("PUT", stayPath, stay, true).statusCode()
+    ).isEqualTo(409);
+    stay.put("checkInTime", "06:00");
+    var compatible = user.call("PUT", stayPath, stay);
+    assertThat(compatible.get("routeTimings")).isEqualTo(
+      saved.get("routeTimings")
+    );
   }
 
   @Test

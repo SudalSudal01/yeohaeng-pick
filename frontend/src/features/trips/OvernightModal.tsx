@@ -45,6 +45,7 @@ export default function OvernightModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const toast = useToast();
+  const hotel = trip.lodgings.find((h) => h.placeId === pair[0].to.id);
   const onClose = useCallback(() => {
     if (!busy) close();
   }, [busy, close]);
@@ -111,6 +112,16 @@ export default function OvernightModal({
         전날 마지막 방문과 다음 날 첫 방문을 연결해요. 비교만으로 일정이나 숙소
         예약은 바뀌지 않아요.
       </p>
+      {hotel?.checkInDate && (
+        <p className="notice">
+          저장한 숙박 조건 · 체크인 {hotel.checkInDate.slice(0, 10)}{" "}
+          {hotel.checkInTime ?? "(시각 미정)"}
+          <br />
+          체크아웃 {hotel.checkOutDate?.slice(0, 10)}{" "}
+          {hotel.checkOutTime ?? "(시각 미정)"} · {hotel.guestCount}명 ·{" "}
+          {hotel.roomCount}객실
+        </p>
+      )}
       <form
         onSubmit={(e) => {
           e.preventDefault();

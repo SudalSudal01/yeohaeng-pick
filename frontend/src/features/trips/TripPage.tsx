@@ -41,7 +41,7 @@ import OvernightPanel from "./OvernightPanel";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
-import { lodgingEstimate } from "./tripBudget";
+import { lodgingBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
@@ -111,7 +111,8 @@ export default function TripPage() {
   const trip = query.data;
   const days = [...new Set(trip.items.map((i) => i.dayIndex))];
   const activity = trip.items.reduce((s, i) => s + i.cost * trip.partySize, 0);
-  const stayEstimate = lodgingEstimate(trip);
+  const stayBudget = lodgingBudget(trip);
+  const stayEstimate = stayBudget.total;
   const plannedEstimate = activity + stayEstimate;
   const paid = trip.expenses.reduce((s, e) => s + e.amount, 0);
   async function sendInvite() {
@@ -240,14 +241,20 @@ export default function TripPage() {
       >
         <Wallet size={18} />
         <div>
-          <strong>활동비 + 숙소 예시 합계 {money(plannedEstimate)}</strong>
+          <strong>활동비 + 숙박비 참고 합계 {money(plannedEstimate)}</strong>
           <p>
             {plannedEstimate > trip.budget
               ? `예산보다 ${money(plannedEstimate - trip.budget)} 높아요. 후보의 비용과 장점을 비교해 선택해 주세요. `
               : "현재 선택한 후보의 참고 금액이에요. "}
-            숙박비 {money(stayEstimate)}는 지역별 1객실 기준이에요. 실제 객실
-            가격·객실 수, 왕복 및 지역 간 교통비는 추가 확인이 필요해요. 미확인
-            장소 비용과 아직 선택하지 않은 숙소 비용은 합계에서 제외돼요.
+            {trip.lodgings.some((p) => p.totalAmount != null)
+              ? `직접 입력한 총 숙박비 ${money(stayBudget.entered)} 포함이에요.`
+              : "직접 입력한 숙박비는 아직 없어요."}
+            {stayBudget.example > 0 &&
+              ` 숙소 예시 금액 ${money(stayBudget.example)}를 더했어요.`}
+            {stayBudget.unpriced > 0 &&
+              ` 가격 미확인 숙소 ${stayBudget.unpriced}곳은 합계에서 제외했어요.`}{" "}
+            왕복 및 지역 간 교통비, 미확인 장소 비용과 아직 선택하지 않은 숙소
+            비용은 합계에서 제외돼요.
           </p>
         </div>
       </div>
@@ -271,30 +278,34 @@ export default function TripPage() {
       )}
       {tab === "일정" ? (
         <>
-          <div className="day-tabs">
-            <a className="text-button transport-jump" href="#transport-routes">
-              <TrainFront size={16} />
-              이동 경로 비교
-            </a>
-            {overnightConnection(trip, day) && (
-              <a
-                className="text-button transport-jump"
-                href="#overnight-routes"
-              >
-                <BedDouble size={16} />
-                숙소·휴식 비교
+          {/* 날짜 선택과 비교 도구를 나눕니다. 두 비교 링크는 한 그룹 안에서 일정한 간격을 유지합니다. */}
+          <div className="trip-schedule-toolbar">
+            <div className="day-tabs">
+              {days.map((d) => (
+                <button
+                  className={day === d ? "active" : ""}
+                  key={d}
+                  onClick={() => setDay(d)}
+                >
+                  DAY {d + 1}
+                  <span>
+                    {trip.items.find((i) => i.dayIndex === d)?.region}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <nav className="trip-compare-links" aria-label="일정 비교 도구">
+              <a className="text-button" href="#transport-routes">
+                <TrainFront size={16} />
+                <span>이동 경로 비교</span>
               </a>
-            )}
-            {days.map((d) => (
-              <button
-                className={day === d ? "active" : ""}
-                key={d}
-                onClick={() => setDay(d)}
-              >
-                DAY {d + 1}
-                <span>{trip.items.find((i) => i.dayIndex === d)?.region}</span>
-              </button>
-            ))}
+              {overnightConnection(trip, day) && (
+                <a className="text-button" href="#overnight-routes">
+                  <BedDouble size={16} />
+                  <span>숙소·휴식 비교</span>
+                </a>
+              )}
+            </nav>
           </div>
           <div className="itinerary-layout">
             <div>

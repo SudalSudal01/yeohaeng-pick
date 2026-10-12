@@ -178,13 +178,17 @@ public class OvernightService {
     ) throw DomainException.bad(
       "전날 마지막 방문과 바로 다음 날 첫 방문을 숙소로 연결해 주세요."
     );
-    return schedule.compare(
+    return LodgingStay.protect(
+      schedule.compare(
+        LocalDate.parse(trip.get("startDate").toString()),
+        items,
+        mapper.externalBookings(id),
+        trips.routeTimings(id, items, lodgings),
+        timing,
+        trip.get("transport").toString()
+      ),
       LocalDate.parse(trip.get("startDate").toString()),
-      items,
-      mapper.externalBookings(id),
-      trips.routeTimings(id, items, lodgings),
-      timing,
-      trip.get("transport").toString()
+      lodgings
     );
   }
 

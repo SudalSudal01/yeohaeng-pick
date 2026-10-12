@@ -89,15 +89,7 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
   externalBookings: ExternalBooking[];
   schedule: BookingScheduleReport;
   routeTimings: RouteTiming[];
-  lodgings: {
-    placeId: string;
-    region: string;
-    name: string;
-    nightlyEstimate: number;
-    source: string;
-    placeUrl: string;
-    bookingStatus: string;
-  }[];
+  lodgings: Lodging[];
   items: Item[];
   members: { id: string; nickname: string; preferences: string[] }[];
   tasks: { id: string; content: string; done: boolean }[];
@@ -109,6 +101,23 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
     nickname: string;
     createdAt: string;
   }[];
+};
+/** 숙박비는 전체 기간·전체 객실의 직접 입력 참고 금액이며 예약 성공/결제 여부와 별개입니다. */
+export type Lodging = {
+  placeId: string;
+  region: string;
+  name: string;
+  nightlyEstimate: number;
+  source: string;
+  placeUrl: string;
+  bookingStatus: string;
+  checkInDate?: string | null;
+  checkOutDate?: string | null;
+  guestCount?: number | null;
+  roomCount?: number | null;
+  totalAmount?: number | null;
+  checkInTime?: string | null;
+  checkOutTime?: string | null;
 };
 export type Comparison = {
   items: Item[];

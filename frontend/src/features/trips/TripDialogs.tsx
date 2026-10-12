@@ -11,7 +11,7 @@ import { api, money, activityPrice, bookingLabels } from "../../shared/api";
 import type { Trip, Item, Place, Comparison } from "../../shared/types";
 import { useToast } from "../../shared/providers";
 import { Loading, ErrorState, Modal } from "../../shared/ui";
-import { lodgingEstimate } from "./tripBudget";
+import { lodgingBudget } from "./tripBudget";
 
 /** 장소 비교와 예약 편집을 분리해 일정 화면의 상태와 각 대화상자의 입력 상태를 독립적으로 관리합니다. */
 export function ComparisonModal({
@@ -134,14 +134,14 @@ export function ComparisonModal({
                 : "활동비를 유지하거나 줄일 수 있어요."}
             </p>
             <p>
-              변경 후 활동비 + 숙소 예시 합계{" "}
-              {money(comparison.data.estimatedCost + lodgingEstimate(trip))}
-              {comparison.data.estimatedCost + lodgingEstimate(trip) >
+              변경 후 활동비 + 숙박비 참고 합계{" "}
+              {money(comparison.data.estimatedCost + lodgingBudget(trip).total)}
+              {comparison.data.estimatedCost + lodgingBudget(trip).total >
               trip.budget
                 ? " · 설정한 예산을 초과해요."
                 : " · 현재 합산 금액은 예산 이내예요."}{" "}
-              실제 객실 요금과 교통비는 별도 확인이 필요해요. 미확인 장소 비용과
-              미선택 숙소 비용은 포함하지 않았어요.
+              숙박비는 저장한 총 숙박비와 예시 금액을 사용해요. 미확인
+              숙박비·장소 비용, 교통비와 미선택 숙소 비용은 포함하지 않았어요.
             </p>
             {comparison.data.conflicts.map((c) => (
               <p className="field-error" key={c}>
