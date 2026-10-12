@@ -25,6 +25,7 @@
 | 복원 | POST /trips/{id}/undo | `{historyId,version}`. 방문 일정만 복원 |
 | 공유 | POST /trips/{id}/share | 소유자만 생성/종료, `{enabled}` |
 | 공개 일정 | GET /share/{token} | 안전한 필드만 노출 |
+| 일정 가져오기 | POST /trips/import | 로그인·CSRF·공개 스냅샷·요청 키. `{id}`로 독립 여행 생성, 예약/개인 기록 제외. [복사·중복 방지 계약](shared-trip-import.md) |
 | 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록 |
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |

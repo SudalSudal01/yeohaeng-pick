@@ -943,44 +943,6 @@ public class TripService {
     return Map.of("token", Objects.requireNonNullElse(token, ""));
   }
 
-  public Object shared(String token) {
-    String id = trips.byShare(token);
-    if (id == null) throw new DomainException(
-      404,
-      "공유가 종료됐거나 유효하지 않은 링크예요."
-    );
-    var t = trips.get(id);
-    var result = new HashMap<String, Object>();
-    for (String k : List.of("title", "startDate", "endDate", "transport"))
-      result.put(k, t.get(k));
-    result.put("regions", json.strings((String) t.get("regions")));
-    result.put(
-      "items",
-      trips
-        .items(id)
-        .stream()
-        .map(i -> {
-          var safe = new HashMap<String, Object>();
-          for (String k : List.of(
-            "dayIndex",
-            "sortOrder",
-            "placeName",
-            "region",
-            "category",
-            "startTime",
-            "duration",
-            "latitude",
-            "longitude",
-            "placeUrl"
-          ))
-            safe.put(k, i.get(k));
-          return safe;
-        })
-        .toList()
-    );
-    return result;
-  }
-
   private void owner(Map<String, Object> t, String member) {
     if (!t.get("ownerId").equals(member)) throw new DomainException(
       403,

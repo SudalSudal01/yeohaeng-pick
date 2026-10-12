@@ -1,0 +1,128 @@
+/* 공개 일정은 작은 화면에서 장소 이름·요금·버튼을 세로로 배치해 정보와 실행 영역이 겹치지 않게 합니다. */
+.shared-import-callout {
+  margin-bottom: 28px;
+}
+.shared-import-callout h2 {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.shared-import-action {
+  margin-top: 24px;
+}
+.shared-place {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: start;
+  padding: 20px 0;
+  border-top: 1px solid var(--border);
+}
+.shared-place strong,
+.shared-place p {
+  overflow-wrap: anywhere;
+}
+.shared-place p {
+  margin-top: 6px;
+  font-size: 14px;
+}
+.shared-place .text-button {
+  min-height: 44px;
+}
+.trip-import-form {
+  display: grid;
+  gap: 24px;
+  margin-top: 24px;
+}
+.trip-import-form fieldset {
+  display: grid;
+  gap: 20px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.trip-import-form label,
+.trip-import-label {
+  display: grid;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+.trip-import-form input,
+.trip-import-form select {
+  min-width: 0;
+  width: 100%;
+  font-size: 16px;
+  min-height: 48px;
+}
+.trip-import-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.trip-import-preferences {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.trip-import-preferences .selected {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.trip-import-explanation {
+  padding: 18px;
+  border-radius: 12px;
+  background: var(--green-soft);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.trip-import-explanation p {
+  margin-top: 10px;
+}
+.trip-import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.trip-import-actions .primary {
+  flex: 1;
+}
+.trip-import-review {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.trip-import-review ul {
+  margin-top: 12px;
+  padding-inline-start: 20px;
+}
+.trip-import-review li + li {
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .shared-place {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+  .shared-place .badge {
+    justify-self: start;
+  }
+  .shared-place .text-button {
+    justify-self: start;
+    margin-top: 14px;
+  }
+  .shared-import-action .button {
+    width: 100%;
+  }
+  .trip-import-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .trip-import-actions {
+    flex-direction: column;
+  }
+  .trip-import-actions .button {
+    width: 100%;
+  }
+}

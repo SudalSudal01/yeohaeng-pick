@@ -169,11 +169,6 @@ public class TripController {
     return trips.share(id, s.enabled, auth.id(a));
   }
 
-  @GetMapping("/share/{token}")
-  Object shared(@PathVariable String token) {
-    return trips.shared(token);
-  }
-
   @DeleteMapping("/trips/{id}")
   void delete(@PathVariable String id, Authentication a) {
     trips.delete(id, auth.id(a));

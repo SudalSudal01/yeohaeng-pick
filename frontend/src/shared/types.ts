@@ -122,6 +122,32 @@ export type Item = {
   visitCost?: number | null;
   visitNote?: string;
 };
+/** 공개 계약은 개인 일정 타입과 분리합니다. 예약·고정·직접 입력 비용/메모·내부 항목 ID가 들어오지 않습니다. */
+export type SharedTrip = {
+  title: string;
+  regions: string[];
+  startDate: string;
+  endDate: string;
+  transport: Conditions["transport"];
+  snapshot: string;
+  items: Pick<
+    Item,
+    | "dayIndex"
+    | "sortOrder"
+    | "placeId"
+    | "placeName"
+    | "region"
+    | "category"
+    | "latitude"
+    | "longitude"
+    | "startTime"
+    | "duration"
+    | "cost"
+    | "indoor"
+    | "source"
+    | "placeUrl"
+  >[];
+};
 export type Trip = Omit<Conditions, "lodgingIds"> & {
   id: string;
   ownerId: string;

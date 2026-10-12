@@ -39,6 +39,10 @@ public interface WithdrawalMapper {
   @Delete("DELETE FROM email_tokens WHERE member_id=#{member}")
   void tokens(String member);
 
+  /** 가져오기 요청의 중복 방지 기록도 개인 계정 정리와 함께 제거합니다. 타인이 만든 독립 복사본은 유지합니다. */
+  @Delete("DELETE FROM trip_imports WHERE member_id=#{member}")
+  void imports(String member);
+
   @Update(
     "UPDATE conversations SET status='CLOSED' WHERE trip_id IS NULL AND (requester_id=#{member} OR recipient_id=#{member})"
   )

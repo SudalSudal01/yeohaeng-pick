@@ -29,6 +29,7 @@ import {
   activityPrice,
   bookingLabels,
   dateLabel,
+  calendarDateLabel,
 } from "../../shared/api";
 import type { Trip, Item, SelectedRoute } from "../../shared/types";
 import { useAuth, useToast } from "../../shared/providers";
@@ -212,8 +213,11 @@ export default function TripPage() {
             </span>
             <span>
               <CalendarDays size={15} />
-              {dateLabel(String(trip.startDate).slice(0, 10))} ~{" "}
-              {dateLabel(String(trip.endDate).slice(0, 10))}
+              {/* 다른 해로 가져온 여행도 날짜를 혼동하지 않도록 시작 연도를 표시합니다. 연말을 넘기면 종료 연도도 표시합니다. */}
+              {calendarDateLabel(trip.startDate)} ~{" "}
+              {trip.startDate.slice(0, 4) === trip.endDate.slice(0, 4)
+                ? dateLabel(String(trip.endDate).slice(0, 10))
+                : calendarDateLabel(trip.endDate)}
             </span>
             <span>
               <Users size={15} />
@@ -832,8 +836,12 @@ export default function TripPage() {
       {share && (
         <Modal title="읽기 전용 일정 공유" onClose={closeShare}>
           <p className="muted">
-            장소와 방문 시간만 공유해요. 출발지·예약 상태·경비·동행 개인정보는
-            포함되지 않아요.
+            장소·방문 시간·참고 활동비를 공개해요. 출발지·예약·숙소·경비·동행
+            개인정보는 포함되지 않아요.
+          </p>
+          <p className="muted">
+            링크를 가진 사람은 독립된 내 여행으로 가져올 수 있어요. 공유를
+            종료해도 이미 가져간 복사본은 유지돼요.
           </p>
           <button className="button primary full" onClick={() => sharing(true)}>
             새 공유 링크 만들기

@@ -1,5 +1,9 @@
 # 구조와 주요 결정
 
+## 공개 일정 가져오기
+
+`TripSharingService`는 공개 화이트리스트와 SHA-256 스냅샷, `TripImportMapper`는 회원별 요청 완료 기록을 관리합니다. 원본 잠금과 토큰 재검사 후 공개 필드만 새 항목으로 저장하고 비공개 조건/예약/멤버십은 넘기지 않습니다. V14는 복사본 삭제의 NULL FK와 재시도 키를 보존하며 회원 탈퇴 때 정리합니다. `SharedTripImport`는 내 조건 입력과 응답 유실 재시도, 최신 공개 일정 검토를 담당합니다. [권한·중복·보존과 한계](shared-trip-import.md)
+
 ## 커뮤니티 전체 검색
 
 커뮤니티 공개 목록은 `CommunitySearchService`와 `CommunitySearchMapper/Sql`로 검색·건수·페이지를 분리합니다. SQL 조건을 재사용하고 공개 필드만 제한 조회하며, 화면은 URL 조건과 상세 복귀 주소를 함께 관리합니다. 기존 DB 구조와 한국어 코멘트를 유지합니다. [검색 계약과 동시 변경·성능 한계](community-search.md)
