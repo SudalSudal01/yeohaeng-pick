@@ -5808,3 +5808,226 @@ textarea {
     padding: 24px 20px;
   }
 }
+
+/* 글 관리의 안내와 실행을 분리합니다. 좁은 화면에서는 줄이거나 자르지 않고 세로로 배치합니다. */
+.community-write-actions,
+.post-owner-actions,
+.post-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.community-write-actions {
+  justify-content: flex-end;
+}
+.community-toolbar {
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+.post-management {
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+.post-management h2 {
+  font-size: 20px;
+  margin: 0 0 12px;
+}
+.post-management .field-help,
+.post-contact .field-help {
+  margin: 0 0 24px;
+}
+.post-owner-actions .button,
+.post-form-actions .button,
+.community-write-actions .button {
+  min-height: 48px;
+  white-space: normal;
+}
+.post-form-actions {
+  margin-top: 28px;
+}
+.post-form-actions > .button {
+  flex: 1 1 190px;
+}
+.post-editor-modal,
+.post-delete-modal,
+.post-trash-modal {
+  width: min(680px, calc(100% - 24px));
+}
+.post-editor-intro,
+.post-trash-intro {
+  font-size: 15px;
+  line-height: 1.9;
+  margin: 24px 0 28px;
+}
+.post-editor-fields {
+  display: grid;
+  gap: 24px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.post-editor-fields .form-grid {
+  gap: 24px;
+}
+.post-editor-fields label {
+  min-width: 0;
+  margin: 0;
+}
+.post-editor-fields .field-help {
+  display: block;
+  font-weight: 400;
+  margin-top: 8px;
+}
+.post-editor-modal .field-help,
+.post-management .field-help,
+.post-contact .field-help,
+.post-trash-card .field-help {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.post-editor-modal form > .field-help {
+  margin: 16px 0 0;
+}
+.post-editor-modal .notice,
+.post-delete-modal .notice {
+  margin-top: 24px;
+}
+.post-delete-target {
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--green-soft);
+  margin: 24px 0;
+  overflow-wrap: anywhere;
+}
+.post-delete-target h3 {
+  font-size: 20px;
+  line-height: 1.6;
+  margin: 14px 0 0;
+}
+.post-delete-effects {
+  font-size: 15px;
+  line-height: 1.9;
+  padding-left: 22px;
+  margin: 0;
+}
+.post-delete-effects li + li {
+  margin-top: 16px;
+}
+.post-trash-card {
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.post-trash-card h3 {
+  margin: 16px 0;
+  font-size: 18px;
+  line-height: 1.7;
+}
+.post-trash-card > p {
+  font-size: 14px;
+  line-height: 1.9;
+}
+.post-trash-card .field-help {
+  margin-bottom: 24px;
+}
+.post-trash-card .button {
+  min-height: 48px;
+  white-space: normal;
+}
+.post-trash-empty {
+  padding: 28px 0;
+}
+.post-trash-empty p {
+  font-size: 15px;
+  line-height: 1.9;
+}
+.article h1,
+.post-card h2,
+.article > .badge {
+  overflow-wrap: anywhere;
+}
+.article-author {
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.article-author > .avatar,
+.comment > .avatar {
+  flex-shrink: 0;
+}
+.article-author > div,
+.comment > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.post-comments .comment p {
+  font-size: 15px;
+  line-height: 1.9;
+}
+.post-contact {
+  padding: 24px 0 0;
+}
+.post-contact .button {
+  white-space: normal;
+  min-height: 48px;
+}
+.recruit-notice {
+  align-items: flex-start;
+  line-height: 1.9;
+}
+.recruit-notice svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.post-card-meta,
+.recruit-meta,
+.post-author {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.post-card-meta > span,
+.post-author > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.post-author > .avatar {
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .community-write-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .community-write-actions > .button {
+    flex: 1 1 160px;
+  }
+  .post-editor-fields .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .post-owner-actions,
+  .post-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .post-form-actions > .button {
+    flex: none;
+  }
+  .post-editor-modal,
+  .post-delete-modal,
+  .post-trash-modal {
+    padding: 20px;
+  }
+  .post-trash-card .button {
+    width: 100%;
+  }
+  .post-delete-target {
+    padding: 16px;
+  }
+  .article-author > div {
+    flex: 1 1 130px;
+  }
+}

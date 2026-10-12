@@ -28,7 +28,8 @@
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |
 | 커뮤니티 | GET/POST /community/posts, GET /community/posts/{id} | 목록·작성·상세 |
-| 댓글/모집 | POST /community/posts/{id}/comments, PUT /community/posts/{id}/status | 댓글과 작성자의 모집 상태 |
+| 내 글 관리 | PUT/DELETE /community/posts/{id}, GET /community/trash, POST /community/posts/{id}/restore | 작성자·버전·휴지통·복원. [계약과 보존 정책](community-management.md) |
+| 댓글/모집 | POST /community/posts/{id}/comments, PUT /community/posts/{id}/status | 댓글과 작성자의 모집 상태. 상태 변경에 `{version,status}` 필요 |
 | 신고/관리자 | POST /reports, GET /admin/reports, POST /admin/reports/{id}/resolve | 신고 및 처리 |
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | 요청·조회·수락 후 추가 발송 |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |

@@ -201,6 +201,8 @@ export type Post = {
   recruitmentDate?: string;
   capacity?: number;
   status: string;
+  version: number;
+  updatedAt?: string | null;
   comments?: {
     id: string;
     authorId: string;
@@ -209,6 +211,11 @@ export type Post = {
     createdAt: string;
   }[];
 };
+/** 휴지통에는 작성자 본인의 제목·삭제 시각만 제공합니다. 본문·댓글은 복원 후 다시 조회합니다. */
+export type DeletedPost = Pick<
+  Post,
+  "id" | "category" | "region" | "title" | "version"
+> & { deletedAt: string; hidden: boolean };
 export type Room = {
   id: string;
   requesterId: string;

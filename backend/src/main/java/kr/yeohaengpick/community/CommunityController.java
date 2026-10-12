@@ -19,15 +19,18 @@ public class CommunityController {
   private final CommunityMapper community;
   private final AuthService auth;
   private final MessageService messages;
+  private final CommunityPostService posts;
 
   public CommunityController(
     CommunityMapper c,
     AuthService a,
-    MessageService m
+    MessageService m,
+    CommunityPostService posts
   ) {
     community = c;
     auth = a;
     messages = m;
+    this.posts = posts;
   }
 
   public record Post(
@@ -41,45 +44,56 @@ public class CommunityController {
 
   @GetMapping("/community/posts")
   Object posts() {
-    return community.posts();
+    return posts.list();
   }
 
   @GetMapping("/community/posts/{id}")
   Object post(@PathVariable String id) {
-    var p = community.post(id);
-    if (
-      p == null || Boolean.TRUE.equals(p.get("hidden"))
-    ) throw new DomainException(404, "게시글을 찾을 수 없어요.");
-    p.put("comments", community.comments(id));
-    return p;
+    return posts.detail(id);
   }
 
   @PostMapping("/community/posts")
   Object create(@Valid @RequestBody Post p, Authentication a) {
-    if (
-      !List.of("후기", "추천", "동행", "코스", "의견").contains(p.category)
-    ) throw DomainException.bad("게시판을 선택해 주세요.");
-    if (
-      p.category.equals("동행") &&
-      (p.recruitmentDate == null ||
-        p.capacity == null ||
-        p.capacity < 1 ||
-        p.capacity > 20)
-    ) throw DomainException.bad(
-      "동행 모집 날짜와 인원(1~20명)을 입력해 주세요."
-    );
-    var data = new HashMap<String, Object>();
-    String id = UUID.randomUUID().toString();
-    data.put("id", id);
-    data.put("authorId", auth.id(a));
-    data.put("category", p.category);
-    data.put("region", p.region);
-    data.put("title", p.title.trim());
-    data.put("body", p.body.trim());
-    data.put("recruitmentDate", p.recruitmentDate);
-    data.put("capacity", p.capacity);
-    community.insert(data);
-    return post(id);
+    return posts.create(p, auth.id(a));
+  }
+
+  public record Edit(
+    @NotNull @Min(0) Integer version,
+    @NotNull @Valid Post content
+  ) {}
+
+  public record Version(@NotNull @Min(0) Integer version) {}
+
+  @PutMapping("/community/posts/{id}")
+  Object edit(
+    @PathVariable String id,
+    @Valid @RequestBody Edit r,
+    Authentication a
+  ) {
+    return posts.edit(id, r.content, r.version, auth.id(a));
+  }
+
+  @DeleteMapping("/community/posts/{id}")
+  void delete(
+    @PathVariable String id,
+    @Valid @RequestBody Version r,
+    Authentication a
+  ) {
+    posts.delete(id, r.version, auth.id(a));
+  }
+
+  @GetMapping("/community/trash")
+  Object trash(Authentication a) {
+    return posts.trash(auth.id(a));
+  }
+
+  @PostMapping("/community/posts/{id}/restore")
+  Object restore(
+    @PathVariable String id,
+    @Valid @RequestBody Version r,
+    Authentication a
+  ) {
+    return posts.restore(id, r.version, auth.id(a));
   }
 
   public record Comment(@NotBlank @Size(max = 2000) String body) {}
@@ -90,18 +104,12 @@ public class CommunityController {
     @Valid @RequestBody Comment c,
     Authentication a
   ) {
-    post(id);
-    community.comment(
-      UUID.randomUUID().toString(),
-      id,
-      auth.id(a),
-      c.body.trim()
-    );
-    return post(id);
+    return posts.comment(id, c.body, auth.id(a));
   }
 
   public record Status(
-    @Pattern(regexp = "OPEN|CLOSED|CANCELLED") String status
+    @NotNull @Pattern(regexp = "OPEN|CLOSED|CANCELLED") String status,
+    @NotNull @Min(0) Integer version
   ) {}
 
   @PutMapping("/community/posts/{id}/status")
@@ -110,10 +118,7 @@ public class CommunityController {
     @Valid @RequestBody Status s,
     Authentication a
   ) {
-    if (
-      community.status(id, auth.id(a), s.status) != 1
-    ) throw new DomainException(403, "작성자만 모집 상태를 변경할 수 있어요.");
-    return post(id);
+    return posts.status(id, s.status, s.version, auth.id(a));
   }
 
   public record Report(
@@ -172,7 +177,7 @@ public class CommunityController {
       404,
       "신고를 찾을 수 없어요."
     );
-    if (r.hidePost && report.get("targetType").equals("POST")) community.hide(
+    if (r.hidePost && report.get("targetType").equals("POST")) posts.hide(
       (String) report.get("targetId"),
       true
     );

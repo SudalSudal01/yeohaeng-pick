@@ -58,6 +58,8 @@ public class SecurityConfig {
             "/api/share/**"
           )
           .permitAll()
+          .requestMatchers("/api/community/trash")
+          .authenticated()
           .requestMatchers(
             org.springframework.http.HttpMethod.GET,
             "/api/community/**"

@@ -29,7 +29,7 @@ import PlanPage from "../features/planner/PlanPage";
 import TripsPage from "../features/trips/TripsPage";
 import TripPage from "../features/trips/TripPage";
 import SharedTripPage from "../features/trips/SharedTripPage";
-import CommunityPage, { PostPage } from "../features/community/CommunityPage";
+import CommunityRoute from "../features/community/CommunityRoute";
 import MessagesPage from "../features/messaging/MessagesPage";
 import ProfilePage from "../features/profile/ProfilePage";
 import AdminPage from "../features/admin/AdminPage";
@@ -188,8 +188,8 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/community" element={<CommunityPage />} />
-          <Route path="/community/:id" element={<PostPage />} />
+          <Route path="/community" element={<CommunityRoute />} />
+          <Route path="/community/:id" element={<CommunityRoute detail />} />
           <Route
             path="/messages"
             element={

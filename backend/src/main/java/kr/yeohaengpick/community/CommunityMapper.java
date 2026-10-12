@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface CommunityMapper {
   @Select(
-    "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE hidden=FALSE ORDER BY p.created_at DESC LIMIT 100"
+    "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE hidden=FALSE AND deleted_at IS NULL ORDER BY p.created_at DESC LIMIT 100"
   )
   List<Map<String, Object>> posts();
 
@@ -15,6 +15,39 @@ public interface CommunityMapper {
     "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.id=#{id}"
   )
   Map<String, Object> post(String id);
+
+  /** 수정·상태 변경·댓글·휴지통 이동·운영진 숨김은 같은 게시글을 잠가 완료 순서를 보장합니다. */
+  @Select("SELECT * FROM posts WHERE id=#{id} FOR UPDATE")
+  Map<String, Object> lockPost(String id);
+
+  /** 휴지통은 로그인한 작성자만 읽습니다. 목록에 본문·댓글을 내려보내지 않습니다. */
+  @Select(
+    "SELECT id,category,region,title,version,deleted_at,hidden FROM posts WHERE author_id=#{member} AND deleted_at IS NOT NULL ORDER BY deleted_at DESC LIMIT 100"
+  )
+  List<Map<String, Object>> trash(String member);
+
+  @Update(
+    "UPDATE posts SET region=#{region},title=#{title},body=#{body},recruitment_date=#{recruitmentDate},capacity=#{capacity},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NULL"
+  )
+  int edit(Map<String, Object> data);
+
+  @Update(
+    "UPDATE posts SET deleted_at=CURRENT_TIMESTAMP,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NULL"
+  )
+  int deletePost(
+    @Param("id") String id,
+    @Param("member") String member,
+    @Param("version") int version
+  );
+
+  @Update(
+    "UPDATE posts SET deleted_at=NULL,updated_at=CURRENT_TIMESTAMP,version=version+1,status=CASE WHEN category='동행' THEN 'CLOSED' ELSE status END WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=FALSE AND deleted_at IS NOT NULL"
+  )
+  int restorePost(
+    @Param("id") String id,
+    @Param("member") String member,
+    @Param("version") int version
+  );
 
   @Insert(
     "INSERT INTO posts(id,author_id,category,region,title,body,recruitment_date,capacity) VALUES(#{id},#{authorId},#{category},#{region},#{title},#{body},#{recruitmentDate},#{capacity})"
@@ -37,12 +70,13 @@ public interface CommunityMapper {
   );
 
   @Update(
-    "UPDATE posts SET status=#{status} WHERE id=#{id} AND author_id=#{member}"
+    "UPDATE posts SET status=#{status},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND category='동행' AND hidden=FALSE AND deleted_at IS NULL"
   )
   int status(
     @Param("id") String id,
     @Param("member") String member,
-    @Param("status") String status
+    @Param("status") String status,
+    @Param("version") int version
   );
 
   @Select(
@@ -83,7 +117,9 @@ public interface CommunityMapper {
   )
   void resolve(@Param("id") String id, @Param("resolution") String resolution);
 
-  @Update("UPDATE posts SET hidden=#{hidden} WHERE id=#{id}")
+  @Update(
+    "UPDATE posts SET hidden=#{hidden},version=version+1 WHERE id=#{id} AND hidden<>#{hidden}"
+  )
   void hide(@Param("id") String id, @Param("hidden") boolean hidden);
 
   @Insert(
