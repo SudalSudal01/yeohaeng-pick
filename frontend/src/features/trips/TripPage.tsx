@@ -46,9 +46,11 @@ import WholeSchedulePanel from "./WholeSchedulePanel";
 import TourismInfoButton from "../catalog/TourismInfoButton";
 import VisitConditionsModal from "./VisitConditionsModal";
 import TripMembersPanel from "./TripMembersPanel";
-import { ComparisonModal, BookingModal } from "./TripDialogs";
+import { BookingModal } from "./TripDialogs";
+import PlaceComparisonModal from "./PlaceComparisonModal";
 import { lodgingBudget, activityBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
+import { isVisitChangeProtected } from "./visitComparisonCandidates";
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
 export default function TripPage() {
@@ -369,7 +371,9 @@ export default function TripPage() {
                 <button
                   className="text-button"
                   onClick={() => {
-                    const outdoor = items.find((i) => !i.indoor && !i.fixed);
+                    const outdoor = items.find(
+                      (i) => !i.indoor && !isVisitChangeProtected(i),
+                    );
                     if (outdoor) {
                       setRain(true);
                       setCompare(outdoor);
@@ -392,10 +396,10 @@ export default function TripPage() {
                         <span className="badge subtle">
                           {item.category} · {item.indoor ? "실내" : "야외"}
                         </span>
-                        {item.fixed && (
+                        {isVisitChangeProtected(item) && (
                           <span className="fixed-label">
                             <LockKeyhole size={13} />
-                            고정 일정
+                            {item.fixed ? "고정 일정" : "예약 완료 · 변경 보호"}
                           </span>
                         )}
                       </div>
@@ -443,7 +447,12 @@ export default function TripPage() {
                             setRain(false);
                             setCompare(item);
                           }}
-                          disabled={item.fixed}
+                          disabled={isVisitChangeProtected(item)}
+                          title={
+                            isVisitChangeProtected(item)
+                              ? "예약 완료 또는 고정된 일정은 상태를 먼저 정리해 주세요."
+                              : undefined
+                          }
                         >
                           <GitCompareArrows size={15} />
                           다른 후보 비교
@@ -776,7 +785,7 @@ export default function TripPage() {
         </section>
       )}
       {compare && (
-        <ComparisonModal
+        <PlaceComparisonModal
           trip={trip}
           item={compare}
           rain={rain}

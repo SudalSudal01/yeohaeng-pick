@@ -354,6 +354,15 @@ public class TripService {
       .filter(i -> i.get("id").equals(item))
       .findFirst()
       .orElseThrow(() -> new DomainException(404, "일정을 찾을 수 없어요."));
+    return alternatives(all, current, rain);
+  }
+
+  /** 일반 후보 목록은 개인 찜을 섞지 않습니다. 동행에게 내 목록을 노출하지 않고 공급자 전체 재조회를 피합니다. */
+  private List<Place> alternatives(
+    List<Map<String, Object>> all,
+    Map<String, Object> current,
+    boolean rain
+  ) {
     Set<String> used = new HashSet<>(
       all
         .stream()
@@ -373,7 +382,81 @@ public class TripService {
       .toList();
   }
 
-  public record Change(String itemId, String placeId, int version) {}
+  /** favorite/rain을 생략한 기존 요청은 일반 후보 비교로 처리합니다. */
+  public record Change(
+    @jakarta.validation.constraints.NotBlank
+    @jakarta.validation.constraints.Size(max = 100)
+    String itemId,
+    @jakarta.validation.constraints.NotBlank
+    @jakarta.validation.constraints.Size(max = 100)
+    String placeId,
+    @jakarta.validation.constraints.Min(0) int version,
+    Boolean favorite,
+    Boolean rain
+  ) {
+    /** 서버 내부에서 기존 세 필드 계약을 사용하던 호출도 같은 일반 후보 비교로 이어집니다. */
+    public Change(String itemId, String placeId, int version) {
+      this(itemId, placeId, version, false, false);
+    }
+
+    /** 이전 앱이 필드를 보내지 않으면 null이므로 명시적으로 true인 요청만 개인 찜으로 처리합니다. */
+    public boolean usesFavorite() {
+      return Boolean.TRUE.equals(favorite);
+    }
+
+    /** 우천 필터도 명시한 요청에서만 적용해 기존 비교 범위를 유지합니다. */
+    public boolean rains() {
+      return Boolean.TRUE.equals(rain);
+    }
+  }
+
+  /**
+   * 개인 찜은 사용자가 고른 한 곳만 현재 공급자 정보로 다시 확인합니다.
+   * 이름·좌표·비용을 요청에서 받지 않으며 일반 후보와 찜 후보 모두 같은 일정 충돌 검사로 이어집니다.
+   */
+  private Place replacement(
+    List<Map<String, Object>> all,
+    Map<String, Object> target,
+    Change change,
+    String member
+  ) {
+    boolean duplicate = all
+      .stream()
+      .anyMatch(i -> Objects.equals(i.get("placeId"), change.placeId()));
+    if (duplicate) throw DomainException.bad(
+      "이미 이 여행에 포함된 장소예요. 다른 후보를 골라 주세요."
+    );
+
+    Place candidate = change.usesFavorite()
+      ? favorites
+          .resolve(
+            member,
+            List.of(change.placeId()),
+            List.of(target.get("region").toString())
+          )
+          .getFirst()
+      : alternatives(all, target, change.rains())
+          .stream()
+          .filter(p -> p.id().equals(change.placeId()))
+          .findFirst()
+          .orElseThrow(() ->
+            DomainException.bad("현재 선택 가능한 후보가 아니에요.")
+          );
+
+    // FavoriteService도 같은 조건을 검사하지만, 일반 후보와 향후 공급자 변경까지 한 경계에서 다시 제한합니다.
+    if (
+      !candidate.region().equals(target.get("region"))
+    ) throw DomainException.bad(
+      "현재 일정과 같은 지역의 장소만 선택해 주세요."
+    );
+    if (candidate.category().equals("숙소")) throw DomainException.bad(
+      "숙소는 방문 장소 후보로 바꿀 수 없어요."
+    );
+    if (change.rains() && !candidate.indoor()) throw DomainException.bad(
+      "비 오는 날 비교는 현재 실내 장소로 확인된 후보만 선택해 주세요."
+    );
+    return candidate;
+  }
 
   public Map<String, Object> preview(String id, Change change, String member) {
     var trip = access(id, member);
@@ -394,17 +477,17 @@ public class TripService {
       .filter(i -> i.get("id").equals(change.itemId))
       .findFirst()
       .orElseThrow(() -> new DomainException(404, "일정을 찾을 수 없어요."));
-    if ((Boolean) target.get("fixed")) throw new DomainException(
+    if (
+      Boolean.TRUE.equals(target.get("fixed")) ||
+      List.of("USER_CONFIRMED", "PARTNER_CONFIRMED").contains(
+        target.get("bookingStatus")
+      )
+    ) throw new DomainException(
       409,
-      "고정된 일정이에요. 예약 상태와 고정 여부를 먼저 확인해 주세요."
+      "예약 완료 또는 고정된 일정이에요. 예약 상태와 고정 여부를 먼저 확인해 주세요."
     );
-    Place replacement = alternatives(id, change.itemId, member, false)
-      .stream()
-      .filter(p -> p.id().equals(change.placeId))
-      .findFirst()
-      .orElseThrow(() ->
-        DomainException.bad("현재 선택 가능한 후보가 아니에요.")
-      );
+    // 고정·예약 보호가 끝난 뒤 중복과 후보 출처를 검사해 불필요한 외부 조회와 개인 찜 존재 노출을 피합니다.
+    Place replacement = replacement(old, target, change, member);
     String oldName = (String) target.get("placeName");
     int day = ((Number) target.get("dayIndex")).intValue();
     target.putAll(

@@ -2220,6 +2220,41 @@ textarea {
   color: var(--muted);
   margin-top: 5px;
 }
+/* 방문 교체는 후보 출처 → 후보 → 서버 재확인 결과 → 적용 순서로 읽습니다.
+   안내와 다음 실행 영역은 모바일에서도 24px 이상 떨어뜨려 오작동을 줄입니다. */
+.place-comparison-modal {
+  width: min(720px, calc(100% - 32px));
+  max-width: 720px;
+}
+.place-comparison-modal p {
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.place-comparison-intro {
+  font-size: var(--text-support);
+}
+.place-comparison-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+.place-comparison-sources .button {
+  min-height: 44px;
+}
+.place-comparison-candidates {
+  min-width: 0;
+}
+.place-comparison-candidates > h3 {
+  margin-top: 0;
+}
+.place-comparison-candidates > p {
+  margin-top: 12px;
+  font-size: var(--text-support);
+}
+.place-comparison-candidates .alternative-list {
+  margin-top: 24px;
+}
 .alternative-list {
   display: flex;
   flex-direction: column;
@@ -2231,10 +2266,12 @@ textarea {
   gap: 13px;
   align-items: center;
   width: 100%;
+  min-height: 72px;
   padding: 13px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
+  color: var(--ink);
   text-align: left;
 }
 .alternative.selected {
@@ -2244,12 +2281,19 @@ textarea {
 .alternative strong {
   display: block;
   font-size: var(--text-body);
+  overflow-wrap: anywhere;
 }
-.alternative div > span {
+.alternative-copy {
+  flex: 1;
+  min-width: 0;
+}
+.alternative div > span,
+.alternative-copy > span {
   font-size: var(--text-caption);
   color: var(--muted);
   display: block;
   margin-top: 4px;
+  line-height: 1.7;
 }
 .alternative > svg {
   margin-left: auto;
@@ -2264,6 +2308,106 @@ textarea {
 .comparison-result > p {
   font-size: var(--text-support);
   color: var(--muted);
+  margin-top: 12px;
+}
+.favorite-visit-guide {
+  margin-bottom: 24px;
+}
+.favorite-visit-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 24px;
+}
+.favorite-visit-candidate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 188px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--ink);
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.favorite-visit-candidate.selected {
+  border-color: var(--green);
+  background: var(--green-soft);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.favorite-visit-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--green);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+.favorite-visit-candidate > strong {
+  margin-top: 14px;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.favorite-visit-candidate > strong + span {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--text-support);
+  line-height: 1.7;
+}
+.favorite-visit-candidate > small {
+  margin-top: 6px;
+  color: var(--muted);
+}
+.favorite-visit-select {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 24px;
+  color: var(--green);
+  font-size: var(--text-support);
+  font-weight: 600;
+  line-height: 1.7;
+}
+.favorite-visit-select svg {
+  margin-top: 4px;
+}
+.favorite-visit-more {
+  margin-top: 24px;
+  text-align: left;
+}
+.favorite-visit-refreshed {
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #f3f7f1;
+}
+.favorite-visit-refreshed > strong {
+  display: block;
+  font-size: var(--text-body);
+}
+.favorite-visit-refreshed > p {
+  margin-top: 8px;
+  font-size: var(--text-body);
+}
+.favorite-visit-refreshed > span {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: var(--text-support);
+  line-height: 1.8;
+}
+.place-comparison-actions {
+  margin-top: 24px;
+}
+.place-comparison-apply-error {
+  margin-top: 24px;
+}
+.place-comparison-apply-error > p {
   margin-top: 12px;
 }
 .comparison-stats {
@@ -2295,6 +2439,35 @@ textarea {
 .changed-times p > span {
   color: var(--green);
   font-weight: 600;
+}
+@media (max-width: 600px) {
+  .favorite-visit-list,
+  .comparison-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .comparison-stats {
+    display: grid;
+    gap: 16px;
+  }
+  .place-comparison-sources .button {
+    flex: 1 1 0;
+  }
+}
+@media (max-width: 400px) {
+  .place-comparison-modal {
+    width: calc(100% - 16px);
+  }
+  .place-comparison-sources {
+    flex-direction: column;
+  }
+  .place-comparison-sources .button {
+    width: 100%;
+  }
+  .favorite-visit-candidate,
+  .comparison-result,
+  .comparison-current {
+    padding: 14px;
+  }
 }
 .share-result {
   display: flex;

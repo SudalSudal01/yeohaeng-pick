@@ -52,7 +52,7 @@ public class TripController {
   @PostMapping("/trips/{id}/preview")
   Object preview(
     @PathVariable String id,
-    @RequestBody TripService.Change c,
+    @Valid @RequestBody TripService.Change c,
     Authentication a
   ) {
     return trips.preview(id, c, auth.id(a));
@@ -61,7 +61,7 @@ public class TripController {
   @PostMapping("/trips/{id}/apply")
   Object apply(
     @PathVariable String id,
-    @RequestBody TripService.Change c,
+    @Valid @RequestBody TripService.Change c,
     Authentication a
   ) {
     return trips.apply(id, c, auth.id(a));

@@ -20,7 +20,7 @@
 | 추천 | POST /recommendations | 여행 조건과 선택적 `favoriteIds` 최대 5개·`lodgingIds`에 포함된 `favoriteLodgingIds` 최대 5개 → 세 코스. 숙소는 지역별 한 곳. 본인 찜·지역 검사/재조회, 우선 평가·반영/제외 경고 |
 | 여행 | GET/POST /trips, GET/DELETE /trips/{id} | 생성·조회·소유자 삭제 |
 | 대안 | GET /trips/{id}/alternatives/{item}?rain= | 중복 제외, 선택적 실내 후보 |
-| 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId, placeId, version}` |
+| 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId,placeId,version,favorite?,rain?}`. 본인 찜 한 곳 재조회와 우천 실내 제한. 선택 필드 생략 시 기존 일반 후보 계약 |
 | 예약 | PUT /trips/{id}/booking, /lodging-booking | `{itemId,status,reason,fixed,version}` |
 | 외부 예매 | POST /trips/{id}/external-bookings | 열차·버스·항공 등 결과 직접 기록 |
 | 예약 시간 조정 | POST /trips/{id}/schedule/preview, /schedule/apply | `{version, strategy?}`. 앞당기기·늦추기 비교 후 명시적 적용 |
@@ -40,6 +40,16 @@
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | 요청·조회·수락 후 추가 발송 |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |
 | 차단 | GET /messages/blocks, PUT /messages/blocks/{member} | 사용자 차단/해제 |
+
+## 저장한 여행의 방문 장소 비교
+
+`GET /trips/{id}/alternatives/{item}?rain=`은 기존처럼 서버가 조회한 일반 후보만 반환합니다. `rain=true`이면 실내 후보만 반환하며 개인 찜 목록은 응답에 합치지 않습니다. 화면은 별도의 본인 전용 `GET /favorites`에서 같은 지역의 방문 찜을 골라 한 곳씩 비교합니다.
+
+`POST /trips/{id}/preview`와 `/apply`는 `{itemId,placeId,version,favorite?,rain?}`을 받습니다. `favorite:true`이면 클라이언트가 보낸 이름·좌표·금액을 사용하지 않고, 로그인 회원의 찜 소유권을 확인한 뒤 보관한 검색 조건으로 같은 공급자 ID 한 곳을 다시 조회합니다. 현재 장소와 같은 지역의 비숙소, 여행에 아직 쓰이지 않은 장소여야 하며 `rain:true`이면 현재 실내 장소여야 합니다. `favorite`와 `rain`을 생략하거나 false로 보내는 이전 클라이언트는 일반 후보 비교로 처리합니다.
+
+미리보기는 일정과 version을 바꾸지 않고 활동비·이동·뒤 방문 시각·고정 방문·연결한 교통 예약 충돌을 반환합니다. 적용은 같은 입력을 서버에서 다시 계산한 뒤 조건부 version 증가와 장소·이력 저장을 한 트랜잭션으로 처리합니다. 예약 완료 또는 고정 방문은 바꿀 수 없고, 교체한 방문의 직접 확인 조건과 예약 상태는 초기화하며 유지한 방문의 조건은 보존합니다. 무효가 된 반영 경로는 해제하고 외부 예약·숙소·경비는 바꾸지 않습니다.
+
+찜이 해제됐거나 본인 것이 아님, 공급자에서 같은 ID를 찾지 못함, 오래된 version은 409입니다. 지역·분류·중복·우천 조건이 잘못되면 400, 공급자 장애는 503입니다. 참여자도 자기 찜만 사용할 수 있으며 적용된 장소는 공동 일정의 일반 장소가 됩니다. 찜 출처와 개인 목록은 여행·공개 공유 응답에 추가하지 않습니다.
 
 ## 관광공사 이용정보
 
