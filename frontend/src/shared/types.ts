@@ -142,6 +142,17 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
     nickname: string;
     createdAt: string;
   }[];
+  /** 방문 복원으로 되돌릴 수 없는 소유권 변경 기록입니다. 현재 참여자에게만 제공합니다. */
+  ownershipHistory: {
+    id: string;
+    previousOwnerId: string;
+    newOwnerId: string;
+    previousOwnerName: string;
+    newOwnerName: string;
+    version: number;
+    revokedInvitations: number;
+    createdAt: string;
+  }[];
 };
 /** 숙박비는 전체 기간·전체 객실의 직접 입력 참고 금액이며 예약 성공/결제 여부와 별개입니다. */
 export type Lodging = {

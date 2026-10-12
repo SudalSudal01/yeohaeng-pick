@@ -18,6 +18,7 @@ public class TripService {
   private final AiRankingService ai;
   private final BookingSchedule schedule;
   private final WholeSchedule wholeSchedule;
+  private final kr.yeohaengpick.collaboration.TripOwnershipMapper ownership;
 
   public TripService(
     TripMapper t,
@@ -26,7 +27,8 @@ public class TripService {
     JsonCodec j,
     AiRankingService a,
     BookingSchedule schedule,
-    WholeSchedule wholeSchedule
+    WholeSchedule wholeSchedule,
+    kr.yeohaengpick.collaboration.TripOwnershipMapper ownership
   ) {
     trips = t;
     catalog = c;
@@ -35,6 +37,7 @@ public class TripService {
     ai = a;
     this.schedule = schedule;
     this.wholeSchedule = wholeSchedule;
+    this.ownership = ownership;
   }
 
   public Map<String, Object> access(String id, String member) {
@@ -172,6 +175,7 @@ public class TripService {
     result.put("tasks", trips.tasks(id));
     result.put("expenses", trips.expenses(id));
     result.put("history", trips.historyList(id));
+    result.put("ownershipHistory", ownership.history(id));
     // SQL DATE가 시각/시간대를 포함한 JSON으로 바뀌지 않도록 숙박 날짜의 계약을 yyyy-MM-dd로 고정합니다.
     result.put(
       "lodgings",

@@ -84,6 +84,15 @@ export default function TripPage() {
   const [share, setShare] = useState(false);
   const [shareLink, setShareLink] = useState("");
   const [email, setEmail] = useState("");
+  useEffect(() => {
+    if (query.data && query.data.ownerId !== user?.id) {
+      // 다른 창에서 소유권을 넘겨도 이전 소유자의 초대/공유 창과 공유 토큰을 화면에 남기지 않습니다.
+      setInvite(false);
+      setShare(false);
+      setShareLink("");
+      setEmail("");
+    }
+  }, [query.data?.ownerId, user?.id]);
   const [task, setTask] = useState("");
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");

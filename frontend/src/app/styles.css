@@ -5712,6 +5712,115 @@ textarea {
   padding-top: 24px;
   border-top: 1px solid var(--border);
 }
+/* 관리 권한은 참여 해제와 구분해 설명합니다. 안내 아래 실행 버튼에 24px 이상 여백을 확보합니다. */
+.trip-ownership-panel {
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trip-ownership-panel h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+.trip-ownership-panel > .field-help {
+  margin: 0 0 24px;
+}
+.trip-ownership-panel .field-help,
+.ownership-modal .field-help {
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--muted);
+}
+.trip-ownership-panel > .button {
+  min-height: 48px;
+  white-space: normal;
+}
+.ownership-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+.ownership-history {
+  margin-top: 24px;
+}
+.ownership-history summary {
+  min-height: 44px;
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: 15px;
+}
+.ownership-history ol {
+  padding-left: 22px;
+  margin: 16px 0;
+}
+.ownership-history li + li {
+  margin-top: 20px;
+}
+.ownership-history strong {
+  font-size: 15px;
+}
+.ownership-history time {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.ownership-history li p {
+  margin: 6px 0 0;
+  font-size: 14px;
+}
+.ownership-modal select {
+  font-size: 16px;
+  width: 100%;
+  min-width: 0;
+}
+.ownership-modal label {
+  margin: 0;
+}
+.ownership-modal .field-help {
+  margin: 12px 0 0;
+}
+.ownership-effects {
+  margin-top: 24px;
+}
+.ownership-recipient {
+  display: block;
+  overflow-wrap: anywhere;
+  margin-bottom: 8px;
+  font-size: 15px;
+}
+.ownership-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 24px !important;
+  font-size: 15px;
+  line-height: 1.9;
+  min-height: 44px;
+}
+.ownership-confirm input {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex-shrink: 0;
+  margin: 4px 0 0;
+}
+.ownership-confirm span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .trip-ownership-panel > .button {
+    width: 100%;
+  }
+  .ownership-history summary .badge {
+    margin-top: 8px;
+  }
+}
 .trip-members-leave {
   margin-top: 28px;
 }

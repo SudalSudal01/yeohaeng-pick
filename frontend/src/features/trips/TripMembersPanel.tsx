@@ -12,6 +12,7 @@ import { api, ApiError, accessEnded } from "../../shared/api";
 import { Modal, ErrorState } from "../../shared/ui";
 import { useToast } from "../../shared/providers";
 import type { Trip } from "../../shared/types";
+import TripOwnershipPanel from "./TripOwnershipPanel";
 
 type Choice = {
   id: string;
@@ -149,6 +150,7 @@ export default function TripMembersPanel({
           </article>
         ))}
       </div>
+      <TripOwnershipPanel trip={trip} userId={userId} refresh={refresh} />
       <div className="trip-members-chat">
         <p className="small muted">
           현재 참여 중인 동행만 여행 단체 대화를 볼 수 있어요. 개인 메시지 수신

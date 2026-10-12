@@ -3278,6 +3278,483 @@ class TravelFlowTest {
     "비공개 숙소 메모"
   );
 
+  @Test
+  void ownershipTransferPreservesTripAndMovesOnlyManagementRights()
+    throws Exception {
+    var owner = new Browser().signup();
+    var next = new Browser().signup();
+    var pending = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, next, id);
+    String nextId = next.call("GET", "/auth/me", null).get("id").toString();
+    owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        1,
+        "itemId",
+        items(trip).getFirst().get("id"),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "직접 확인한 예약 보존",
+        "fixed",
+        true
+      )
+    );
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", id, "email", pending.email)
+    );
+    var invitations = json
+      .mapper()
+      .readTree(pending.request("GET", "/invitations", null, false).body());
+    String oldInvite = invitations.get(0).path("id").asText();
+    next.call(
+      "POST",
+      base + "/expenses",
+      Map.of("label", "남겨 둘 경비", "amount", 12000)
+    );
+    String room = owner
+      .call("POST", "/messages/trip/" + id, Map.of())
+      .get("id")
+      .toString();
+    owner.call(
+      "POST",
+      "/messages/" + room,
+      Map.of("body", "소유권 이전 전 단체 대화")
+    );
+    String token = owner
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    var saved = owner.call("GET", base, null);
+    int version = ((Number) saved.get("version")).intValue();
+    var after = owner.call(
+      "POST",
+      base + "/ownership/transfer",
+      Map.of("memberId", nextId, "version", version)
+    );
+    assertThat(after)
+      .containsEntry("ownerId", nextId)
+      .containsEntry("version", version + 1);
+    for (String key : List.of(
+      "members",
+      "items",
+      "lodgings",
+      "externalBookings",
+      "routeTimings",
+      "tasks",
+      "expenses",
+      "history",
+      "partySize",
+      "preferences",
+      "budget"
+    ))
+      assertThat(after.get(key))
+        .as(key + " preserved")
+        .isEqualTo(saved.get(key));
+    var log = json.mapper().valueToTree(after.get("ownershipHistory"));
+    assertThat(log.size()).isEqualTo(1);
+    assertThat(log.get(0).path("previousOwnerId").asText()).isEqualTo(
+      saved.get("ownerId")
+    );
+    assertThat(log.get(0).path("newOwnerId").asText()).isEqualTo(nextId);
+    assertThat(log.get(0).path("revokedInvitations").asInt()).isEqualTo(1);
+    assertThat(log.get(0).path("version").asInt()).isEqualTo(version + 1);
+    assertThat(next.call("GET", base, null)).isEqualTo(after);
+    assertThat(
+      pending
+        .request(
+          "POST",
+          "/invitations/" + oldInvite + "/respond",
+          Map.of("accept", true),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      pending.request("GET", base, null, false).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      json
+        .mapper()
+        .readTree(pending.request("GET", "/invitations", null, false).body())
+        .size()
+    ).isZero();
+    assertThat(
+      owner
+        .request(
+          "POST",
+          "/invitations",
+          Map.of("tripId", id, "email", pending.email),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request("POST", base + "/share", Map.of("enabled", false), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner.request("DELETE", base, null, true).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/members/" + nextId + "/remove",
+          Map.of("version", version + 1),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/ownership/transfer",
+          Map.of("memberId", saved.get("ownerId"), "version", version + 1),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    owner.call(
+      "POST",
+      base + "/tasks",
+      Map.of("content", "이전 소유자의 공동 편집")
+    );
+    next.call(
+      "POST",
+      "/messages/" + room,
+      Map.of("body", "새 소유자도 같은 방 유지")
+    );
+    owner.call(
+      "POST",
+      "/messages/" + room,
+      Map.of("body", "이전 소유자도 동행으로 유지")
+    );
+    var shared = new Browser().call("GET", "/share/" + token, null);
+    assertThat(shared).doesNotContainKeys(
+      "ownershipHistory",
+      "ownerId",
+      "members",
+      "expenses"
+    );
+    // 새 소유자가 초대를 다시 발급한 뒤에만 기존 대기자가 참여할 수 있습니다.
+    assertThat(join(next, pending, id)).isNotEqualTo(oldInvite);
+    next.call("POST", base + "/share", Map.of("enabled", false));
+    assertThat(
+      new Browser().request("GET", "/share/" + token, null, false).statusCode()
+    ).isEqualTo(404);
+  }
+
+  @Test
+  void ownershipTransferRequiresOwnerCurrentMemberCsrfAndExplicitVersion()
+    throws Exception {
+    var owner = new Browser().signup();
+    var other = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id,
+      path = base + "/ownership/transfer";
+    join(owner, other, id);
+    String target = other.call("GET", "/auth/me", null).get("id").toString();
+    String external = outsider
+      .call("GET", "/auth/me", null)
+      .get("id")
+      .toString();
+    var valid = Map.of("version", 1, "memberId", target);
+    assertThat(
+      new Browser().request("POST", path, valid, true).statusCode()
+    ).isEqualTo(401);
+    assertThat(other.request("POST", path, valid, true).statusCode()).isEqualTo(
+      403
+    );
+    assertThat(
+      outsider.request("POST", path, valid, true).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner.request("POST", path, valid, false).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner.request("POST", path, Map.of("memberId", target), true).statusCode()
+    ).isEqualTo(400);
+    var nullVersion = new HashMap<String, Object>();
+    nullVersion.put("version", null);
+    nullVersion.put("memberId", target);
+    assertThat(
+      owner.request("POST", path, nullVersion, true).statusCode()
+    ).isEqualTo(400);
+    for (Object data : List.of(
+      Map.of("version", -1, "memberId", target),
+      Map.of("version", 1),
+      Map.of("version", 1, "memberId", " "),
+      Map.of("version", 1, "memberId", "x".repeat(37)),
+      Map.of("version", 1, "memberId", trip.get("ownerId"))
+    ))
+      assertThat(
+        owner.request("POST", path, data, true).statusCode()
+      ).isEqualTo(400);
+    assertThat(
+      owner
+        .request("POST", path, Map.of("version", 0, "memberId", target), true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      owner
+        .request("POST", path, Map.of("version", 1, "memberId", external), true)
+        .statusCode()
+    ).isEqualTo(404);
+    // 초대 전/대기 중/나간 동행 모두 현재 참여자가 아닙니다.
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", id, "email", outsider.email)
+    );
+    assertThat(
+      owner
+        .request("POST", path, Map.of("version", 1, "memberId", external), true)
+        .statusCode()
+    ).isEqualTo(404);
+    other.call("POST", base + "/leave", Map.of("version", 1));
+    assertThat(
+      owner
+        .request("POST", path, Map.of("version", 2, "memberId", target), true)
+        .statusCode()
+    ).isEqualTo(404);
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(owner.call("GET", base, null).get("ownershipHistory"))
+        .size()
+    ).isZero();
+  }
+
+  @Test
+  void simultaneousOwnershipTransfersHaveExactlyOneOwnerAndOneRecord()
+    throws Exception {
+    var owner = new Browser().signup();
+    var a = new Browser().signup();
+    var b = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, a, id);
+    join(owner, b, id);
+    String aId = a.call("GET", "/auth/me", null).get("id").toString(),
+      bId = b.call("GET", "/auth/me", null).get("id").toString();
+    var gate = new java.util.concurrent.CyclicBarrier(2);
+    var first = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return owner.request(
+          "POST",
+          base + "/ownership/transfer",
+          Map.of("version", 2, "memberId", aId),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var second = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return owner.request(
+          "POST",
+          base + "/ownership/transfer",
+          Map.of("version", 2, "memberId", bId),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var results = List.of(
+      first.get(20, java.util.concurrent.TimeUnit.SECONDS),
+      second.get(20, java.util.concurrent.TimeUnit.SECONDS)
+    );
+    assertThat(
+      results.stream().map(HttpResponse::statusCode)
+    ).containsExactlyInAnyOrder(200, 403);
+    var after = owner.call("GET", base, null);
+    assertThat(after.get("ownerId")).isIn(aId, bId);
+    assertThat(after.get("version")).isEqualTo(3);
+    assertThat(
+      json.mapper().valueToTree(after.get("ownershipHistory")).size()
+    ).isEqualTo(1);
+    assertThat(
+      json.mapper().valueToTree(after.get("members")).size()
+    ).isEqualTo(3);
+  }
+
+  @Test
+  void ownershipTransferAndTargetLeavingCannotCreateOwnerWithoutMembership()
+    throws Exception {
+    var owner = new Browser().signup();
+    var target = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, target, id);
+    String targetId = target.call("GET", "/auth/me", null).get("id").toString();
+    var gate = new java.util.concurrent.CyclicBarrier(2);
+    var transfer = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return owner.request(
+          "POST",
+          base + "/ownership/transfer",
+          Map.of("version", 1, "memberId", targetId),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var leave = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return target.request(
+          "POST",
+          base + "/leave",
+          Map.of("version", 1),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var moved = transfer.get(20, java.util.concurrent.TimeUnit.SECONDS);
+    var left = leave.get(20, java.util.concurrent.TimeUnit.SECONDS);
+    var after = owner.call("GET", base, null);
+    assertThat(after.get("version")).isEqualTo(2);
+    var members = json.mapper().valueToTree(after.get("members"));
+    var log = json.mapper().valueToTree(after.get("ownershipHistory"));
+    if (moved.statusCode() == 200) {
+      assertThat(left.statusCode()).isEqualTo(409);
+      assertThat(after.get("ownerId")).isEqualTo(targetId);
+      assertThat(members.size()).isEqualTo(2);
+      assertThat(log.size()).isEqualTo(1);
+    } else {
+      assertThat(moved.statusCode()).isEqualTo(404);
+      assertThat(left.statusCode()).isEqualTo(200);
+      assertThat(after.get("ownerId")).isEqualTo(trip.get("ownerId"));
+      assertThat(members.size()).isEqualTo(1);
+      assertThat(log.size()).isZero();
+    }
+  }
+
+  @Test
+  void visitHistoryRestoreNeverRestoresOldOwnershipAndFormerOwnerCanLeave()
+    throws Exception {
+    var owner = new Browser().signup();
+    var next = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, next, id);
+    String nextId = next.call("GET", "/auth/me", null).get("id").toString();
+    var changed = owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        1,
+        "itemId",
+        items(trip).getFirst().get("id"),
+        "status",
+        "FAILED",
+        "reason",
+        "소유권 변경 뒤에도 보존할 예약",
+        "fixed",
+        false
+      )
+    );
+    var history = json.mapper().valueToTree(changed.get("history"));
+    String historyId = history.get(0).path("id").asText();
+    var transferred = owner.call(
+      "POST",
+      base + "/ownership/transfer",
+      Map.of("version", 2, "memberId", nextId)
+    );
+    // 방문 이력 복원은 원래 방문만 복원합니다. 소유자·권한 변경 기록은 되돌리지 않습니다.
+    var restored = owner.call(
+      "POST",
+      base + "/undo",
+      Map.of("version", 3, "historyId", historyId)
+    );
+    assertThat(restored.get("ownerId")).isEqualTo(nextId);
+    assertThat(restored.get("ownershipHistory")).isEqualTo(
+      transferred.get("ownershipHistory")
+    );
+    owner.call("POST", base + "/leave", Map.of("version", 4));
+    var after = next.call("GET", base, null);
+    assertThat(after.get("ownerId")).isEqualTo(nextId);
+    assertThat(after.get("ownershipHistory")).isEqualTo(
+      transferred.get("ownershipHistory")
+    );
+    assertThat(
+      json.mapper().valueToTree(after.get("members")).size()
+    ).isEqualTo(1);
+    assertThat(owner.request("GET", base, null, false).statusCode()).isEqualTo(
+      403
+    );
+  }
+
+  @Test
+  void v10AddsEmptyOwnershipHistoryWithoutChangingExistingTravelData()
+    throws Exception {
+    String url =
+      "jdbc:h2:mem:ownership-legacy-" +
+      UUID.randomUUID() +
+      ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+    org.flywaydb.core.Flyway.configure()
+      .dataSource(url, "sa", "")
+      .target("9")
+      .load()
+      .migrate();
+    try (
+      var c = java.sql.DriverManager.getConnection(url, "sa", "");
+      var s = c.createStatement()
+    ) {
+      s.executeUpdate(
+        "INSERT INTO members(id,email,password_hash,nickname) VALUES('old-owner','old@example.test','test','이전 소유자')"
+      );
+      s.executeUpdate(
+        "INSERT INTO trips(id,owner_id,title,regions,start_date,end_date,origin,party_size,budget,transport,preferences,version) VALUES('old-trip','old-owner','기존 여행','[]',DATE '2026-11-01',DATE '2026-11-01','서울역',2,300000,'TRANSIT','[]',5)"
+      );
+      s.executeUpdate(
+        "INSERT INTO trip_members(trip_id,member_id) VALUES('old-trip','old-owner')"
+      );
+    }
+    org.flywaydb.core.Flyway.configure()
+      .dataSource(url, "sa", "")
+      .load()
+      .migrate();
+    try (
+      var c = java.sql.DriverManager.getConnection(url, "sa", "");
+      var s = c.createStatement();
+      var row = s.executeQuery(
+        "SELECT owner_id,title,version,(SELECT COUNT(*) FROM trip_members WHERE trip_id='old-trip') AS participants,(SELECT COUNT(*) FROM trip_ownership_history) AS changes FROM trips WHERE id='old-trip'"
+      )
+    ) {
+      assertThat(row.next()).isTrue();
+      assertThat(row.getString("owner_id")).isEqualTo("old-owner");
+      assertThat(row.getString("title")).isEqualTo("기존 여행");
+      assertThat(row.getInt("version")).isEqualTo(5);
+      assertThat(row.getInt("participants")).isEqualTo(1);
+      assertThat(row.getInt("changes")).isZero();
+    }
+  }
+
   class Browser {
 
     final String email = UUID.randomUUID() + "@example.test";
