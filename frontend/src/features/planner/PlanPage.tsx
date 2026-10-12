@@ -21,6 +21,7 @@ import { useAuth, useConfig, useToast } from "../../shared/providers";
 import type { Conditions, Course } from "../../shared/types";
 import { ErrorState } from "../../shared/ui";
 import LodgingPicker from "./LodgingPicker";
+import FavoritePicker from "../favorites/FavoritePicker";
 
 /** 단계별 입력을 유지하고, 생성 중 중복 요청을 막습니다. AI 대체 실행은 engine 값으로 정확히 표시합니다. */
 export default function PlanPage() {
@@ -43,6 +44,7 @@ export default function PlanPage() {
     preferences: user?.preferences || [],
     lodging: "",
     lodgingIds: [],
+    favoriteIds: params.get("favorite") ? [params.get("favorite")!] : [],
   });
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -58,7 +60,7 @@ export default function PlanPage() {
       [key]: f[key].includes(value)
         ? f[key].filter((v) => v !== value)
         : [...f[key], value],
-      ...(key === "regions" ? { lodgingIds: [] } : {}),
+      ...(key === "regions" ? { lodgingIds: [], favoriteIds: [] } : {}),
     }));
   };
   async function generate() {
@@ -130,7 +132,8 @@ export default function PlanPage() {
             <>
               <h2>이번 여행의 시작을 정해요</h2>
               <p className="muted">
-                여러 지역을 선택하면 선택한 순서로 여행해요.
+                여러 지역을 선택하면 선택한 순서로 여행해요. 지역을 바꾸면
+                숙소와 찜 선택을 다시 정해 주세요.
               </p>
               <label>
                 여행 이름
@@ -328,6 +331,11 @@ export default function PlanPage() {
                     : "다양한 경험을 균형 있게"}
                 </p>
               </div>
+              <FavoritePicker
+                regions={form.regions}
+                selected={form.favoriteIds || []}
+                onChange={(ids) => set("favoriteIds", ids)}
+              />
               <div className="notice">
                 {config.data?.aiConfigured
                   ? "AI가 후보를 평가하고 일정 엔진이 동선과 예산을 검증해요."
@@ -423,6 +431,17 @@ export default function PlanPage() {
                   <Clock size={16} />
                   일정 내 이동 약 {c.travelMinutes}분
                 </div>
+                {!!form.favoriteIds?.length && (
+                  <p className="course-favorites">
+                    선택한 찜 {form.favoriteIds.length}곳 중{" "}
+                    {
+                      c.items.filter((s) =>
+                        form.favoriteIds?.includes(s.place.id),
+                      ).length
+                    }
+                    곳 반영
+                  </p>
+                )}
                 <div className="course-route">
                   {c.items.slice(0, 5).map((s) => (
                     <div key={s.id}>

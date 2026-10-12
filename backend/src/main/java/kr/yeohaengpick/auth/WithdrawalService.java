@@ -63,6 +63,7 @@ public class WithdrawalService {
     withdrawal.blocks(member);
     withdrawal.tokens(member);
     withdrawal.imports(member);
+    withdrawal.favorites(member);
     withdrawal.closeDirectRooms(member);
     // 공개 글/댓글은 휴지통 본문까지 지웁니다. 타인의 댓글·공동 여행·대화·신고 증거는 삭제하지 않습니다.
     withdrawal.erasePosts(member);

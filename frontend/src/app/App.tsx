@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import {
   Routes,
   Route,
@@ -20,7 +20,7 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth, useToast } from "../shared/providers";
-import { RequireAuth, Empty } from "../shared/ui";
+import { RequireAuth, Empty, Loading } from "../shared/ui";
 import HomePage from "../features/home/HomePage";
 import AuthPage from "../features/auth/AuthPage";
 import AccountPage from "../features/auth/AccountPage";
@@ -33,6 +33,8 @@ import CommunityRoute from "../features/community/CommunityRoute";
 import MessagesPage from "../features/messaging/MessagesPage";
 import ProfilePage from "../features/profile/ProfilePage";
 import AdminPage from "../features/admin/AdminPage";
+// 개인 찜 목록은 진입할 때 불러와 첫 화면에서 사용하지 않는 페이지 코드의 전송을 줄입니다.
+const FavoritesPage = lazy(() => import("../features/favorites/FavoritesPage"));
 
 /** 공통 내비게이션. 현재 위치를 강조하고 모바일에서는 엄지로 접근하기 쉬운 하단 메뉴를 제공합니다. */
 export default function App() {
@@ -142,6 +144,7 @@ export default function App() {
               </NavLink>
             ))}
             <NavLink to="/plan">새 여행 만들기</NavLink>
+            <NavLink to="/favorites">내 찜</NavLink>
             {!user && <NavLink to="/login">로그인 / 회원가입</NavLink>}
           </nav>
         )}
@@ -153,6 +156,16 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/explore" element={<ExplorePage />} />
+          <Route
+            path="/favorites"
+            element={
+              <RequireAuth>
+                <Suspense fallback={<Loading />}>
+                  <FavoritesPage />
+                </Suspense>
+              </RequireAuth>
+            }
+          />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage register />} />
           <Route

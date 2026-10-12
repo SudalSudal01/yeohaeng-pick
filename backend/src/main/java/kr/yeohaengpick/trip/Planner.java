@@ -191,6 +191,29 @@ public class Planner {
           "출발지 왕복 교통과 숙박비는 별도예요. 표시 금액은 일정 내 활동비 합계예요."
         )
       );
+      if (!r.favoriteIds().isEmpty()) {
+        var included = stops
+          .stream()
+          .map(s -> s.place().id())
+          .collect(java.util.stream.Collectors.toSet());
+        var omitted = places
+          .stream()
+          .filter(
+            p -> r.favoriteIds().contains(p.id()) && !included.contains(p.id())
+          )
+          .map(Place::name)
+          .toList();
+        warnings.add(
+          "선택한 찜 " +
+            r.favoriteIds().size() +
+            "곳 중 " +
+            (r.favoriteIds().size() - omitted.size()) +
+            "곳을 반영했어요. 찜은 우선 고려하며 분류 균형·이동·시간 제약에 따라 빠질 수 있어요."
+        );
+        if (!omitted.isEmpty()) warnings.add(
+          "이 코스에 포함되지 않은 찜: " + String.join(" · ", omitted)
+        );
+      }
       if (cost > r.budget()) warnings.add(
         "활동비만으로 설정 예산을 " + (cost - r.budget()) + "원 초과해요."
       );
@@ -299,6 +322,8 @@ public class Planner {
     double bestDelta = Double.POSITIVE_INFINITY;
     for (int i = 0; i < selected.size(); i++) {
       Place current = selected.get(i);
+      // 세 코스를 다르게 보이게 만들기 위해 사용자가 고른 찜을 빼지 않습니다. 차이를 못 만들면 기존 경고로 알립니다.
+      if (r.favoriteIds().contains(current.id())) continue;
       for (Place alternative : pool) {
         if (
           ids.contains(alternative.id()) ||
@@ -358,6 +383,8 @@ public class Planner {
 
   private double score(Place p, TripRequest r, int variant, List<String> ai) {
     double preference = r.preferences().contains(p.category()) ? -100 : 0;
+    // 찜은 강제 방문/예약 고정이 아닙니다. 기존 분류 균형과 시간 검사 안에서 우선 평가합니다.
+    if (r.favoriteIds().contains(p.id())) preference -= 250;
     int index = ai.indexOf(p.id());
     if (index >= 0) preference -= 50.0 / (index + 1);
     return (

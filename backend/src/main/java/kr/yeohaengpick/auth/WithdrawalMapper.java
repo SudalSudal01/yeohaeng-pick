@@ -43,6 +43,10 @@ public interface WithdrawalMapper {
   @Delete("DELETE FROM trip_imports WHERE member_id=#{member}")
   void imports(String member);
 
+  /** 비공개 장소 찜은 탈퇴한 회원 행에 남기지 않습니다. */
+  @Delete("DELETE FROM favorite_places WHERE member_id=#{member}")
+  void favorites(String member);
+
   @Update(
     "UPDATE conversations SET status='CLOSED' WHERE trip_id IS NULL AND (requester_id=#{member} OR recipient_id=#{member})"
   )

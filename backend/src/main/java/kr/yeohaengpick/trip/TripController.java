@@ -20,8 +20,8 @@ public class TripController {
   }
 
   @PostMapping("/recommendations")
-  Object recommend(@Valid @RequestBody TripRequest r) {
-    return trips.recommend(r);
+  Object recommend(@Valid @RequestBody TripRequest r, Authentication a) {
+    return trips.recommend(r, auth.id(a));
   }
 
   @GetMapping("/trips")

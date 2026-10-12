@@ -6404,3 +6404,244 @@ textarea {
     flex: 1 1 130px;
   }
 }
+
+/* 개인 찜: 설명과 실행 영역을 24px 분리하고 긴 장소 이름은 글자 크기를 줄이지 않고 줄바꿈합니다. */
+.explore-favorites-link {
+  margin-top: var(--space-action);
+}
+.explore-favorite-action {
+  margin-top: var(--space-action);
+}
+.favorite-button {
+  min-height: 44px;
+}
+.favorite-button.is-saved {
+  color: var(--green-dark);
+  background: var(--green-soft);
+  border-color: var(--green);
+}
+.favorite-status-error {
+  margin: 24px 0;
+}
+.favorite-intro {
+  margin-bottom: 28px;
+}
+.favorite-intro > div:first-child {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--green-dark);
+}
+.favorite-intro > p {
+  margin-top: 16px;
+  max-width: 780px;
+  font-size: var(--text-body);
+  line-height: 1.85;
+}
+.favorite-intro-actions {
+  margin-top: var(--space-action);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.favorite-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 220px));
+  gap: 16px;
+}
+.favorite-filters label {
+  margin: 0;
+}
+.favorite-filters select {
+  margin-top: 8px;
+}
+.favorite-count {
+  margin: 20px 0;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+.favorite-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.favorite-grid > .favorite-card {
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.favorite-card h2 {
+  display: block;
+  margin: 16px 0 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.favorite-card > p {
+  font-size: var(--text-support);
+  line-height: 1.75;
+}
+.favorite-card > p svg {
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.favorite-card > .favorite-price {
+  margin-top: 12px;
+  font-weight: 600;
+}
+.favorite-date {
+  display: block;
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+.favorite-card-actions {
+  padding-top: var(--space-action);
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  width: 100%;
+}
+.favorite-card-actions .text-button {
+  margin-top: 4px;
+  width: 100%;
+  justify-content: flex-start;
+  white-space: normal;
+  text-align: left;
+}
+.favorite-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 28px;
+  font-size: var(--text-support);
+}
+.favorite-picker {
+  margin: 28px 0;
+  padding: 24px;
+  background: var(--green-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.favorite-picker h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+}
+.favorite-picker h3 > span {
+  margin-left: auto;
+  font-size: var(--text-support);
+  color: var(--green-dark);
+}
+.favorite-picker > p {
+  margin-top: 12px;
+  font-size: var(--text-support);
+  line-height: 1.85;
+}
+.favorite-picker-list {
+  margin-top: var(--space-action);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  max-height: 380px;
+  overflow: auto;
+  padding: 3px;
+}
+.favorite-pick {
+  background: white;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  min-height: 84px;
+  min-width: 0;
+}
+.favorite-pick > span {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.favorite-pick strong {
+  font-size: var(--text-body);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.favorite-pick > span > span {
+  font-size: var(--text-support);
+  color: var(--muted);
+}
+.favorite-pick svg {
+  flex-shrink: 0;
+}
+.favorite-pick.selected {
+  border-color: var(--green);
+  color: var(--green-dark);
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.favorite-picker-link {
+  margin-top: var(--space-action);
+  white-space: normal;
+}
+.favorite-missing {
+  margin-top: 24px;
+}
+.favorite-missing .button {
+  margin-top: var(--space-action);
+}
+.favorite-empty {
+  margin-top: 24px !important;
+}
+.course-favorites {
+  margin-top: 16px;
+  color: var(--green-dark);
+  font-size: var(--text-support);
+  line-height: 1.7;
+}
+@media (max-width: 900px) {
+  .favorite-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .favorite-grid,
+  .favorite-picker-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .favorite-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .favorite-intro-actions {
+    flex-direction: column;
+  }
+  .favorite-picker {
+    padding: 18px 14px;
+  }
+  .favorite-card-actions > .button {
+    flex: 1 1 100%;
+  }
+}
+.favorite-help {
+  margin: 0 0 24px;
+  font-size: var(--text-support);
+}
+.favorite-help summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  color: var(--green-dark);
+}
+.favorite-help p {
+  margin-top: 12px;
+  line-height: 1.85;
+  max-width: 780px;
+}

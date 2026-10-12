@@ -18,6 +18,7 @@ public class TripService {
   private final AiRankingService ai;
   private final BookingSchedule schedule;
   private final WholeSchedule wholeSchedule;
+  private final kr.yeohaengpick.favorite.FavoriteService favorites;
   private final kr.yeohaengpick.collaboration.TripOwnershipMapper ownership;
 
   public TripService(
@@ -28,7 +29,8 @@ public class TripService {
     AiRankingService a,
     BookingSchedule schedule,
     WholeSchedule wholeSchedule,
-    kr.yeohaengpick.collaboration.TripOwnershipMapper ownership
+    kr.yeohaengpick.collaboration.TripOwnershipMapper ownership,
+    kr.yeohaengpick.favorite.FavoriteService favorites
   ) {
     trips = t;
     catalog = c;
@@ -38,6 +40,7 @@ public class TripService {
     this.schedule = schedule;
     this.wholeSchedule = wholeSchedule;
     this.ownership = ownership;
+    this.favorites = favorites;
   }
 
   public Map<String, Object> access(String id, String member) {
@@ -54,11 +57,20 @@ public class TripService {
     return trip;
   }
 
-  public List<Planner.Course> recommend(TripRequest request) {
+  public List<Planner.Course> recommend(TripRequest request, String member) {
     planner.validate(request);
-    var candidates = catalog.candidates(request.regions());
+    var candidates = candidates(request, member);
     var ranking = ai.rank(request, candidates);
     return planner.build(request, candidates, ranking.ids(), ranking.engine());
+  }
+
+  /** 찜의 소유권을 먼저 검사하고 재조회한 현재 장소만 합칩니다. 임의 ID로 AI 후보를 추가할 수 없습니다. */
+  private List<Place> candidates(TripRequest r, String member) {
+    var selected = favorites.resolve(member, r.favoriteIds(), r.regions());
+    Map<String, Place> all = new LinkedHashMap<>();
+    catalog.candidates(r.regions()).forEach(p -> all.put(p.id(), p));
+    selected.forEach(p -> all.put(p.id(), p));
+    return List.copyOf(all.values());
   }
 
   public record Create(
@@ -80,7 +92,7 @@ public class TripService {
       create.items.size() > 100
     ) throw DomainException.bad("저장할 일정을 먼저 선택해 주세요.");
     // 클라이언트가 전달한 값은 신뢰하지 않습니다. 장소 ID·좌표·가격을 서버 후보 목록과 대조합니다.
-    var candidates = catalog.candidates(r.regions());
+    var candidates = candidates(r, member);
     var available = candidates
       .stream()
       .collect(java.util.stream.Collectors.toMap(Place::id, p -> p));

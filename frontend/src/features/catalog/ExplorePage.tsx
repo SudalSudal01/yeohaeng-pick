@@ -13,6 +13,8 @@ import type { Place } from "../../shared/types";
 import { useConfig } from "../../shared/providers";
 import { Loading, ErrorState, Empty } from "../../shared/ui";
 import TourismInfoButton from "./TourismInfoButton";
+import FavoriteButton from "../favorites/FavoriteButton";
+import { useFavorites } from "../favorites/useFavorites";
 
 /** URL에 검색 조건을 보존해 새로고침·뒤로 가기·공유 시 사용자가 보던 검색을 유지합니다. */
 export default function ExplorePage() {
@@ -23,6 +25,7 @@ export default function ExplorePage() {
   const [text, setText] = useState(query);
   useEffect(() => setText(query), [query]);
   const config = useConfig();
+  const favorites = useFavorites();
   const places = useQuery({
     queryKey: ["places", region, query, category],
     queryFn: () =>
@@ -49,6 +52,9 @@ export default function ExplorePage() {
         <span className="eyebrow">DISCOVER YOUR PICK</span>
         <h1>마음에 드는 곳을 발견해요</h1>
         <p>가고 싶은 곳을 찾았다면, 그곳에서 여행을 시작해 보세요.</p>
+        <Link className="text-button explore-favorites-link" to="/favorites">
+          내 찜 보러 가기 <ArrowRight size={16} />
+        </Link>
       </div>
       <form
         className="search-bar"
@@ -102,6 +108,15 @@ export default function ExplorePage() {
         <div className="notice">
           로컬 예시 장소예요. 비용은 예산을 비교하기 위한 추정치이며 현재
           요금·운영 여부와 다를 수 있어요.
+        </div>
+      )}
+      {favorites.error && (
+        <div className="favorite-status-error">
+          <p>찜 상태를 확인하지 못했어요. 장소 탐색은 계속할 수 있어요.</p>
+          <ErrorState
+            error={favorites.error}
+            retry={() => favorites.refetch()}
+          />
         </div>
       )}
       {places.isPending ? (
@@ -158,6 +173,12 @@ export default function ExplorePage() {
                 <div className="tourism-entry-action">
                   <TourismInfoButton
                     target={{ name: p.name, region: p.region, url: p.url }}
+                  />
+                </div>
+                <div className="explore-favorite-action">
+                  <FavoriteButton
+                    place={p}
+                    search={{ region, query, category }}
                   />
                 </div>
                 <Link

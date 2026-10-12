@@ -134,3 +134,7 @@ AI에는 공개 장소의 ID·이름·분류·지역·좌표와 여행 취향을
 ## 운영 구성
 
 프론트 정적 파일과 `/api`를 같은 HTTPS 출처로 서비스합니다. Vite 개발 서버는 운영 서버로 쓰지 않습니다. `SPRING_PROFILES_ACTIVE=prod,oracle`, Oracle JDBC 환경변수, `PUBLIC_URL`을 설정합니다. 운영자는 비밀 키, TLS, 프록시/요청 제한, 세션 저장, 백업, 모니터링, 개인정보 정책을 구성해야 합니다. 로컬 Oracle 연결·이전·HTTP 검증은 수행했으며 공개 운영 배포·다중 서버는 아직 검증하지 않았습니다.
+
+## 개인 장소 찜
+
+`FavoriteService`는 로그인 회원의 비공개 목록, 검색 조건/ID 대조, 회원 행 잠금으로 중복/상한을 관리합니다. `FavoriteMapper`의 모든 읽기·삭제는 회원 범위를 포함합니다. V15는 서버 장소 스냅샷 CLOB과 최초 시각만 보관하며 실제 DB 코멘트와 탈퇴 정리를 함께 추가합니다. `TripService`는 선택한 찜의 소유권을 검사하고 재조회한 장소만 AI 후보에 합칩니다. `Planner`는 찜을 우선 평가하되 방문 강제로 취급하지 않고 코스별 누락을 설명합니다. `FavoriteButton`/`FavoritesPage`/`FavoritePicker`는 저장 상태 재동기화·개인 목록·이번 여행의 명시적 선택을 분리합니다. [계약·캐시·후속 범위](favorites.md)

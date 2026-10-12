@@ -29,6 +29,8 @@ export type Place = {
   source: string;
   url: string;
 };
+/** 보관 당시의 공개 장소 정보입니다. 현재 요금/영업/예약 확인 결과와 구분합니다. */
+export type Favorite = { place: Place; savedAt: string };
 /** 관광공사 안내는 원문·출처·시각을 유지합니다. 금액/영업 가능 판정으로 자동 환산하지 않습니다. */
 export type TourismContent = {
   id: string;
@@ -75,6 +77,7 @@ export type Conditions = {
   preferences: string[];
   lodging: string;
   lodgingIds: string[];
+  favoriteIds?: string[];
 };
 export type Stop = {
   id: string;

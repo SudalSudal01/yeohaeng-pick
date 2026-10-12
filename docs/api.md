@@ -15,7 +15,8 @@
 | 관광정보 | GET /catalog/tourism/search?region=&query=&page=, GET /catalog/tourism/{id} | 공개 관광공사 원문·제공 여부·출처·조회 시각. 일정 비변경 |
 | 출발지 검색 | POST /trips/{id}/transport/origins | `{query}` → 회원별 30분 검색 결과 토큰 |
 | 실제 경로 | POST /trips/{id}/transport/routes | 저장 일정·숙소·출발지 토큰 → 경로/요금/좌표 |
-| 추천 | POST /recommendations | 여행 조건 → 세 코스, 엔진/경고/숙소 추정 포함 |
+| 개인 찜 | GET/POST /favorites, DELETE /favorites/{placeId} | 본인 전용. 저장 `{placeId,region,query,category}` → `{place,savedAt}`. 중복 멱등/최대 200곳·해제/탈퇴 정리. [계약](favorites.md) |
+| 추천 | POST /recommendations | 여행 조건과 선택적 `favoriteIds` 최대 5개 → 세 코스. 본인 찜·지역 검사/재조회, 우선 평가·반영/제외 경고 |
 | 여행 | GET/POST /trips, GET/DELETE /trips/{id} | 생성·조회·소유자 삭제 |
 | 대안 | GET /trips/{id}/alternatives/{item}?rain= | 중복 제외, 선택적 실내 후보 |
 | 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId, placeId, version}` |

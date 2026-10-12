@@ -72,6 +72,9 @@ export default function ProfilePage() {
             내 여행 보러 가기
             <ArrowRight size={17} />
           </Link>
+          <Link className="text-button" to="/favorites">
+            찜한 장소 보러 가기 <ArrowRight size={16} />
+          </Link>
           {user.role === "ADMIN" && (
             <Link className="text-button" to="/admin">
               관리자 화면
