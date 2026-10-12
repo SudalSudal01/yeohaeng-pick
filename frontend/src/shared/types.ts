@@ -238,6 +238,26 @@ export type SchedulePlan = {
   items: Item[];
 };
 
+/** 전체 시간 조정은 장소·날짜·비용을 유지합니다. 구간 수는 같은 날 연속 방문 기준입니다. */
+export type WholeSchedulePlan = {
+  strategy: "EARLY" | "LATE";
+  title: string;
+  canApply: boolean;
+  changes: SchedulePlan["changes"];
+  days: {
+    dayIndex: number;
+    beforeStart: string;
+    beforeEnd: string;
+    afterStart: string;
+    afterEnd: string;
+  }[];
+  queriedLegs: number;
+  estimatedLegs: number;
+  warnings: string[];
+  conflicts: string[];
+  items: Item[];
+};
+
 /** 경로 조회값은 일정의 추정 시간/활동비와 분리합니다. null 요금은 미제공이며 무료를 뜻하지 않습니다. */
 export type TransportPoint = {
   id: string;

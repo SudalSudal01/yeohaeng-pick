@@ -91,6 +91,24 @@ public class TripController {
     return trips.scheduleApply(id, c.version, c.strategy, auth.id(a));
   }
 
+  @PostMapping("/trips/{id}/schedule/whole/preview")
+  Object wholeSchedulePreview(
+    @PathVariable String id,
+    @RequestBody WholeSchedule.Request r,
+    Authentication a
+  ) {
+    return trips.wholeSchedulePreview(id, r, auth.id(a));
+  }
+
+  @PostMapping("/trips/{id}/schedule/whole/apply")
+  Object wholeScheduleApply(
+    @PathVariable String id,
+    @RequestBody WholeSchedule.Request r,
+    Authentication a
+  ) {
+    return trips.wholeScheduleApply(id, r, auth.id(a));
+  }
+
   @PutMapping("/trips/{id}/booking")
   Object booking(
     @PathVariable String id,

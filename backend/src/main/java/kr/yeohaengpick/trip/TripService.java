@@ -17,6 +17,7 @@ public class TripService {
   private final JsonCodec json;
   private final AiRankingService ai;
   private final BookingSchedule schedule;
+  private final WholeSchedule wholeSchedule;
 
   public TripService(
     TripMapper t,
@@ -24,7 +25,8 @@ public class TripService {
     Planner p,
     JsonCodec j,
     AiRankingService a,
-    BookingSchedule schedule
+    BookingSchedule schedule,
+    WholeSchedule wholeSchedule
   ) {
     trips = t;
     catalog = c;
@@ -32,6 +34,7 @@ public class TripService {
     json = j;
     ai = a;
     this.schedule = schedule;
+    this.wholeSchedule = wholeSchedule;
   }
 
   public Map<String, Object> access(String id, String member) {
@@ -956,6 +959,56 @@ public class TripService {
       "고정 시간과 하루 범위를 지키는 조정이 어려워요. 예약 시간이나 방문 계획을 먼저 확인해 주세요."
     );
     revision(id, version, member, "교통 예약에 맞춰 " + plan.title());
+    replace(id, plan.items());
+    return detail(id, member);
+  }
+
+  /** 미리보기에는 최신 권한·version·예약·숙박 조건을 함께 사용하며 DB를 변경하지 않습니다. */
+  public List<WholeSchedule.Plan> wholeSchedulePreview(
+    String id,
+    WholeSchedule.Request request,
+    String member
+  ) {
+    var trip = access(id, member);
+    if (
+      ((Number) trip.get("version")).intValue() != request.version()
+    ) throw new DomainException(
+      409,
+      "동행이 여행을 변경했어요. 최신 여행에서 다시 비교해 주세요."
+    );
+    var settings = wholeSchedule.validate(request);
+    var items = trips.items(id);
+    var hotels = trips.lodgings(id);
+    return wholeSchedule.compare(
+      java.time.LocalDate.parse(trip.get("startDate").toString()),
+      items,
+      trips.externalBookings(id),
+      routeTimings(id, items, hotels),
+      hotels,
+      trip.get("transport").toString(),
+      settings
+    );
+  }
+
+  /** 클라이언트의 계산 결과 대신 같은 입력으로 다시 계산하고 조건부 version 갱신과 함께 저장합니다. */
+  @Transactional
+  public Object wholeScheduleApply(
+    String id,
+    WholeSchedule.Request request,
+    String member
+  ) {
+    var plan = wholeSchedulePreview(id, request, member)
+      .stream()
+      .filter(p -> p.strategy().equals(request.strategy()))
+      .findFirst()
+      .orElseThrow(() ->
+        DomainException.bad("전체 일정 조정 방법을 확인해 주세요.")
+      );
+    if (!plan.canApply()) throw new DomainException(
+      409,
+      "적용할 시간 변경이 없거나 고정·예약·이동 조건과 충돌해요. 비교 내용을 확인해 주세요."
+    );
+    revision(id, request.version(), member, "전체 일정 조정 · " + plan.title());
     replace(id, plan.items());
     return detail(id, member);
   }

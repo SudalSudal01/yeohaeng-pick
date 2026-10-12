@@ -40,6 +40,7 @@ import AppliedRouteTimings from "./AppliedRouteTimings";
 import OvernightPanel from "./OvernightPanel";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
+import WholeSchedulePanel from "./WholeSchedulePanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
 import { lodgingBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
@@ -278,6 +279,7 @@ export default function TripPage() {
       )}
       {tab === "일정" ? (
         <>
+          <WholeSchedulePanel trip={trip} refresh={refresh} />
           {/* 날짜 선택과 비교 도구를 나눕니다. 두 비교 링크는 한 그룹 안에서 일정한 간격을 유지합니다. */}
           <div className="trip-schedule-toolbar">
             <div className="day-tabs">

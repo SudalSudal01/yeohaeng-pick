@@ -2150,6 +2150,287 @@ class TravelFlowTest {
     );
   }
 
+  Map<String, Object> wholeRequest(int version, String strategy) {
+    return new HashMap<>(
+      Map.of(
+        "version",
+        version,
+        "strategy",
+        strategy,
+        "startTime",
+        "08:00",
+        "endTime",
+        "21:00",
+        "bufferMinutes",
+        20
+      )
+    );
+  }
+
+  @Test
+  void wholeScheduleComparesAllDaysRecomputesPayloadAndKeepsLodgingAndExpenses()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    trip = user.call("PUT", base + "/lodgings/sample-11/stay", stayRequest(0));
+    user.call(
+      "POST",
+      base + "/expenses",
+      Map.of("label", "간식", "amount", 10000)
+    );
+    trip = user.call("GET", base, null);
+    var request = wholeRequest(1, "EARLY");
+    var preview = user.request(
+      "POST",
+      base + "/schedule/whole/preview",
+      request,
+      true
+    );
+    assertThat(preview.statusCode()).as(preview.body()).isEqualTo(200);
+    var plans = json.mapper().readTree(preview.body());
+    assertThat(plans.get(0).path("days").size()).isEqualTo(2);
+    assertThat(plans.get(0).path("canApply").asBoolean()).isTrue();
+    assertThat(user.call("GET", base, null)).isEqualTo(trip);
+    // 조작된 시각·장소를 보내도 서버가 다시 계산한 방문 시각만 저장해야 합니다.
+    request.put(
+      "items",
+      List.of(Map.of("placeId", "forged", "startTime", "01:00", "cost", 0))
+    );
+    var saved = user.call("POST", base + "/schedule/whole/apply", request);
+    assertThat(json.mapper().valueToTree(saved).path("items")).isEqualTo(
+      plans.get(0).path("items")
+    );
+    assertThat(saved.get("lodgings")).isEqualTo(trip.get("lodgings"));
+    assertThat(saved.get("expenses")).isEqualTo(trip.get("expenses"));
+    assertThat(saved.get("version")).isEqualTo(2);
+    assertThat(
+      user
+        .request("POST", base + "/schedule/whole/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    String history = json
+      .mapper()
+      .valueToTree(saved)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    var restored = user.call(
+      "POST",
+      base + "/undo",
+      Map.of("version", 2, "historyId", history)
+    );
+    assertThat(items(restored)).isEqualTo(items(trip));
+    assertThat(restored.get("lodgings")).isEqualTo(trip.get("lodgings"));
+    assertThat(restored.get("expenses")).isEqualTo(trip.get("expenses"));
+  }
+
+  @Test
+  void wholeScheduleKeepsAppliedRouteAndFixedVisitAndConfirmedBooking()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    trip = user.call(
+      "POST",
+      base + "/transport/timing/apply",
+      routeRequest(user, trip, 0, 1, 45)
+    );
+    trip = user.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        1,
+        "itemId",
+        items(trip).get(0).get("id"),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "예약 방문",
+        "fixed",
+        true
+      )
+    );
+    var booking = connectedBooking(trip, 2);
+    booking.put("departure", "2026-11-01T06:00");
+    booking.put("arrival", "2026-11-01T07:00");
+    booking.put("beforeMinutes", 0);
+    booking.put("afterMinutes", 0);
+    trip = user.call("POST", base + "/external-bookings", booking);
+    var request = wholeRequest(3, "LATE");
+    var preview = user.request(
+      "POST",
+      base + "/schedule/whole/preview",
+      request,
+      true
+    );
+    var plan = json.mapper().readTree(preview.body()).get(1);
+    assertThat(plan.path("canApply").asBoolean()).as(plan.toString()).isTrue();
+    var saved = user.call("POST", base + "/schedule/whole/apply", request);
+    assertThat(items(saved).get(0)).isEqualTo(items(trip).get(0));
+    assertThat(saved.get("routeTimings")).isEqualTo(trip.get("routeTimings"));
+    assertThat(saved.get("externalBookings")).isEqualTo(
+      trip.get("externalBookings")
+    );
+    assertThat(
+      json.mapper().valueToTree(saved).path("schedule").path("issues")
+    ).isEmpty();
+  }
+
+  @Test
+  void wholeScheduleKeepsStoredOvernightAnchorsAndStayConditions()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    trip = user.call("PUT", base + "/lodgings/sample-11/stay", stayRequest(0));
+    trip = user.call(
+      "POST",
+      base + "/transport/overnight/apply",
+      overnightRequest(user, trip)
+    );
+    var request = wholeRequest(2, "LATE");
+    var preview = user.request(
+      "POST",
+      base + "/schedule/whole/preview",
+      request,
+      true
+    );
+    var plans = json.mapper().readTree(preview.body());
+    assertThat(plans.get(1).path("canApply").asBoolean())
+      .as(plans.toString())
+      .isTrue();
+    var saved = user.call("POST", base + "/schedule/whole/apply", request);
+    assertThat(saved.get("routeTimings")).isEqualTo(trip.get("routeTimings"));
+    assertThat(saved.get("lodgings")).isEqualTo(trip.get("lodgings"));
+    assertThat(
+      json.mapper().valueToTree(saved).path("schedule").path("issues")
+    ).isEmpty();
+    assertThat(user.call("GET", base, null).get("routeTimings")).isEqualTo(
+      trip.get("routeTimings")
+    );
+  }
+
+  @Test
+  void wholeScheduleRejectsUnauthorizedCsrfInvalidInputAndConcurrentCompanionEdit()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id");
+    var request = wholeRequest(0, "EARLY");
+    assertThat(
+      new Browser()
+        .request("POST", base + "/schedule/whole/preview", request, true)
+        .statusCode()
+    ).isEqualTo(401);
+    assertThat(
+      companion
+        .request("POST", base + "/schedule/whole/preview", request, true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request("POST", base + "/schedule/whole/apply", request, false)
+        .statusCode()
+    ).isEqualTo(403);
+    for (String key : List.of(
+      "startTime",
+      "endTime",
+      "bufferMinutes",
+      "strategy"
+    )) {
+      var invalid = wholeRequest(0, "EARLY");
+      invalid.put(key, key.equals("bufferMinutes") ? 1.5 : "invalid");
+      assertThat(
+        owner
+          .request("POST", base + "/schedule/whole/apply", invalid, true)
+          .statusCode()
+      ).isEqualTo(400);
+    }
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip.get("id"), "email", companion.email)
+    );
+    var invitations = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body());
+    companion.call(
+      "POST",
+      "/invitations/" + invitations.get(0).path("id").asText() + "/respond",
+      Map.of("accept", true)
+    );
+    // 초대 수락도 여행 version을 갱신하므로 최신 버전으로 비교를 시작합니다.
+    int version = (
+      (Number) owner.call("GET", base, null).get("version")
+    ).intValue();
+    request.put("version", version);
+    var preview = companion.request(
+      "POST",
+      base + "/schedule/whole/preview",
+      request,
+      true
+    );
+    assertThat(preview.statusCode()).isEqualTo(200);
+    var changed = owner.call(
+      "POST",
+      base + "/external-bookings",
+      connectedBooking(trip, version)
+    );
+    assertThat(
+      companion
+        .request("POST", base + "/schedule/whole/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      companion
+        .request("POST", base + "/schedule/whole/preview", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(owner.call("GET", base, null)).isEqualTo(changed);
+    // 고정 방문과 겹치는 예약은 두 방향 모두 차단하고 DB를 그대로 보존해야 합니다.
+    var fixed = owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        version + 1,
+        "itemId",
+        items(trip).getFirst().get("id"),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "고정 방문",
+        "fixed",
+        true
+      )
+    );
+    assertThat(
+      companion
+        .request(
+          "POST",
+          base + "/schedule/whole/apply",
+          wholeRequest(version + 2, "EARLY"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          base + "/schedule/whole/apply",
+          wholeRequest(version + 2, "LATE"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(owner.call("GET", base, null)).isEqualTo(fixed);
+  }
+
   final Map<String, Object> conditions = Map.of(
     "title",
     "권한 검증 여행",

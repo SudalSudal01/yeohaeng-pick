@@ -4770,6 +4770,185 @@ textarea {
   }
 }
 
+/* 전체 일정 비교도 설명→기준→결과→적용 순서를 유지합니다.
+   작은 화면은 글자를 줄이지 않고 한 열로 바꾸며 모든 실행 영역 앞에 24px을 확보합니다. */
+.whole-schedule-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #f8fbf8;
+}
+.whole-schedule-entry h2,
+.whole-schedule-modal .section-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.whole-schedule-entry p {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+.whole-schedule-entry .button {
+  flex-shrink: 0;
+}
+.whole-schedule-modal {
+  width: min(960px, calc(100% - 24px));
+  max-width: 960px;
+}
+.whole-schedule-modal :is(p, li, summary, h3) {
+  overflow-wrap: anywhere;
+}
+.whole-schedule-protection {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 16px;
+  margin: 20px 0 24px;
+  background: #edf4eb;
+  border-radius: 12px;
+  font-size: var(--text-support);
+}
+.whole-schedule-protection svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.whole-schedule-form fieldset {
+  min-width: 0;
+  padding: 18px;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.whole-schedule-form legend {
+  padding: 0 6px;
+  font-size: var(--text-support);
+  font-weight: 700;
+}
+.whole-schedule-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+.whole-schedule-controls label {
+  min-width: 0;
+  margin: 0;
+}
+.whole-schedule-controls :is(input, select) {
+  min-width: 0;
+  width: 100%;
+  margin: 8px 0 0;
+  min-height: 50px;
+  font-size: 16px;
+}
+.whole-schedule-form fieldset p {
+  margin: 16px 0 0;
+}
+.whole-schedule-form-actions {
+  margin: 24px 0;
+}
+.whole-schedule-results-heading {
+  margin-top: 32px;
+}
+.whole-schedule-results-heading h3 {
+  margin-bottom: 8px;
+}
+.whole-schedule-warnings {
+  padding: 16px 16px 16px 34px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #faf8ef;
+  font-size: var(--text-support);
+  line-height: 1.8;
+}
+.whole-schedule-modal .schedule-plans {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.whole-schedule-days {
+  display: grid;
+  gap: 12px;
+  margin: 6px 0;
+}
+.whole-schedule-day {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.whole-schedule-day > strong {
+  font-size: var(--text-support);
+}
+.whole-schedule-after {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--green);
+  font-variant-numeric: tabular-nums;
+}
+.whole-schedule-changes summary {
+  cursor: pointer;
+  min-height: 44px;
+  padding: 12px 0;
+  font-size: var(--text-support);
+  font-weight: 600;
+}
+.whole-schedule-modal .schedule-plan-actions {
+  padding-top: 12px;
+} /* 카드의 gap 12px과 합쳐 직전 설명부터 24px을 확보합니다. */
+.whole-schedule-modal .schedule-plan-actions .button {
+  width: 100%;
+  justify-content: center;
+  white-space: normal;
+}
+.whole-schedule-modal .schedule-plan-conflicts ul {
+  padding-left: 20px;
+  line-height: 1.8;
+}
+.whole-schedule-limits {
+  margin: 24px 0 0;
+}
+@media (max-width: 760px) {
+  .whole-schedule-entry {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 18px;
+  }
+  .whole-schedule-entry .button {
+    justify-content: center;
+    white-space: normal;
+  }
+  .whole-schedule-modal .schedule-plans,
+  .whole-schedule-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .whole-schedule-form-actions .button {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+  }
+}
+@media (max-width: 400px) {
+  .whole-schedule-entry {
+    padding: 14px;
+  }
+  .whole-schedule-modal {
+    width: calc(100% - 16px);
+  }
+  .whole-schedule-form fieldset,
+  .whole-schedule-modal .schedule-plan {
+    padding: 14px;
+  }
+}
+
 /* 숙소 연결은 설명→입력→실행 순서로 읽습니다. 좁은 화면에서는 글씨 대신 열 수를 줄입니다. */
 .overnight-panel {
   padding: 24px;
