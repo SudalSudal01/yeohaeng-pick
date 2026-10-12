@@ -22,7 +22,12 @@ class VerifyOracleMigration {
     if (
       Files.exists(Path.of(System.getenv("H2_SOURCE_FILE") + ".mv.db"))
     ) throw new IllegalStateException("새 합성 데이터 파일만 허용합니다.");
-    Flyway.configure().dataSource(source, "sa", "").load().migrate();
+    // 전환 도구의 보장 범위는 당시의 V11입니다. 이후 앱 스키마 검증은 HTTP 테스트가 담당합니다.
+    Flyway.configure()
+      .dataSource(source, "sa", "")
+      .target("11")
+      .load()
+      .migrate();
     try (
       var c = DriverManager.getConnection(source, "sa", "");
       var s = c.createStatement()
@@ -110,6 +115,7 @@ class VerifyOracleMigration {
     Flyway.configure()
       .dataSource(url, user, password)
       .locations("classpath:db/oracle")
+      .target("11")
       .load()
       .migrate();
     try (

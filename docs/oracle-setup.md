@@ -21,6 +21,37 @@ SELECT table_name FROM user_tables ORDER BY table_name;
 SELECT COUNT(*) AS trip_count FROM trips;
 ```
 
+## DB 설명과 스키마 업데이트
+
+V12/V13부터 실제 DB 사전에 한국어 코멘트를 저장합니다. 현재 도메인 테이블 20개·컬럼 172개를 설명하며 역할, 금액/시간 단위, 상태 값, NULL 의미, 공개/비공개 범위를 구분합니다. SQL Developer에서 테이블을 펼친 뒤 **열(Columns)의 Comments** 또는 테이블 설명을 확인합니다. 새 테이블/컬럼에도 같은 기준을 적용하도록 `AGENTS.md`에 명시했습니다.
+
+```sql
+SELECT table_name, comments FROM user_tab_comments
+ WHERE table_type='TABLE' AND table_name<>'flyway_schema_history' ORDER BY table_name;
+SELECT column_name, comments FROM user_col_comments
+ WHERE table_name='REPORTS' ORDER BY column_name;
+```
+
+이 설명은 SQL 파일 안의 `--`와 별도로 저장되는 [Oracle COMMENT 메타데이터](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/COMMENT.html)입니다. 적용한 V1~V11은 수정하지 않습니다. 신고 증거를 추가한 V13도 신규 컬럼 설명을 함께 제공합니다.
+
+## 현재 Oracle 데이터 백업
+
+PowerShell 7에서 아래 순서로 실행합니다. Oracle 서비스 자체와 다른 프로젝트는 중지하지 않습니다.
+
+```powershell
+.\scripts\Stop-Dev.ps1
+.\scripts\Backup-Oracle.ps1
+.\scripts\Start-Dev.ps1 -SkipBuild
+```
+
+`Backup-Oracle.ps1`은 로컬 `YEOHAENG_PICK` 스키마만 Data Pump Export합니다. Windows OS 관리자 인증은 여행픽 전용 디렉터리 확인/생성·임시 READ/WRITE 부여/회수에만 사용하고 Export는 앱 자신의 계정으로 실행합니다. [공식 Data Pump 설명](https://docs.oracle.com/en/database/oracle/oracle-database/19/sutil/oracle-data-pump-export-utility.html)에 맞춰 SYSDBA Export를 사용하지 않습니다. 평소 앱 권한은 CREATE SESSION/CREATE TABLE로 유지합니다.
+
+비밀번호는 명령줄에 넣지 않고 Git 제외된 임시 parfile로 전달한 뒤 finally에서 제거합니다. `.tools/oracle-backups/`에 전용 스키마 덤프, Export 로그, SHA-256/크기 manifest, 환경설정 사본을 보관합니다. 실제 사용자 정보와 접속 정보가 있으므로 이 디렉터리는 Git에 올리거나 공개 공유하지 않습니다. 다른 경로를 가리키는 동명 Oracle DIRECTORY가 있으면 덮어쓰지 않고 중단합니다.
+
+2026-10-12 V13 적용 전 Export가 정상 완료됐고 적용 전후 20개 테이블의 모든 기존 열/PK 순서 체크섬이 일치했습니다. 이전 신고의 신규 메타데이터는 모두 NULL입니다. 덤프를 새 스키마에 Import하여 복구하는 훈련과 정기 보관/파기, 오프라인 보관은 후속입니다. 이 로컬 논리 백업이 운영 복구 계획 전체를 대체하지 않습니다.
+
+기존 H2→Oracle 전환 도구는 검증 당시의 **V11 원본→빈 V11 대상**으로 고정했습니다. QA fixture도 V11을 명시합니다. 이후 버전의 데이터를 이 도구로 덮어쓰거나 병합하지 않습니다. 현재 앱의 V13 검증은 H2/Oracle HTTP 테스트로 수행하고 실제 Oracle 데이터 보호는 Oracle 백업을 사용합니다.
+
 전용 계정은 자신의 테이블만 관리하도록 `CREATE SESSION`, `CREATE TABLE`, `USERS` 테이블스페이스의 256MB 할당량만 부여합니다. 애플리케이션에서 SYS/SYSTEM/DBA 계정을 사용하지 않습니다. 기존 다른 프로젝트 계정과 테이블은 변경하지 않습니다.
 
 ## 새 PC에서 전용 계정 만들기

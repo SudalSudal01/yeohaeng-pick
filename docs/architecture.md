@@ -4,6 +4,10 @@
 
 실제 DB는 Oracle 19c 전용 스키마를 사용합니다. `oracle` 프로필은 전용 Flyway 위치와 JDBC 연결을 선택하고, MyBatis는 명시적인 Oracle BOOLEAN SQL 및 Map의 열 이름/숫자/CLOB/날짜 변환으로 기존 API 계약을 유지합니다. 자동 테스트의 기본 H2 이력은 그대로 보존합니다. 실제 전체 HTTP 시나리오는 별도 Oracle QA 스키마에서도 실행하며 이전은 앱 시작과 분리한 도구에서 FK 순서·단일 커밋·전체 값 해시 검증을 거칩니다. [접속·이전·복구 상세](oracle-setup.md)
 
+## 신고 당시 내용과 DB 설명
+
+`ReportService`가 대상별 최소 필드만 보존하고 `ReportMapper`가 신고 행 잠금/최초 처리와 감사를 관리합니다. 글은 기존 게시글 잠금과 순서를 맞추고 메시지는 현재 대화 권한을 확인합니다. `ReportCard`는 증거와 조치 입력을 구분합니다. V12/V13의 `COMMENT ON TABLE/COLUMN`을 Oracle·공통 이력에 함께 넣고 실제 DB 사전의 누락 여부를 자동 검사합니다. [개인정보 범위와 한계](report-evidence.md)
+
 ## 여행 소유권 이전
 
 `TripOwnershipService`는 여행 행을 잠근 뒤 현재 소유자·대상 참여·요청 버전을 검사해 소유권/버전 변경, 대기 초대 종료, 변경 기록을 한 트랜잭션에 저장합니다. V10의 별도 기록은 방문 일정 복원과 분리하며 공개 공유에서 제외합니다. 기존 소유자는 동행으로 남습니다. `TripOwnershipPanel`이 대상 선택·권한 확인·충돌 안내·최근 기록을 담당합니다. [권한 변화와 보존 계약](trip-ownership.md)

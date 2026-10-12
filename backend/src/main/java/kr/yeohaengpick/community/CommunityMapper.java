@@ -149,41 +149,8 @@ public interface CommunityMapper {
   )
   List<Map<String, Object>> blocks(String id);
 
-  @Insert(
-    "INSERT INTO reports(id,reporter_id,target_type,target_id,reason) VALUES(#{id},#{member},#{type},#{target},#{reason})"
-  )
-  void report(
-    @Param("id") String id,
-    @Param("member") String member,
-    @Param("type") String type,
-    @Param("target") String target,
-    @Param("reason") String reason
-  );
-
-  @Select(
-    "SELECT * FROM reports ORDER BY created_at DESC FETCH FIRST 100 ROWS ONLY"
-  )
-  List<Map<String, Object>> reports();
-
-  @Select("SELECT * FROM reports WHERE id=#{id}")
-  Map<String, Object> reportById(String id);
-
-  @Update(
-    "UPDATE reports SET status='RESOLVED',resolution=#{resolution} WHERE id=#{id}"
-  )
-  void resolve(@Param("id") String id, @Param("resolution") String resolution);
-
   @Update(
     "UPDATE posts SET hidden=#{hidden},version=version+1 WHERE id=#{id} AND hidden<>#{hidden}"
   )
   void hide(@Param("id") String id, @Param("hidden") boolean hidden);
-
-  @Insert(
-    "INSERT INTO admin_audit(id,admin_id,action) VALUES(#{id},#{admin},#{action})"
-  )
-  void audit(
-    @Param("id") String id,
-    @Param("admin") String admin,
-    @Param("action") String action
-  );
 }

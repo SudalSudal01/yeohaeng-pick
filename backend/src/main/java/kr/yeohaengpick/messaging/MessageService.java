@@ -159,13 +159,22 @@ public class MessageService {
     ) throw DomainException.bad("메시지는 1~2,000자로 입력해 주세요.");
   }
 
-  public void requireMessageAccess(String id, String member) {
+  /** 신고된 메시지 한 건만 복사합니다. 읽을 수 있는 대화인지 검사한 뒤 공개 닉네임만 덧붙입니다. */
+  public Map<String, Object> reportEvidence(String id, String member) {
     var m = messages.message(id);
     if (m == null) throw new DomainException(404, "메시지를 찾을 수 없어요.");
     access((String) m.get("conversationId"), member);
-  }
-
-  public Object reportedMessage(String id) {
-    return messages.message(id);
+    var evidence = kr.yeohaengpick.community.ReportService.pick(
+      m,
+      "id",
+      "senderId",
+      "body",
+      "createdAt"
+    );
+    evidence.put(
+      "nickname",
+      members.byId((String) m.get("senderId")).get("nickname")
+    );
+    return evidence;
   }
 }

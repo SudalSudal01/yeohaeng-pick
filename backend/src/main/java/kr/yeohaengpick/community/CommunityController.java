@@ -6,9 +6,7 @@ import java.time.LocalDate;
 import java.util.*;
 import kr.yeohaengpick.auth.AuthService;
 import kr.yeohaengpick.common.*;
-import kr.yeohaengpick.messaging.MessageService;
 import org.springframework.security.core.Authentication;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 /** 후기와 동행 모집을 공통 게시물로 관리하되, 모집글에는 날짜·인원·모집 상태를 추가합니다. */
@@ -16,22 +14,16 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api")
 public class CommunityController {
 
-  private final CommunityMapper community;
   private final AuthService auth;
-  private final MessageService messages;
   private final CommunityPostService posts;
   private final CommunityCommentService comments;
 
   public CommunityController(
-    CommunityMapper c,
     AuthService a,
-    MessageService m,
     CommunityPostService posts,
     CommunityCommentService comments
   ) {
-    community = c;
     auth = a;
-    messages = m;
     this.posts = posts;
     this.comments = comments;
   }
@@ -147,74 +139,5 @@ public class CommunityController {
     Authentication a
   ) {
     return posts.status(id, s.status, s.version, auth.id(a));
-  }
-
-  public record Report(
-    @Pattern(regexp = "POST|MESSAGE|USER") String type,
-    @NotBlank String targetId,
-    @NotBlank @Size(max = 1000) String reason
-  ) {}
-
-  @PostMapping("/reports")
-  Object report(@Valid @RequestBody Report r, Authentication a) {
-    String member = auth.id(a);
-    if (r.type.equals("MESSAGE")) messages.requireMessageAccess(
-      r.targetId,
-      member
-    );
-    community.report(
-      UUID.randomUUID().toString(),
-      member,
-      r.type,
-      r.targetId,
-      r.reason
-    );
-    return Map.of("message", "신고를 접수했어요.");
-  }
-
-  @GetMapping("/admin/reports")
-  Object reports() {
-    return community
-      .reports()
-      .stream()
-      .map(r -> {
-        // 신고된 메시지 하나만 열람합니다. 관리자에게 전체 개인 대화 목록을 제공하지 않습니다.
-        if (r.get("targetType").equals("MESSAGE")) r.put(
-          "reportedMessage",
-          messages.reportedMessage((String) r.get("targetId"))
-        );
-        return r;
-      })
-      .toList();
-  }
-
-  public record Resolution(
-    @NotBlank @Size(max = 1000) String resolution,
-    boolean hidePost
-  ) {}
-
-  @PostMapping("/admin/reports/{id}/resolve")
-  @Transactional
-  Object resolve(
-    @PathVariable String id,
-    @Valid @RequestBody Resolution r,
-    Authentication a
-  ) {
-    var report = community.reportById(id);
-    if (report == null) throw new DomainException(
-      404,
-      "신고를 찾을 수 없어요."
-    );
-    if (r.hidePost && report.get("targetType").equals("POST")) posts.hide(
-      (String) report.get("targetId"),
-      true
-    );
-    community.resolve(id, r.resolution);
-    community.audit(
-      UUID.randomUUID().toString(),
-      auth.id(a),
-      "신고 " + id + " 처리: " + r.resolution
-    );
-    return Map.of("message", "처리 결과를 저장했어요.");
   }
 }

@@ -190,6 +190,10 @@ export default function PostPage() {
       </section>
       {report && (
         <Modal title="게시글 신고" onClose={closeReport}>
+          <p className="field-help">
+            접수 당시의 제목·본문·작성자 닉네임을 운영 확인용으로 보존해요. 이후
+            글이 수정·삭제되어도 신고 내용은 유지돼요.
+          </p>
           <label>
             신고 사유
             <textarea

@@ -2805,6 +2805,109 @@ textarea {
   font-size: var(--text-support);
   white-space: pre-wrap;
 }
+/* 신고 사유·보존 증거·처리 입력은 여백으로 구분합니다. 긴 본문/ID도 좁은 화면을 밀어내지 않습니다. */
+.report-card {
+  min-width: 0;
+  padding: 28px 0;
+  overflow-wrap: anywhere;
+}
+.report-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.report-card h3 {
+  font-size: 16px;
+  margin: 0 0 12px;
+}
+.report-card p {
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+.report-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+.report-reason,
+.report-result {
+  margin-top: 24px;
+}
+.report-reason p,
+.report-result > p:not(.report-meta) {
+  font-size: 15px;
+}
+.report-evidence {
+  margin-top: 24px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8faf6;
+}
+.report-evidence summary {
+  padding: 16px;
+  min-height: 48px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+}
+.report-evidence-content {
+  padding: 0 16px 16px;
+}
+.report-evidence-body {
+  max-height: 288px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 15px;
+  line-height: 1.8;
+  margin: 16px 0;
+}
+.report-evidence-body:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 4px;
+}
+.report-resolution {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+.report-resolution > label {
+  font-size: 15px;
+}
+.report-resolution textarea {
+  font-size: 16px;
+  width: 100%;
+  min-width: 0;
+  resize: vertical;
+}
+.report-hide-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  cursor: pointer;
+}
+.report-hide-choice input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.report-resolution .field-help {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+.report-actions {
+  margin-top: 12px;
+} /* grid 간격 12px + 여백 12px = 안내 아래 최소 24px */
+.report-actions .button {
+  min-height: 48px;
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .report-actions .button {
+    width: 100%;
+  }
+}
 /* 태블릿은 비교를 유지하고, 모바일은 한 열과 하단 내비게이션으로 전환합니다.
    안전 영역과 키보드, 긴 장소명·메시지 때문에 가로 스크롤이 생기지 않도록 min-width를 제어합니다. */
 @media (min-width: 1100px) {

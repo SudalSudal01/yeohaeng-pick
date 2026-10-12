@@ -394,7 +394,10 @@ export default function MessagesPage() {
       )}
       {report && (
         <Modal title="메시지 신고" onClose={closeReport}>
-          <p className="muted">신고한 메시지는 운영자가 확인할 수 있어요.</p>
+          <p className="field-help">
+            신고한 메시지 한 건과 당시 닉네임을 운영 확인용으로 보존해요. 다른
+            개인 대화는 운영자에게 공개하지 않아요.
+          </p>
           <label>
             신고 사유
             <textarea

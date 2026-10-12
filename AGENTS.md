@@ -10,6 +10,7 @@
 - AI는 조회된 장소 ID만 선택한다. 가격·운영시간·좌석·결제 성공을 생성하거나 추정 결과를 확정 정보로 표시하지 않는다.
 - 예시 데이터는 local 프로필에서만 사용한다. prod의 외부 장애를 예시 데이터로 대체하지 않는다.
 - 적용한 Flyway 마이그레이션을 수정하지 않는다. 다음 버전 파일로 변경한다.
+- DB 테이블·컬럼을 만들거나 의미를 변경할 때 `COMMENT ON TABLE/COLUMN`으로 한국어 설명을 함께 관리한다. 역할, 단위, 상태 값, NULL의 의미와 개인정보 범위를 설명하며 Oracle·공통 마이그레이션을 맞춘다.
 - `.env`, API 키, 쿠키, 로컬 DB와 실사용자 정보를 Git에 추가하지 않는다.
 - 동시 편집·예약 고정·공유 개인정보·메시지 차단에 영향을 주면 실제 HTTP 통합 테스트를 보강한다.
 - 검증: `backend/mvnw.cmd test`, `frontend/npm run build`, `frontend/npm test`, `frontend/npm run format:check`.

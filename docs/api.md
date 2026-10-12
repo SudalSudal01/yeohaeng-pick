@@ -169,3 +169,11 @@ V4 마이그레이션은 기존 예약에 `arrival=null`, `scheduleLinked=false`
 참여자 세션·CSRF를 요구하며 06:00~22:00 안에서 60분 이상의 범위, 0~120 정수 여유를 검증한다. EARLY/LATE 두 응답에는 title/canApply, changes(방문별 전후 시각), days(일차별 최소 시작/최대 종료의 전후 값), queriedLegs/estimatedLegs(같은 날 연속 방문 구간 수), warnings/conflicts와 items가 포함된다. 변화가 없으면 conflicts가 비어도 canApply는 false다.
 
 같은 날 미조회 이동은 거리 추정+입력 여유, 조회 반영 구간은 기존 분+기존 여유를 사용한다. 방문·직후 이동이 연결 예약 구간과 겹치지 않아야 한다. 날짜 간 이동/숙소 출발·체류 앵커와 숙박 조건도 보존한다. 미반영 날짜 간 연결과 미연결 교통 예약은 warnings다. 영업시간·실제 운행/좌석/객실 검증을 뜻하지 않는다. 적용 시 서버가 재계산하고 방문 시각만 이력과 함께 저장한다. 숙소·경로 JSON·예약·비용·지출을 바꾸지 않으며 추가 마이그레이션은 없다. 잘못된 조건/전략은 400, 오래된 version·충돌·변경 없음은 409다.
+
+## 신고 증거와 관리자 처리
+
+`POST /reports`는 `{type: "POST"|"MESSAGE"|"USER", targetId, reason}`을 받습니다. type은 필수이고 사유는 최대 1,000자입니다. 대상 존재/공개 여부와 메시지 접근 권한을 검사한 뒤 당시 정보만 화이트리스트 JSON으로 보존합니다. 응답은 접수 안내이며 증거는 일반 회원에게 반환하지 않습니다.
+
+`GET /admin/reports`는 최근 100건을 반환합니다. `evidence`는 대상별 최소 필드를 담은 객체 또는 기존 신고의 null이며, `capturedAt`, `resolvedAt`, `resolvedBy`를 함께 반환합니다. 이전의 현재 원문 기반 `reportedMessage`는 제거했습니다. 이전 신고에 현재 내용을 증거로 소급하지 않습니다.
+
+`POST /admin/reports/{id}/resolve`는 `{resolution, hidePost}`를 받습니다. 게시글 숨김은 명시적 선택이며 POST에서만 허용합니다. 사유 최대 1,000자, 신고 행 잠금과 OPEN 조건으로 최초 처리만 허용하고 중복은 409입니다. 완료/시각/관리자·선택한 숨김·짧은 감사 요약을 원자적으로 저장합니다. [보존 필드와 개인정보 한계](report-evidence.md)

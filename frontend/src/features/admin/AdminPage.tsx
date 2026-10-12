@@ -1,24 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { ShieldCheck } from "lucide-react";
+import ReportCard, { type Report } from "./ReportCard";
 import { api } from "../../shared/api";
-import { useAuth, useConfig, useToast } from "../../shared/providers";
+import { useAuth, useConfig } from "../../shared/providers";
 import { Empty, Loading, ErrorState } from "../../shared/ui";
-type Report = {
-  id: string;
-  targetType: string;
-  reason: string;
-  status: string;
-  resolution: string;
-  reportedMessage?: { body: string };
-};
-
 /** 운영자 화면도 서버의 ROLE_ADMIN 검사를 통과해야 데이터를 받을 수 있습니다. 일반 회원에게 요청 자체를 보내지 않습니다. */
 export default function AdminPage() {
   const { user } = useAuth();
   const config = useConfig();
-  const toast = useToast();
-  const [notes, setNotes] = useState<Record<string, string>>({});
   const reports = useQuery({
     queryKey: ["reports"],
     queryFn: () => api<Report[]>("/admin/reports"),
@@ -56,6 +45,10 @@ export default function AdminPage() {
       </div>
       <section className="panel">
         <h2>접수된 신고</h2>
+        <p className="field-help">
+          최근 100건을 보여줘요. 당시 내용과 신고 사유를 확인한 뒤 조치를 선택해
+          주세요.
+        </p>
         {reports.isPending ? (
           <Loading />
         ) : reports.error ? (
@@ -64,54 +57,11 @@ export default function AdminPage() {
           <p className="muted">접수된 신고가 없어요.</p>
         ) : (
           reports.data.map((r) => (
-            <article className="report-card" key={r.id}>
-              <span className="badge">
-                {r.targetType} ·{" "}
-                {r.status === "OPEN" ? "처리 대기" : "처리 완료"}
-              </span>
-              <p>{r.reason}</p>
-              {r.reportedMessage && (
-                <blockquote>{r.reportedMessage.body}</blockquote>
-              )}
-              {r.status === "OPEN" ? (
-                <form
-                  className="inline-form"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    try {
-                      await api("/admin/reports/" + r.id + "/resolve", {
-                        method: "POST",
-                        body: {
-                          resolution: notes[r.id],
-                          hidePost: r.targetType === "POST",
-                        },
-                      });
-                      await reports.refetch();
-                      toast("처리 결과와 감사 기록을 저장했어요.");
-                    } catch (e) {
-                      toast((e as Error).message, true);
-                    }
-                  }}
-                >
-                  <input
-                    aria-label="신고 처리 사유"
-                    value={notes[r.id] || ""}
-                    onChange={(e) =>
-                      setNotes({ ...notes, [r.id]: e.target.value })
-                    }
-                    placeholder={
-                      r.targetType === "POST"
-                        ? "처리 사유 입력 · 게시글을 숨깁니다"
-                        : "처리 사유 입력"
-                    }
-                    required
-                  />
-                  <button className="button primary">처리</button>
-                </form>
-              ) : (
-                <p className="muted">{r.resolution}</p>
-              )}
-            </article>
+            <ReportCard
+              key={r.id}
+              report={r}
+              refresh={() => reports.refetch()}
+            />
           ))
         )}
       </section>
