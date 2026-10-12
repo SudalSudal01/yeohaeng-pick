@@ -14,6 +14,7 @@ import type { Post } from "../../shared/types";
 import { useAuth, useToast } from "../../shared/providers";
 import { ErrorState, Loading, Modal } from "../../shared/ui";
 import PostManagement from "./PostManagement";
+import PostComments from "./PostComments";
 
 /** 공개 상세는 삭제/숨김을 주기적으로 다시 확인합니다. 개인 대화 요청과 여행 초대는 별도 권한입니다. */
 export default function PostPage() {
@@ -43,7 +44,7 @@ export default function PostPage() {
   });
   async function refresh() {
     const r = await query.refetch();
-    return r.data;
+    return r.isError ? undefined : r.data;
   }
   async function submitComment(e: React.FormEvent) {
     e.preventDefault();
@@ -161,17 +162,7 @@ export default function PostPage() {
           함께 나누는 이야기{" "}
           <span className="badge subtle">{p.comments?.length || 0}</span>
         </h2>
-        {p.comments?.map((c) => (
-          <div className="comment" key={c.id}>
-            <span className="avatar small-avatar">
-              {c.nickname.slice(0, 1)}
-            </span>
-            <div>
-              <strong>{c.nickname}</strong>
-              <p>{c.body}</p>
-            </div>
-          </div>
-        ))}
+        <PostComments post={p} refresh={refresh} />
         {user ? (
           <form className="inline-form" onSubmit={submitComment}>
             <input

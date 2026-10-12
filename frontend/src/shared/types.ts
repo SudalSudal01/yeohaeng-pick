@@ -189,6 +189,16 @@ export type LodgingChoicePreview = {
   conflicts: string[];
   canApply: boolean;
 };
+/** 공개 중인 댓글만 내려옵니다. 수정 버전은 부모 게시글 버전과 독립적입니다. */
+export type CommunityComment = {
+  id: string;
+  authorId: string;
+  nickname: string;
+  body: string;
+  createdAt: string;
+  version: number;
+  updatedAt?: string | null;
+};
 export type Post = {
   id: string;
   authorId: string;
@@ -203,13 +213,7 @@ export type Post = {
   status: string;
   version: number;
   updatedAt?: string | null;
-  comments?: {
-    id: string;
-    authorId: string;
-    nickname: string;
-    body: string;
-    createdAt: string;
-  }[];
+  comments?: CommunityComment[];
 };
 /** 휴지통에는 작성자 본인의 제목·삭제 시각만 제공합니다. 본문·댓글은 복원 후 다시 조회합니다. */
 export type DeletedPost = Pick<

@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
-/** 실제 HTTP·세션·CSRF·V8 메모리 DB로 작성자 관리와 공개 제외, 동시 편집을 검증합니다. 외부 API/메일은 호출하지 않습니다. */
+/** 실제 HTTP·세션·CSRF·최신 메모리 DB로 글/댓글 작성자 관리와 공개 제외, 동시 편집을 검증합니다. 외부 API/메일은 호출하지 않습니다. */
 @SpringBootTest(
   webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
   properties = {
@@ -471,6 +471,324 @@ class CommunityFlowTest {
       assertThat(row.getObject("deleted_at")).isNull();
       assertThat(row.getObject("updated_at")).isNull();
       assertThat(row.getString("comment_body")).isEqualTo("이전 댓글");
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  Map<String, Object> firstComment(Map<String, Object> post) {
+    return ((List<Map<String, Object>>) post.get("comments")).get(0);
+  }
+
+  @Test
+  void commentEditAndDeletionAreIndependentAndPreservedAcrossPostRestore()
+    throws Exception {
+    var author = new Browser().signup();
+    var writer = new Browser().signup();
+    var p = author.call(
+      "POST",
+      "/community/posts",
+      content("후기", "댓글 관리")
+    );
+    String base = "/community/posts/" + p.get("id");
+    var added = writer.call(
+      "POST",
+      base + "/comments",
+      Map.of("body", "원래 댓글")
+    );
+    var c = firstComment(added);
+    String path = base + "/comments/" + c.get("id");
+    assertThat(c).containsEntry("version", 0);
+    assertThat(c.get("updatedAt")).isNull();
+    writer.call(
+      "PUT",
+      path,
+      Map.of("version", 0, "body", "  바뀐 댓글\n둘째 줄  ")
+    );
+    var updated = writer.call("GET", base, null);
+    var edited = firstComment(updated);
+    assertThat(edited)
+      .containsEntry("version", 1)
+      .containsEntry("body", "바뀐 댓글\n둘째 줄")
+      .containsEntry("createdAt", c.get("createdAt"));
+    assertThat(edited.get("updatedAt")).isNotNull();
+    assertThat(updated.get("version")).isEqualTo(0);
+    assertThat(
+      writer
+        .request("PUT", path, Map.of("version", 0, "body", "오래된 초안"), true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      writer.request("DELETE", path, Map.of("version", 0), true).statusCode()
+    ).isEqualTo(409);
+    // 게시글이나 다른 댓글 변경은 이 댓글의 버전을 바꾸지 않습니다.
+    author.call("PUT", base, edit(p, content("후기", "글 변경")));
+    author.call(
+      "POST",
+      base + "/comments",
+      Map.of("body", "남겨 둘 다른 댓글")
+    );
+    writer.call("DELETE", path, Map.of("version", 1));
+    var visible = author.call("GET", base, null);
+    assertThat(json.write(visible.get("comments")))
+      .doesNotContain(c.get("id").toString(), "바뀐 댓글")
+      .contains("남겨 둘 다른 댓글");
+    assertThat(visible.get("version")).isEqualTo(1);
+    assertThat(
+      writer
+        .request("PUT", path, Map.of("version", 2, "body", "되살리기"), true)
+        .statusCode()
+    ).isEqualTo(404);
+    assertThat(
+      writer.request("DELETE", path, Map.of("version", 2), true).statusCode()
+    ).isEqualTo(404);
+    author.call("DELETE", base, Map.of("version", 1));
+    var restored = author.call("POST", base + "/restore", Map.of("version", 2));
+    assertThat(json.write(restored.get("comments")))
+      .doesNotContain(c.get("id").toString(), "바뀐 댓글")
+      .contains("남겨 둘 다른 댓글");
+  }
+
+  @Test
+  void commentOwnershipCsrfInputAndParentBindingAreEnforced() throws Exception {
+    var author = new Browser().signup();
+    var writer = new Browser().signup();
+    var p = author.call(
+      "POST",
+      "/community/posts",
+      content("추천", "댓글 권한")
+    );
+    String base = "/community/posts/" + p.get("id");
+    var c = firstComment(
+      writer.call("POST", base + "/comments", Map.of("body", "작성자만 수정"))
+    );
+    String path = base + "/comments/" + c.get("id");
+    for (String method : List.of("PUT", "DELETE")) {
+      var data = Map.of("version", 0, "body", "다른 사람의 수정");
+      assertThat(
+        new Browser().request(method, path, data, true).statusCode()
+      ).isEqualTo(401);
+      assertThat(
+        author.request(method, path, data, true).statusCode()
+      ).isEqualTo(403);
+      assertThat(
+        writer.request(method, path, data, false).statusCode()
+      ).isEqualTo(403);
+      assertThat(
+        writer
+          .request(method, path, Map.of("body", "버전 누락"), true)
+          .statusCode()
+      ).isEqualTo(400);
+      assertThat(
+        writer
+          .request(method, path, Map.of("version", -1, "body", "음수"), true)
+          .statusCode()
+      ).isEqualTo(400);
+      var invalid = new HashMap<String, Object>();
+      invalid.put("version", null);
+      invalid.put("body", "널 버전");
+      assertThat(
+        writer.request(method, path, invalid, true).statusCode()
+      ).isEqualTo(400);
+    }
+    for (String body : List.of(" ", "x".repeat(2001)))
+      assertThat(
+        writer
+          .request("PUT", path, Map.of("version", 0, "body", body), true)
+          .statusCode()
+      ).isEqualTo(400);
+    var another = author.call(
+      "POST",
+      "/community/posts",
+      content("추천", "다른 글")
+    );
+    String wrong =
+      "/community/posts/" + another.get("id") + "/comments/" + c.get("id");
+    for (String method : List.of("PUT", "DELETE"))
+      assertThat(
+        writer
+          .request(
+            method,
+            wrong,
+            Map.of("version", 0, "body", "소속 변경"),
+            true
+          )
+          .statusCode()
+      ).isEqualTo(404);
+    assertThat(firstComment(writer.call("GET", base, null))).isEqualTo(c);
+  }
+
+  @Test
+  void hiddenOrDeletedPostCannotBeBypassedWithCommentMutation()
+    throws Exception {
+    var author = new Browser().signup();
+    var p = author.call(
+      "POST",
+      "/community/posts",
+      content("의견", "댓글 공개 제한")
+    );
+    String id = p.get("id").toString(),
+      base = "/community/posts/" + id;
+    var c = firstComment(
+      author.call("POST", base + "/comments", Map.of("body", "보존할 댓글"))
+    );
+    String path = base + "/comments/" + c.get("id");
+    posts.hide(id, true);
+    for (String method : List.of("PUT", "DELETE"))
+      assertThat(
+        author
+          .request(
+            method,
+            path,
+            Map.of("version", 0, "body", "숨김 우회"),
+            true
+          )
+          .statusCode()
+      ).isEqualTo(404);
+    posts.hide(id, false);
+    author.call("DELETE", base, Map.of("version", 2));
+    for (String method : List.of("PUT", "DELETE"))
+      assertThat(
+        author
+          .request(
+            method,
+            path,
+            Map.of("version", 0, "body", "삭제 우회"),
+            true
+          )
+          .statusCode()
+      ).isEqualTo(404);
+    var restored = author.call("POST", base + "/restore", Map.of("version", 3));
+    assertThat(firstComment(restored)).isEqualTo(c);
+  }
+
+  /** 두 HTTP 세션을 같은 버전으로 출발시켜 저장/삭제 경합에서도 덮어쓰기가 없는지 확인합니다. */
+  void raceComment(boolean deleteSecond) throws Exception {
+    var owner = new Browser().signup();
+    var second = new Browser();
+    second.call(
+      "POST",
+      "/auth/login",
+      Map.of("email", owner.email, "password", "Community-Test-Only12!")
+    );
+    var p = owner.call(
+      "POST",
+      "/community/posts",
+      content("후기", "댓글 경합")
+    );
+    String base = "/community/posts/" + p.get("id");
+    var c = firstComment(
+      owner.call("POST", base + "/comments", Map.of("body", "처음"))
+    );
+    String path = base + "/comments/" + c.get("id");
+    var gate = new java.util.concurrent.CyclicBarrier(2);
+    var a = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return owner.request(
+          "PUT",
+          path,
+          Map.of("version", 0, "body", "첫 창"),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var b = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        gate.await();
+        return second.request(
+          deleteSecond ? "DELETE" : "PUT",
+          path,
+          Map.of("version", 0, "body", "다른 창"),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var responses = List.of(
+      a.get(20, java.util.concurrent.TimeUnit.SECONDS),
+      b.get(20, java.util.concurrent.TimeUnit.SECONDS)
+    );
+    assertThat(
+      responses
+        .stream()
+        .filter(r -> r.statusCode() == 200)
+        .count()
+    ).isEqualTo(1);
+    assertThat(responses.stream().map(HttpResponse::statusCode)).allMatch(
+      s -> s == 200 || s == 409 || (deleteSecond && s == 404)
+    );
+    var result = owner.call("GET", base, null);
+    assertThat(result.get("version")).isEqualTo(0);
+    var remaining = json.mapper().valueToTree(result.get("comments"));
+    if (deleteSecond && responses.get(1).statusCode() == 200) assertThat(
+      remaining.size()
+    ).isZero();
+    else {
+      assertThat(remaining.get(0).path("version").asInt()).isEqualTo(1);
+      assertThat(remaining.get(0).path("body").asText()).isIn(
+        "첫 창",
+        "다른 창"
+      );
+    }
+  }
+
+  @Test
+  void twoCommentEditsCannotOverwrite() throws Exception {
+    raceComment(false);
+  }
+
+  @Test
+  void commentEditAndDeleteHaveOneWinner() throws Exception {
+    raceComment(true);
+  }
+
+  @Test
+  void v9KeepsExistingCommentsAndStartsIndependentVersion() throws Exception {
+    String url =
+      "jdbc:h2:mem:comment-legacy-" +
+      UUID.randomUUID() +
+      ";MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1";
+    org.flywaydb.core.Flyway.configure()
+      .dataSource(url, "sa", "")
+      .target("8")
+      .load()
+      .migrate();
+    try (
+      var connection = java.sql.DriverManager.getConnection(url, "sa", "");
+      var statement = connection.createStatement()
+    ) {
+      statement.executeUpdate(
+        "INSERT INTO members(id,email,password_hash,nickname) VALUES('legacy-writer','comment@example.test','test-hash','이전 댓글 작성자')"
+      );
+      statement.executeUpdate(
+        "INSERT INTO posts(id,author_id,category,region,title,body) VALUES('legacy-post','legacy-writer','후기','서울','이전 글','본문')"
+      );
+      statement.executeUpdate(
+        "INSERT INTO comments(id,post_id,author_id,body,created_at) VALUES('legacy-comment','legacy-post','legacy-writer','이전 댓글',TIMESTAMP '2026-10-01 12:00:00')"
+      );
+    }
+    org.flywaydb.core.Flyway.configure()
+      .dataSource(url, "sa", "")
+      .load()
+      .migrate();
+    try (
+      var connection = java.sql.DriverManager.getConnection(url, "sa", "");
+      var statement = connection.createStatement();
+      var row = statement.executeQuery(
+        "SELECT * FROM comments WHERE id='legacy-comment'"
+      )
+    ) {
+      assertThat(row.next()).isTrue();
+      assertThat(row.getString("body")).isEqualTo("이전 댓글");
+      assertThat(row.getTimestamp("created_at").toLocalDateTime()).isEqualTo(
+        java.time.LocalDateTime.of(2026, 10, 1, 12, 0)
+      );
+      assertThat(row.getInt("version")).isZero();
+      assertThat(row.getObject("updated_at")).isNull();
+      assertThat(row.getObject("deleted_at")).isNull();
     }
   }
 

@@ -20,17 +20,20 @@ public class CommunityController {
   private final AuthService auth;
   private final MessageService messages;
   private final CommunityPostService posts;
+  private final CommunityCommentService comments;
 
   public CommunityController(
     CommunityMapper c,
     AuthService a,
     MessageService m,
-    CommunityPostService posts
+    CommunityPostService posts,
+    CommunityCommentService comments
   ) {
     community = c;
     auth = a;
     messages = m;
     this.posts = posts;
+    this.comments = comments;
   }
 
   public record Post(
@@ -105,6 +108,31 @@ public class CommunityController {
     Authentication a
   ) {
     return posts.comment(id, c.body, auth.id(a));
+  }
+
+  public record CommentEdit(
+    @NotNull @Min(0) Integer version,
+    @NotBlank @Size(max = 2000) String body
+  ) {}
+
+  @PutMapping("/community/posts/{id}/comments/{commentId}")
+  void editComment(
+    @PathVariable String id,
+    @PathVariable String commentId,
+    @Valid @RequestBody CommentEdit r,
+    Authentication a
+  ) {
+    comments.edit(id, commentId, auth.id(a), r.version, r.body);
+  }
+
+  @DeleteMapping("/community/posts/{id}/comments/{commentId}")
+  void deleteComment(
+    @PathVariable String id,
+    @PathVariable String commentId,
+    @Valid @RequestBody Version r,
+    Authentication a
+  ) {
+    comments.delete(id, commentId, auth.id(a), r.version);
   }
 
   public record Status(

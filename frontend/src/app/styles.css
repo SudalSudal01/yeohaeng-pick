@@ -5968,6 +5968,78 @@ textarea {
   font-size: 15px;
   line-height: 1.9;
 }
+/* 댓글 본문·작성 정보·실행 도구를 분리하고 긴 닉네임과 연속 문자열도 모바일 폭 안에서 읽게 합니다. */
+.comment-content {
+  flex: 1;
+}
+.comment-meta {
+  display: block;
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin-top: 6px;
+  font-weight: 400;
+}
+.comment-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 24px;
+}
+.comment-tools .text-button {
+  min-height: 44px;
+  font-size: 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.comment-empty {
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--muted);
+  margin: 24px 0;
+}
+.comment-management-modal {
+  width: min(580px, calc(100% - 24px));
+}
+.comment-edit-field {
+  margin: 0;
+}
+.comment-edit-field textarea {
+  min-height: 160px;
+  font-size: 16px;
+  line-height: 1.8;
+}
+.comment-management-modal .field-help {
+  display: block;
+  font-size: 14px;
+  line-height: 1.9;
+  font-weight: 400;
+  margin: 12px 0 0;
+}
+.comment-delete-preview {
+  max-height: 200px;
+  overflow: auto;
+  margin: 0 0 24px;
+  padding: 16px;
+  border-left: 3px solid var(--border);
+  background: var(--green-soft);
+  font-size: 15px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.comment-management-modal .notice {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .comment-management-modal {
+    padding: 20px;
+  }
+  .managed-comment {
+    gap: 10px;
+  }
+}
 .post-contact {
   padding: 24px 0 0;
 }

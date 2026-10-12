@@ -30,6 +30,7 @@
 | 커뮤니티 | GET/POST /community/posts, GET /community/posts/{id} | 목록·작성·상세 |
 | 내 글 관리 | PUT/DELETE /community/posts/{id}, GET /community/trash, POST /community/posts/{id}/restore | 작성자·버전·휴지통·복원. [계약과 보존 정책](community-management.md) |
 | 댓글/모집 | POST /community/posts/{id}/comments, PUT /community/posts/{id}/status | 댓글과 작성자의 모집 상태. 상태 변경에 `{version,status}` 필요 |
+| 내 댓글 관리 | PUT/DELETE /community/posts/{id}/comments/{commentId} | 댓글 작성자·소속·독립 버전 검사. 수정 `{version,body}`, 삭제 `{version}`. 삭제 댓글은 상세/개수에서 제외하며 복원 불가 |
 | 신고/관리자 | POST /reports, GET /admin/reports, POST /admin/reports/{id}/resolve | 신고 및 처리 |
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | 요청·조회·수락 후 추가 발송 |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |

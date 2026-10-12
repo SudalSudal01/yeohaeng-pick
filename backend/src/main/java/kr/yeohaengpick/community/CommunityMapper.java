@@ -55,9 +55,38 @@ public interface CommunityMapper {
   void insert(Map<String, Object> p);
 
   @Select(
-    "SELECT c.id,c.author_id,c.body,c.created_at,m.nickname FROM comments c JOIN members m ON c.author_id=m.id WHERE c.post_id=#{id} ORDER BY c.created_at"
+    "SELECT c.id,c.author_id,c.body,c.created_at,c.updated_at,c.version,m.nickname FROM comments c JOIN members m ON c.author_id=m.id WHERE c.post_id=#{id} AND c.deleted_at IS NULL ORDER BY c.created_at,c.id"
   )
   List<Map<String, Object>> comments(String id);
+
+  /** 부모 글을 먼저 잠근 뒤 조회합니다. URL의 글과 댓글 소속이 일치해야 관리할 수 있습니다. */
+  @Select("SELECT * FROM comments WHERE id=#{id} AND post_id=#{post}")
+  Map<String, Object> commentById(
+    @Param("post") String post,
+    @Param("id") String id
+  );
+
+  @Update(
+    "UPDATE comments SET body=#{body},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND post_id=#{post} AND author_id=#{member} AND version=#{version} AND deleted_at IS NULL"
+  )
+  int editComment(
+    @Param("post") String post,
+    @Param("id") String id,
+    @Param("member") String member,
+    @Param("version") int version,
+    @Param("body") String body
+  );
+
+  /** 행은 보존하되 공개 조회에서는 본문과 작성자 정보 모두 제외합니다. 복원 API는 제공하지 않습니다. */
+  @Update(
+    "UPDATE comments SET deleted_at=CURRENT_TIMESTAMP,version=version+1 WHERE id=#{id} AND post_id=#{post} AND author_id=#{member} AND version=#{version} AND deleted_at IS NULL"
+  )
+  int deleteComment(
+    @Param("post") String post,
+    @Param("id") String id,
+    @Param("member") String member,
+    @Param("version") int version
+  );
 
   @Insert(
     "INSERT INTO comments(id,post_id,author_id,body) VALUES(#{id},#{post},#{member},#{body})"
