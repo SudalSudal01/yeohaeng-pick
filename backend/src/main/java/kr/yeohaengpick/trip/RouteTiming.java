@@ -60,12 +60,19 @@ public record RouteTiming(
         !coordinates(to, toLatitude, toLongitude)
       ) continue;
       if (fromKind.equals("ITEM")) {
-        if (n == 0) return false;
-        var from = day.get(n - 1);
+        // 다음 날 첫 방문은 바로 전날 마지막 방문에만 연결합니다.
+        // 날짜가 비거나 중간 방문을 건너뛴 경로를 일정 전체의 이동으로 오인하지 않습니다.
+        var previous = items
+          .stream()
+          .filter(i -> number(i, "dayIndex") == dayIndex - 1)
+          .toList();
+        if (n == 0 && previous.isEmpty()) return false;
+        var from = n > 0 ? day.get(n - 1) : previous.getLast();
         return (
           fromId.equals(from.get("id")) &&
           fromPlaceId.equals(from.get("placeId")) &&
-          coordinates(from, fromLatitude, fromLongitude)
+          coordinates(from, fromLatitude, fromLongitude) &&
+          (n > 0 || originDeparture != null)
         );
       }
       return (
@@ -82,6 +89,39 @@ public record RouteTiming(
       );
     }
     return false;
+  }
+
+  /** 이동일이 다른 구간만 별도 출발 일시를 가집니다. 기존 같은 날/숙소 기록과 JSON 형식을 공유합니다. */
+  public boolean crossesDays(List<Map<String, Object>> items) {
+    return (
+      fromKind.equals("ITEM") &&
+      items
+        .stream()
+        .anyMatch(
+          i -> fromId.equals(i.get("id")) && number(i, "dayIndex") != dayIndex
+        )
+    );
+  }
+
+  /** 한국 현지 날짜·시간으로 환산합니다. 자정을 넘는 이동을 도착일의 출발 시각으로 바꾸지 않습니다. */
+  public LocalDateTime departureAt(
+    LocalDate date,
+    List<Map<String, Object>> items
+  ) {
+    if (crossesDays(items)) return LocalDateTime.parse(originDeparture);
+    if (fromKind.equals("LODGING")) return date
+      .plusDays(dayIndex)
+      .atStartOfDay()
+      .plusMinutes(clock(originDeparture));
+    var from = items
+      .stream()
+      .filter(i -> fromId.equals(i.get("id")))
+      .findFirst()
+      .orElseThrow();
+    return date
+      .plusDays(number(from, "dayIndex"))
+      .atStartOfDay()
+      .plusMinutes(time(from) + number(from, "duration"));
   }
 
   private static boolean coordinates(
@@ -148,19 +188,29 @@ public record RouteTiming(
         .filter(i -> t.toItemId.equals(i.get("id")))
         .findFirst()
         .orElseThrow();
-      int departure = t.fromKind.equals("LODGING")
-        ? clock(t.originDeparture)
-        : items
-            .stream()
-            .filter(i -> t.fromId.equals(i.get("id")))
-            .mapToInt(i -> time(i) + number(i, "duration"))
-            .findFirst()
-            .orElseThrow();
-      if (departure + t.minutes + t.bufferMinutes > time(to)) conflicts.add(
+      var a = t.departureAt(date, items);
+      var b = a.plusMinutes(t.minutes + t.bufferMinutes);
+      var arrivalBy = date
+        .plusDays(t.dayIndex)
+        .atStartOfDay()
+        .plusMinutes(time(to));
+      if (b.isAfter(arrivalBy)) conflicts.add(
         to.get("placeName") + "에 적용한 경로 시간만큼 이동할 여유가 없어요."
       );
-      var a = date.plusDays(t.dayIndex).atStartOfDay().plusMinutes(departure);
-      var b = a.plusMinutes(t.minutes + t.bufferMinutes);
+      if (t.crossesDays(items)) {
+        var from = items
+          .stream()
+          .filter(i -> t.fromId.equals(i.get("id")))
+          .findFirst()
+          .orElseThrow();
+        var finish = date
+          .plusDays(number(from, "dayIndex"))
+          .atStartOfDay()
+          .plusMinutes(time(from) + number(from, "duration"));
+        if (a.isBefore(finish)) conflicts.add(
+          from.get("placeName") + " 방문을 마치기 전에 다음 날 이동이 시작돼요."
+        );
+      }
       for (var w : windows)
         if (
           a.isBefore(LocalDateTime.parse(w.resumeAt())) &&

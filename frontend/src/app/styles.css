@@ -4089,6 +4089,93 @@ textarea {
   cursor: pointer;
   padding: 8px 0;
   font-weight: 600;
+  min-height: 44px;
+  font-size: var(--text-support);
+}
+/* 날짜 간 이동과 예약 연결은 설명을 먼저 읽은 뒤 실행하도록 24px 행동 간격을 공유합니다. */
+.transport-day-connection,
+.booking-route-guide,
+.booking-route-impact {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f6f9f5;
+  font-size: var(--text-support);
+  overflow-wrap: anywhere;
+}
+.transport-day-connection > p,
+.booking-route-guide > p,
+.booking-route-impact > p {
+  margin-top: var(--space-copy);
+}
+.transport-day-connection > .button {
+  margin-top: var(--space-action);
+  width: 100%;
+}
+.booking-route-guide summary svg {
+  margin-right: 6px;
+}
+.booking-route-guide > article {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+.booking-route-guide h3 {
+  font-size: var(--text-body);
+  margin-bottom: 8px;
+}
+.booking-connection-options {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+.booking-connection-options > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-copy);
+  min-width: 0;
+  padding: 16px;
+  border-radius: 10px;
+  background: white;
+}
+.booking-connection-options p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.booking-connection-options .button {
+  margin-top: var(--space-copy);
+}
+.origin-search > p {
+  margin: 12px 0 24px;
+}
+.origin-search > label {
+  margin-top: 24px;
+}
+.booking-route-impact {
+  margin: 16px 0 24px;
+}
+.booking-route-impact.tight {
+  border-color: #bc7b52;
+  background: #fff6ec;
+}
+.booking-route-impact.tight > strong {
+  color: #8a492b;
+}
+.route-cross-day-note {
+  margin: 24px 0;
+}
+@media (max-width: 400px) {
+  .transport-day-connection,
+  .booking-route-guide,
+  .booking-route-impact {
+    padding: 14px;
+  }
+  .booking-connection-options > div {
+    padding: 12px;
+  }
 }
 .origin-search form {
   display: grid;
@@ -4580,6 +4667,16 @@ textarea {
   .route-timing-settings > .button {
     width: 100%;
     justify-content: center;
+  }
+  /* 날짜가 포함된 시각 두 개를 좁은 한 줄에 넣지 않습니다. 화살표도 읽는 방향에 맞춥니다. */
+  .route-timing-journey {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .route-timing-journey > svg {
+    align-self: center;
+    transform: rotate(90deg);
   }
 }
 .route-timing-saved {

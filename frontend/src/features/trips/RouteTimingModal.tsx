@@ -11,6 +11,7 @@ import { api } from "../../shared/api";
 import { useToast } from "../../shared/providers";
 import { Modal, ErrorState, Loading } from "../../shared/ui";
 import type { Trip, SelectedRoute, RouteTimingPlan } from "../../shared/types";
+import { tripDayDate } from "./transportSchedule";
 
 /**
  * 비교를 연 순간의 여행 버전과 조회 영수증을 유지합니다. 설정을 고치면 재비교 전에는 적용하지 못합니다.
@@ -22,18 +23,27 @@ export default function RouteTimingModal({
   lodging,
   close,
   refresh,
+  onAppliedDay,
 }: {
   trip: Trip;
   route: SelectedRoute;
   lodging: boolean;
   close: () => void;
   refresh: () => Promise<void>;
+  onAppliedDay: (day: number) => void;
 }) {
   const [buffer, setBuffer] = useState("20");
-  const [departure, setDeparture] = useState("09:00");
+  const fromItem = trip.items.find((i) => i.id === route.result.from.id);
+  const toItem = trip.items.find((i) => i.id === route.result.to.id);
+  const crossDay =
+    !!fromItem && !!toItem && fromItem.dayIndex !== toItem.dayIndex;
+  const initialDeparture = crossDay
+    ? tripDayDate(trip.startDate, toItem!.dayIndex) + "T08:00"
+    : "09:00";
+  const [departure, setDeparture] = useState(initialDeparture);
   const [settings, setSettings] = useState({
     bufferMinutes: 20,
-    departureTime: "09:00",
+    departureTime: initialDeparture,
   });
   const [busy, setBusy] = useState(false);
   const toast = useToast();
@@ -56,7 +66,7 @@ export default function RouteTimingModal({
     Number.isInteger(Number(buffer)) &&
     Number(buffer) >= 0 &&
     Number(buffer) <= 120 &&
-    (!lodging || !!departure);
+    (!(lodging || crossDay) || !!departure);
   const base = `/trips/${trip.id}/transport/timing`;
   const query = useQuery({
     queryKey: [
@@ -81,6 +91,9 @@ export default function RouteTimingModal({
         body: { ...body, strategy },
       });
       await refresh();
+      // 날짜 경계의 적용 후에는 실제로 바뀐 방문일을 보여 줍니다. 변경이 없어도 저장 구간의 도착일로 이동합니다.
+      const applied = query.data?.find((plan) => plan.strategy === strategy);
+      onAppliedDay(applied?.changes[0]?.dayIndex ?? toItem?.dayIndex ?? 0);
       toast("조회 경로 시간과 여유를 일정에 반영했어요.");
       close();
     } catch (e) {
@@ -140,11 +153,21 @@ export default function RouteTimingModal({
             onChange={(e) => setBuffer(e.target.value)}
           />
         </label>
-        {lodging && (
+        {(lodging || crossDay) && (
           <label>
-            숙소 출발 시간
+            {crossDay ? "이동 출발 일시" : "숙소 출발 시간"}
             <input
-              type="time"
+              type={crossDay ? "datetime-local" : "time"}
+              min={
+                crossDay
+                  ? tripDayDate(trip.startDate, fromItem!.dayIndex) + "T00:00"
+                  : undefined
+              }
+              max={
+                crossDay
+                  ? tripDayDate(trip.startDate, toItem!.dayIndex) + "T23:59"
+                  : undefined
+              }
               required
               value={departure}
               disabled={busy}
@@ -165,6 +188,13 @@ export default function RouteTimingModal({
           0~120분으로 조절해요.
         </p>
       </form>
+      {crossDay && (
+        <p className="notice route-cross-day-note">
+          {fromItem!.dayIndex + 1}일차 마지막 방문과 {toItem!.dayIndex + 1}일차
+          첫 방문 사이의 직접 이동이에요. 실제로 이동할 출발 일시를 선택해
+          주세요. 숙소·역 경유와 수면·휴식 시간은 따로 확인해야 해요.
+        </p>
+      )}
       {dirty && (
         <p className="notice" role="status">
           설정을 바꿨어요. ‘시간 다시 비교’를 눌러 새 결과를 확인해 주세요.
@@ -172,8 +202,8 @@ export default function RouteTimingModal({
       )}
       <p className="small muted route-timing-rule">
         <LockKeyhole size={14} />
-        고정 방문·교통 예약을 지키며 같은 날 06:00~22:00 안에서 비교해요.
-        장소·순서·체류 시간·활동비는 유지해요.
+        고정 방문·교통 예약을 지키며 방문은 각 날짜의 06:00~22:00 안에서
+        비교해요. 장소·순서·체류 시간·활동비는 유지해요.
       </p>
       {query.isPending ? (
         <Loading text="두 가지 일정의 시간 비교 중" />
@@ -196,12 +226,16 @@ export default function RouteTimingModal({
               </div>
               <p className="small muted">
                 {plan.strategy === "DEPARTURE"
-                  ? lodging
-                    ? "입력한 숙소 출발 시각을 기준으로 이후 방문을 조정해요."
-                    : "출발 장소에 머무는 시간을 지키고 이후 방문을 조정해요."
-                  : lodging
-                    ? "첫 방문 시간을 지키고 숙소 출발 시각을 계산해요."
-                    : "도착 장소의 방문 시간을 지키고 앞 방문을 조정해요. 하루가 일찍 시작될 수 있어요."}
+                  ? crossDay
+                    ? "입력한 이동 출발 일시를 지키고 다음 날 늦어지는 방문을 조정해요."
+                    : lodging
+                      ? "입력한 숙소 출발 시각을 기준으로 이후 방문을 조정해요."
+                      : "출발 장소에 머무는 시간을 지키고 이후 방문을 조정해요."
+                  : crossDay
+                    ? "다음 날 첫 방문을 지키고 필요한 이동 출발 일시를 계산해요. 전날 방문이 앞당겨질 수 있어요."
+                    : lodging
+                      ? "첫 방문 시간을 지키고 숙소 출발 시각을 계산해요."
+                      : "도착 장소의 방문 시간을 지키고 앞 방문을 조정해요. 하루가 일찍 시작될 수 있어요."}
               </p>
               <div className="route-timing-journey">
                 <span>
@@ -220,7 +254,10 @@ export default function RouteTimingModal({
                 <ul className="schedule-shifts">
                   {plan.changes.map((c) => (
                     <li key={c.itemId}>
-                      <span>{c.name}</span>
+                      <span>
+                        {crossDay && `${c.dayIndex + 1}일차 · `}
+                        {c.name}
+                      </span>
                       <strong>
                         <span>{c.before}</span>
                         <ArrowRight size={13} />

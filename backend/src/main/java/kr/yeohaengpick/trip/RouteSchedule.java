@@ -3,6 +3,8 @@ package kr.yeohaengpick.trip;
 import static kr.yeohaengpick.trip.RouteTiming.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
@@ -57,6 +59,15 @@ public class RouteSchedule {
     String mode,
     String strategy
   ) {
+    if (proposed.crossesDays(original)) return crossDayPlan(
+      date,
+      original,
+      reserved,
+      existing,
+      proposed,
+      mode,
+      strategy
+    );
     List<Map<String, Object>> items = new ArrayList<>();
     original.forEach(i -> items.add(new HashMap<>(i)));
     var day = items
@@ -191,6 +202,185 @@ public class RouteSchedule {
       items,
       saved
     );
+  }
+
+  /**
+   * 전날 마지막→다음 날 첫 방문에서는 휴식·숙박 시간을 이동 시간으로 세지 않습니다.
+   * 입력한 출발을 지키는 안과 다음 날 방문을 지키는 안을 각각 계산하며 이동 자체는 자정을 넘을 수 있습니다.
+   * 방문 날짜·체류·순서를 유지하고 양일의 06~22시 범위와 기존 고정 예약을 마지막에 함께 검사합니다.
+   */
+  private Plan crossDayPlan(
+    LocalDate date,
+    List<Map<String, Object>> original,
+    List<Map<String, Object>> reserved,
+    List<RouteTiming> existing,
+    RouteTiming proposed,
+    String mode,
+    String strategy
+  ) {
+    var items = new ArrayList<Map<String, Object>>();
+    original.forEach(i -> items.add(new HashMap<>(i)));
+    int toDay = proposed.dayIndex();
+    var before = items
+      .stream()
+      .filter(i -> number(i, "dayIndex") == toDay - 1)
+      .toList();
+    var after = items
+      .stream()
+      .filter(i -> number(i, "dayIndex") == toDay)
+      .toList();
+    var oldBefore = original
+      .stream()
+      .filter(i -> number(i, "dayIndex") == toDay - 1)
+      .toList();
+    var oldAfter = original
+      .stream()
+      .filter(i -> number(i, "dayIndex") == toDay)
+      .toList();
+    var sourceDate = date.plusDays(toDay - 1);
+    var targetDate = date.plusDays(toDay);
+    int gap = proposed.minutes() + proposed.bufferMinutes();
+    var conflicts = new ArrayList<String>();
+    LocalDateTime departure;
+    LocalDateTime arrival;
+    if (strategy.equals("DEPARTURE")) {
+      departure = LocalDateTime.parse(proposed.originDeparture());
+      arrival = departure.plusMinutes(gap);
+      if (arrival.toLocalDate().isAfter(targetDate)) conflicts.add(
+        "이동이 다음 날 방문일보다 늦게 끝나요."
+      );
+      else if (
+        arrival.toLocalDate().equals(targetDate) &&
+        arrival.toLocalTime().toSecondOfDay() / 60 > time(after.getFirst())
+      ) {
+        move(
+          after.getFirst(),
+          arrival.toLocalTime().toSecondOfDay() / 60,
+          true,
+          conflicts
+        );
+        forward(after, oldAfter, 1, existing, mode, conflicts);
+      }
+    } else {
+      arrival = targetDate.atStartOfDay().plusMinutes(time(after.getFirst()));
+      departure = arrival.minusMinutes(gap);
+      if (departure.toLocalDate().isBefore(sourceDate)) conflicts.add(
+        "전날 방문일보다 먼저 출발해야 해서 적용할 수 없어요."
+      );
+      else if (departure.toLocalDate().equals(sourceDate)) {
+        var last = before.getLast();
+        int desired =
+          departure.toLocalTime().toSecondOfDay() / 60 -
+          number(last, "duration");
+        if (desired < time(last)) {
+          move(last, desired, false, conflicts);
+          for (int n = before.size() - 2; n >= 0; n--) {
+            int oldGap = RouteTiming.gap(
+              existing,
+              oldBefore.get(n),
+              oldBefore.get(n + 1),
+              planner,
+              mode
+            );
+            int wait = Math.max(
+              0,
+              time(oldBefore.get(n + 1)) -
+                time(oldBefore.get(n)) -
+                number(oldBefore.get(n), "duration") -
+                oldGap
+            );
+            move(
+              before.get(n),
+              Math.min(
+                time(before.get(n)),
+                time(before.get(n + 1)) -
+                  number(before.get(n), "duration") -
+                  oldGap -
+                  wait
+              ),
+              false,
+              conflicts
+            );
+          }
+        }
+      }
+    }
+    var saved = new RouteTiming(
+      proposed.fromKind(),
+      proposed.fromId(),
+      proposed.fromPlaceId(),
+      proposed.toItemId(),
+      proposed.toPlaceId(),
+      proposed.dayIndex(),
+      proposed.fromLatitude(),
+      proposed.fromLongitude(),
+      proposed.toLatitude(),
+      proposed.toLongitude(),
+      proposed.mode(),
+      proposed.minutes(),
+      proposed.bufferMinutes(),
+      proposed.distanceMeters(),
+      proposed.queriedAt(),
+      proposed.source(),
+      departure.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"))
+    );
+    var timings = new ArrayList<>(
+      existing
+        .stream()
+        .filter(t -> !t.toItemId().equals(proposed.toItemId()))
+        .toList()
+    );
+    timings.add(saved);
+    var report = bookings.inspect(date, items, reserved);
+    report.issues().forEach(i -> conflicts.add(i.message()));
+    conflicts.addAll(
+      RouteTiming.conflicts(date, items, timings, report.windows())
+    );
+    for (var i : items)
+      if (
+        number(i, "dayIndex") == toDay || number(i, "dayIndex") == toDay - 1
+      ) {
+        if (
+          time(i) < 360 || time(i) + number(i, "duration") > 1320
+        ) conflicts.add(
+          i.get("placeName") + "을 방문일의 06:00~22:00 안에 배치할 수 없어요."
+        );
+      }
+    var changes = new ArrayList<BookingSchedule.Shift>();
+    for (int n = 0; n < items.size(); n++) if (
+      !items.get(n).get("startTime").equals(original.get(n).get("startTime"))
+    ) {
+      var i = items.get(n);
+      var old = original.get(n);
+      changes.add(
+        new BookingSchedule.Shift(
+          i.get("id").toString(),
+          i.get("placeName").toString(),
+          number(i, "dayIndex"),
+          old.get("startTime").toString(),
+          i.get("startTime").toString()
+        )
+      );
+    }
+    return new Plan(
+      strategy,
+      strategy.equals("DEPARTURE") ? "이동 출발 유지" : "다음 날 도착 유지",
+      conflicts.isEmpty(),
+      dayTime(date, departure),
+      dayTime(date, arrival),
+      changes,
+      conflicts.stream().distinct().toList(),
+      items,
+      saved
+    );
+  }
+
+  private String dayTime(LocalDate start, LocalDateTime time) {
+    long day =
+      java.time.temporal.ChronoUnit.DAYS.between(start, time.toLocalDate()) + 1;
+    return day < 1
+      ? "여행일 이전"
+      : day + "일차 " + time.format(DateTimeFormatter.ofPattern("HH:mm"));
   }
 
   /** 실패한 안도 화면에 표시합니다. 전날/다음 날로 벗어난 값을 음수 시각처럼 보이지 않게 안내합니다. */

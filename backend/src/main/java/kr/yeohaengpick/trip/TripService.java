@@ -507,7 +507,14 @@ public class TripService {
     int sum = 0;
     Set<Object> visitedDays = new HashSet<>();
     for (var item : items)
-      if (visitedDays.add(item.get("dayIndex"))) sum += lodgings
+      if (
+        visitedDays.add(item.get("dayIndex")) &&
+        timings
+          .stream()
+          .noneMatch(
+            t -> t.toItemId().equals(item.get("id")) && t.crossesDays(items)
+          )
+      ) sum += lodgings
         .stream()
         .filter(p -> p.get("region").equals(item.get("region")))
         .mapToInt(p ->
@@ -545,7 +552,15 @@ public class TripService {
         .findFirst()
         .orElseGet(() -> planner.estimateMinutes(place(from), place(to), mode));
     }
-    return sum;
+    // 날짜 간 직접 이동을 적용했다면 그 조회 분도 합계에 포함합니다. 숙박/대기 시간은 포함하지 않습니다.
+    return (
+      sum +
+      timings
+        .stream()
+        .filter(t -> t.crossesDays(items))
+        .mapToInt(RouteTiming::minutes)
+        .sum()
+    );
   }
 
   private void revision(String id, int version, String member, String summary) {

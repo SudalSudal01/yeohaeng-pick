@@ -3,6 +3,7 @@ import { Clock3 } from "lucide-react";
 import { api } from "../../shared/api";
 import { ErrorState } from "../../shared/ui";
 import type { Trip } from "../../shared/types";
+import { scheduleTime } from "./bookingScheduleTime";
 
 /** 저장한 구간의 출처·시각을 다시 볼 수 있고, 더 이상 쓸 수 없는 조회값은 명시적으로 해제합니다. */
 export default function AppliedRouteTimings({
@@ -57,7 +58,10 @@ export default function AppliedRouteTimings({
               : t.mode === "WALK"
                 ? "도보"
                 : "대중교통"}
-            {t.originDeparture && ` · 숙소 ${t.originDeparture} 출발`}
+            {t.originDeparture &&
+              (t.fromKind === "LODGING"
+                ? ` · 숙소 ${t.originDeparture} 출발`
+                : ` · ${scheduleTime(t.originDeparture)} 이동 출발`)}
           </p>
           <p className="small muted">
             {new Date(t.queriedAt).toLocaleString("ko-KR")} ·{" "}

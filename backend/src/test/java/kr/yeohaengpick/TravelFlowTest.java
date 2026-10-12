@@ -299,6 +299,155 @@ class TravelFlowTest {
   }
 
   @Test
+  void crossDayRoutePersistsDatesAndProtectsVersionsPermissionsAndUndo()
+    throws Exception {
+    var user = new Browser().signup();
+    var multi = new HashMap<>(conditions);
+    multi.put("endDate", "2026-11-02");
+    var trip = user.trip(multi);
+    int target = 0;
+    while (((Number) items(trip).get(target).get("dayIndex")).intValue() == 0)
+      target++;
+    String base = "/trips/" + trip.get("id");
+    var request = routeRequest(user, trip, target - 1, target, 120);
+    request.put("departureTime", "2026-11-02T09:00");
+    var preview = user.request(
+      "POST",
+      base + "/transport/timing/preview",
+      request,
+      true
+    );
+    assertThat(preview.statusCode()).as(preview.body()).isEqualTo(200);
+    assertThat(
+      json.mapper().readTree(preview.body()).get(0).path("canApply").asBoolean()
+    ).isTrue();
+    assertThat(user.call("GET", base, null).get("version")).isEqualTo(0);
+    assertThat(
+      new Browser()
+        .signup()
+        .request("POST", base + "/transport/timing/preview", request, true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      user
+        .request("POST", base + "/transport/timing/apply", request, false)
+        .statusCode()
+    ).isEqualTo(403);
+    request.put("minutes", 1);
+    var saved = user.call("POST", base + "/transport/timing/apply", request);
+    var timing = json
+      .mapper()
+      .valueToTree(user.call("GET", base, null))
+      .path("routeTimings")
+      .get(0);
+    assertThat(timing.path("dayIndex").asInt()).isEqualTo(1);
+    assertThat(timing.path("originDeparture").asText()).isEqualTo(
+      "2026-11-02T09:00"
+    );
+    assertThat(timing.path("minutes").asInt()).isEqualTo(120);
+    assertThat(items(saved).get(target).get("startTime")).isEqualTo("11:20");
+    assertThat(items(saved).subList(0, target)).isEqualTo(
+      items(trip).subList(0, target)
+    );
+    assertThat(saved.get("expenses")).isEqualTo(trip.get("expenses"));
+    assertThat(
+      user
+        .request("POST", base + "/transport/timing/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    String history = json
+      .mapper()
+      .valueToTree(saved)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/undo",
+          Map.of("version", 1, "historyId", history),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    String share = user
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    assertThat(
+      new Browser().call("GET", "/share/" + share, null)
+    ).doesNotContainKeys("routeTimings");
+    var removed = user.call(
+      "POST",
+      base + "/transport/timing/remove",
+      Map.of("version", 1, "itemId", items(saved).get(target).get("id"))
+    );
+    assertThat(removed.get("routeTimings")).isEqualTo(List.of());
+    assertThat(items(removed)).isEqualTo(items(saved));
+  }
+
+  @Test
+  void crossDayRouteValidatesDepartureDatesAndReportsNewBookingOverlap()
+    throws Exception {
+    var user = new Browser().signup();
+    var multi = new HashMap<>(conditions);
+    multi.put("endDate", "2026-11-02");
+    var trip = user.trip(multi);
+    int target = 0;
+    while (((Number) items(trip).get(target).get("dayIndex")).intValue() == 0)
+      target++;
+    String base = "/trips/" + trip.get("id");
+    var request = routeRequest(user, trip, target - 1, target, 120);
+    for (String departure : List.of(
+      "09:00",
+      "2026-10-31T09:00",
+      "2026-11-03T09:00",
+      "2026-11-02T09:00:01"
+    )) {
+      request.put("departureTime", departure);
+      assertThat(
+        user
+          .request("POST", base + "/transport/timing/preview", request, true)
+          .statusCode()
+      )
+        .as(departure)
+        .isEqualTo(400);
+    }
+    request.put("departureTime", "2026-11-01T06:00");
+    assertThat(
+      user
+        .request("POST", base + "/transport/timing/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    request.put("departureTime", "2026-11-02T09:00");
+    var saved = user.call("POST", base + "/transport/timing/apply", request);
+    var booking = connectedBooking(saved, 1);
+    booking.put("departure", "2026-11-02T09:30");
+    booking.put("arrival", "2026-11-02T10:00");
+    booking.put("beforeMinutes", 0);
+    booking.put("afterMinutes", 0);
+    var reserved = user.call("POST", base + "/external-bookings", booking);
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(reserved)
+        .path("schedule")
+        .path("issues")
+        .toString()
+    ).contains("ROUTE_OVERLAP");
+    var latest = routeRequest(user, reserved, target - 1, target, 120);
+    latest.put("departureTime", "2026-11-02T09:00");
+    assertThat(
+      user
+        .request("POST", base + "/transport/timing/apply", latest, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(user.call("GET", base, null).get("version")).isEqualTo(2);
+  }
+
+  @Test
   void routeTimingRejectsForeignReceiptStaleVersionForgeryAndNonAdjacentLegs()
     throws Exception {
     var user = new Browser().signup();
@@ -1207,6 +1356,10 @@ class TravelFlowTest {
     }
 
     Map<String, Object> trip() throws Exception {
+      return trip(conditions);
+    }
+
+    Map<String, Object> trip(Map<String, Object> conditions) throws Exception {
       var response = request("POST", "/recommendations", conditions, true);
       assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
       var courses = json.mapper().readTree(response.body());

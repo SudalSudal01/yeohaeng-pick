@@ -1,6 +1,7 @@
 package kr.yeohaengpick.transport;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import kr.yeohaengpick.common.DomainException;
 import kr.yeohaengpick.trip.*;
@@ -66,7 +67,7 @@ public class RouteTimingService {
       !q.toRef().kind().equals("ITEM") ||
       !List.of("ITEM", "LODGING").contains(q.fromRef().kind())
     ) throw DomainException.bad(
-      "같은 날 연속 방문 사이 또는 선택한 숙소에서 첫 방문까지 적용할 수 있어요."
+      "연속 방문 사이 또는 선택한 숙소에서 첫 방문까지 적용할 수 있어요."
     );
     var to = items
       .stream()
@@ -108,8 +109,32 @@ public class RouteTimingService {
       r.departureTime()
     );
     if (!timing.applies(items, lodgings)) throw DomainException.bad(
-      "같은 날의 연속 방문 또는 같은 지역 숙소에서 첫 방문까지 선택해 주세요."
+      "같은 날 연속 방문, 전날 마지막→다음 날 첫 방문, 같은 지역 숙소→첫 방문 중에서 선택해 주세요."
     );
+    if (timing.crossesDays(items)) {
+      // 이동 날짜는 클라이언트의 방문 필드가 아닌 현재 저장 일정에서 제한합니다.
+      // 기존 departureTime 계약을 확장하되 같은 날/숙소의 HH:mm 요청은 그대로 지원합니다.
+      LocalDateTime departure;
+      try {
+        departure = LocalDateTime.parse(
+          Objects.toString(r.departureTime(), "")
+        );
+      } catch (java.time.DateTimeException e) {
+        throw DomainException.bad(
+          "날짜 간 이동의 출발 날짜와 시간을 입력해 주세요."
+        );
+      }
+      var start = LocalDate.parse(trip.get("startDate").toString());
+      var arrivalDate = start.plusDays(timing.dayIndex());
+      if (
+        departure.toLocalDate().isBefore(arrivalDate.minusDays(1)) ||
+        departure.toLocalDate().isAfter(arrivalDate) ||
+        departure.getSecond() != 0 ||
+        departure.getNano() != 0
+      ) throw DomainException.bad(
+        "이동 출발은 출발 방문일 또는 다음 방문일 안에서 분 단위로 선택해 주세요."
+      );
+    }
     return schedule.compare(
       LocalDate.parse(trip.get("startDate").toString()),
       items,

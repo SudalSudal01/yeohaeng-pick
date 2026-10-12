@@ -296,4 +296,183 @@ class RouteScheduleTest {
       )
     ).noneMatch(RouteSchedule.Plan::canApply);
   }
+
+  List<Map<String, Object>> twoDays(boolean fixedLast) {
+    var list = List.of(
+      visit("1", "10:00", false),
+      visit("2", "16:00", fixedLast),
+      visit("3", "10:00", false),
+      visit("4", "11:20", false)
+    );
+    list.get(2).put("dayIndex", 1);
+    list.get(3).put("dayIndex", 1);
+    return list;
+  }
+
+  RouteTiming crossDay(int minutes, String departure) {
+    return new RouteTiming(
+      "ITEM",
+      "2",
+      "2",
+      "3",
+      "3",
+      1,
+      37.5,
+      127,
+      37.5,
+      127,
+      "CAR",
+      minutes,
+      20,
+      1000,
+      "2026-10-12T01:00:00Z",
+      "KAKAO_MOBILITY",
+      departure
+    );
+  }
+
+  @Test
+  void nextDayDepartureMovesOnlyLaterVisitsAndPreservesInput() {
+    var original = twoDays(false);
+    var plans = engine.compare(
+      date,
+      original,
+      List.of(),
+      List.of(),
+      crossDay(180, "2026-11-02T09:00"),
+      "CAR"
+    );
+    assertThat(plans).allMatch(RouteSchedule.Plan::canApply);
+    assertThat(plans.get(0).items())
+      .extracting(i -> i.get("startTime"))
+      .containsExactly("10:00", "16:00", "12:20", "13:45");
+    assertThat(plans.get(1).departure()).isEqualTo("2일차 06:40");
+    assertThat(plans.get(1).changes()).isEmpty();
+    assertThat(original.get(2).get("startTime")).isEqualTo("10:00");
+    assertThat(plans).allSatisfy(p ->
+      assertThat(p.items()).allSatisfy(i -> {
+        assertThat(i.get("duration")).isEqualTo(60);
+        assertThat(i.get("cost")).isEqualTo(1000);
+      })
+    );
+  }
+
+  @Test
+  void midnightTravelKeepsNextMorningAndDoesNotCountOvernightWaitingAsTravel() {
+    var plan = engine
+      .compare(
+        date,
+        twoDays(false),
+        List.of(),
+        List.of(),
+        crossDay(180, "2026-11-01T23:00"),
+        "CAR"
+      )
+      .getFirst();
+    assertThat(plan.canApply()).isTrue();
+    assertThat(plan.departure()).isEqualTo("1일차 23:00");
+    assertThat(plan.arrival()).isEqualTo("2일차 02:20");
+    assertThat(plan.changes()).isEmpty();
+    assertThat(plan.timing().originDeparture()).isEqualTo("2026-11-01T23:00");
+  }
+
+  @Test
+  void arrivalStrategyMayMovePreviousDayButMustPreserveFixedVisits() {
+    var plans = engine.compare(
+      date,
+      twoDays(false),
+      List.of(),
+      List.of(),
+      crossDay(1100, "2026-11-01T18:00"),
+      "CAR"
+    );
+    var arrival = plans.get(1);
+    assertThat(arrival.canApply()).isTrue();
+    assertThat(arrival.departure()).isEqualTo("1일차 15:20");
+    assertThat(arrival.changes())
+      .extracting(BookingSchedule.Shift::dayIndex)
+      .containsOnly(0);
+    assertThat(
+      engine
+        .compare(
+          date,
+          twoDays(true),
+          List.of(),
+          List.of(),
+          crossDay(1100, "2026-11-01T18:00"),
+          "CAR"
+        )
+        .get(1)
+        .canApply()
+    ).isFalse();
+  }
+
+  @Test
+  void crossDayMovementChecksBookingsEvenWhenVisitsDoNotOverlap() {
+    var booking = new HashMap<String, Object>(
+      Map.of(
+        "id",
+        "train",
+        "label",
+        "열차",
+        "status",
+        "USER_CONFIRMED",
+        "scheduleLinked",
+        true,
+        "departure",
+        "2026-11-02T08:00",
+        "arrival",
+        "2026-11-02T09:00",
+        "beforeMinutes",
+        0,
+        "afterMinutes",
+        0
+      )
+    );
+    var plan = engine
+      .compare(
+        date,
+        twoDays(false),
+        List.of(booking),
+        List.of(),
+        crossDay(180, "2026-11-02T07:00"),
+        "CAR"
+      )
+      .getFirst();
+    assertThat(plan.canApply()).isFalse();
+    assertThat(plan.conflicts().toString()).contains("이동·여유 시간");
+  }
+
+  @Test
+  void invalidPreviousDaySourceAndTooLateDepartureCannotApply() {
+    var original = twoDays(false);
+    var t = crossDay(30, "2026-11-02T23:30");
+    assertThat(t.applies(original, List.of())).isTrue();
+    assertThat(
+      engine
+        .compare(date, original, List.of(), List.of(), t, "CAR")
+        .getFirst()
+        .canApply()
+    ).isFalse();
+    assertThat(
+      engine
+        .compare(
+          date,
+          original,
+          List.of(),
+          List.of(),
+          crossDay(30, "2026-11-01T16:00"),
+          "CAR"
+        )
+        .getFirst()
+        .conflicts()
+        .toString()
+    ).contains("방문을 마치기 전에");
+    var gap = new ArrayList<>(twoDays(false));
+    gap.get(0).put("dayIndex", -1);
+    gap.get(1).put("dayIndex", -1);
+    assertThat(t.applies(gap, List.of())).isFalse();
+    original.get(1).put("placeId", "changed");
+    assertThat(t.applies(original, List.of())).isFalse();
+  }
 }

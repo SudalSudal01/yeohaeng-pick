@@ -88,7 +88,7 @@ public class TransportService {
     trips.access(trip, member); // 외부 호출과 검색 결과 발급보다 접근 권한 검사가 먼저입니다.
     if (
       query == null || query.isBlank() || query.length() > 100
-    ) throw DomainException.bad("출발지 이름을 1~100자로 입력해 주세요.");
+    ) throw DomainException.bad("장소 이름을 1~100자로 입력해 주세요.");
     reserve(member);
     var root = get(
       "https://dapi.kakao.com/v2/local/search/keyword.json?query={q}&size=5",
@@ -231,7 +231,7 @@ public class TransportService {
           !origin.member().equals(member) ||
           origin.expires() < System.currentTimeMillis()
         ) throw DomainException.bad(
-          "출발지 검색 결과가 만료됐어요. 다시 검색해 주세요."
+          "장소 검색 결과가 만료됐어요. 다시 검색해 주세요."
         );
         return origin.point();
       }

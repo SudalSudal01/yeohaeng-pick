@@ -34,6 +34,7 @@ import { Loading, ErrorState, Modal } from "../../shared/ui";
 import RouteMap from "./RouteMap";
 import LodgingPanel from "./LodgingPanel";
 import TransportPanel from "./TransportPanel";
+import { scheduleTime } from "./bookingScheduleTime";
 import AppliedRouteTimings from "./AppliedRouteTimings";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
@@ -325,16 +326,17 @@ export default function TripPage() {
                       <h3>{item.placeName}</h3>
                       {trip.routeTimings
                         ?.filter(
-                          (t) =>
-                            t.toItemId === item.id && t.fromKind === "LODGING",
+                          (t) => t.toItemId === item.id && !!t.originDeparture,
                         )
                         .map((t) => (
                           <p
                             className="small route-timing-applied"
                             key={t.toItemId}
                           >
-                            숙소 {t.originDeparture} 출발 · 조회 {t.minutes}분 +
-                            여유 {t.bufferMinutes}분 반영
+                            {t.fromKind === "LODGING"
+                              ? `숙소 ${t.originDeparture} 출발`
+                              : `${scheduleTime(t.originDeparture!)} 이동 출발`}{" "}
+                            · 조회 {t.minutes}분 + 여유 {t.bufferMinutes}분 반영
                           </p>
                         ))}
                       <p>
@@ -400,6 +402,7 @@ export default function TripPage() {
                 selected={selectedRoute}
                 onSelect={setSelectedRoute}
                 refresh={refresh}
+                onDayChange={setDay}
               />
               <LodgingPanel trip={trip} refresh={refresh} />
             </div>

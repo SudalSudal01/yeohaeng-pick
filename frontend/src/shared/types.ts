@@ -259,6 +259,7 @@ export type RouteTiming = {
   bufferMinutes: number;
   queriedAt: string;
   source: string;
+  /** 숙소 출발은 HH:mm, 전날→다음 날 구간은 한국 현지 yyyy-MM-ddTHH:mm입니다. 같은 날 방문 사이는 null입니다. */
   originDeparture: string | null;
 };
 export type RouteTimingPlan = {

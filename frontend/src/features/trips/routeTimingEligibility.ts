@@ -12,6 +12,13 @@ export function routeTimingEligibility(trip: Trip, from: string, to: string) {
   if (fromKind === "ITEM" && index > 0 && day[index - 1].id === fromId)
     return "";
   if (
+    fromKind === "ITEM" &&
+    index === 0 &&
+    trip.items.filter((i) => i.dayIndex === target.dayIndex - 1).at(-1)?.id ===
+      fromId
+  )
+    return "";
+  if (
     fromKind === "LODGING" &&
     index === 0 &&
     trip.lodgings.some(
@@ -19,5 +26,5 @@ export function routeTimingEligibility(trip: Trip, from: string, to: string) {
     )
   )
     return "";
-  return "같은 날 연속 방문 사이 또는 같은 지역 숙소에서 첫 방문까지 선택해 주세요. 경로 조회 후 일정 영향을 비교할 수 있어요.";
+  return "같은 날 연속 방문, 전날 마지막→다음 날 첫 방문, 같은 지역 숙소→첫 방문 중에서 선택해 주세요. 경로 조회 후 일정 영향을 비교할 수 있어요.";
 }
