@@ -5652,3 +5652,159 @@ textarea {
     padding: 16px;
   }
 }
+.trip-members-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+.trip-members-heading > div {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.trip-members-heading h2 {
+  flex-wrap: wrap;
+}
+.trip-member-list {
+  margin-top: 24px;
+}
+.trip-member {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 24px;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  min-width: 0;
+}
+.trip-member-profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+  flex: 1 1 220px;
+}
+.trip-member-profile .avatar {
+  flex-shrink: 0;
+}
+.trip-member-profile > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.trip-member-profile strong {
+  display: block;
+  font-size: 16px;
+}
+.trip-member-profile p {
+  margin: 8px 0 12px;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.trip-member .button,
+.trip-members-heading .button {
+  white-space: normal;
+  min-height: 46px;
+}
+.trip-members-chat,
+.trip-members-leave {
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+.trip-members-leave {
+  margin-top: 28px;
+}
+.trip-members-chat p,
+.trip-members-leave p {
+  margin: 0 0 24px;
+  line-height: 1.8;
+}
+.membership-modal {
+  width: min(580px, calc(100% - 24px));
+}
+.membership-target {
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--green-soft);
+  margin: 24px 0;
+  overflow-wrap: anywhere;
+}
+.membership-target h3 {
+  margin: 12px 0;
+}
+.membership-target p {
+  margin: 0;
+  font-size: 15px;
+}
+.membership-effects {
+  padding-left: 22px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.9;
+}
+.membership-effects li + li {
+  margin-top: 16px;
+}
+.membership-modal .notice {
+  margin-top: 24px;
+}
+.membership-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 28px;
+}
+.membership-actions .button {
+  min-height: 48px;
+  white-space: normal;
+  flex: 1 1 190px;
+}
+.button.danger-button {
+  background: #9c3b38;
+  color: #fff;
+  border-color: #9c3b38;
+}
+.button.danger-button:hover {
+  background: #7b2d2b;
+  border-color: #7b2d2b;
+}
+.access-ended {
+  padding: 32px;
+  overflow-wrap: anywhere;
+}
+.access-ended p {
+  font-size: 15px;
+  line-height: 1.9;
+  max-width: 660px;
+}
+.access-ended .button,
+.access-ended .text-button {
+  margin-top: 24px;
+  margin-right: 16px;
+  white-space: normal;
+}
+@media (max-width: 480px) {
+  .trip-member-profile {
+    flex-basis: 100%;
+  }
+  .trip-member > .button {
+    width: 100%;
+  }
+  .membership-modal {
+    padding: 20px;
+  }
+  .membership-target {
+    padding: 16px;
+  }
+  .membership-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .membership-actions .button {
+    flex: none;
+  }
+  .access-ended {
+    padding: 24px 20px;
+  }
+}

@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface MessageMapper {
   @Select(
-    "SELECT c.*,a.nickname AS requester_name,b.nickname AS recipient_name FROM conversations c JOIN members a ON a.id=c.requester_id JOIN members b ON b.id=c.recipient_id WHERE c.requester_id=#{id} OR c.recipient_id=#{id} OR c.trip_id IN (SELECT trip_id FROM trip_members WHERE member_id=#{id}) ORDER BY c.created_at DESC"
+    "SELECT c.*,a.nickname AS requester_name,b.nickname AS recipient_name FROM conversations c JOIN members a ON a.id=c.requester_id JOIN members b ON b.id=c.recipient_id WHERE (c.trip_id IS NULL AND (c.requester_id=#{id} OR c.recipient_id=#{id})) OR c.trip_id IN (SELECT trip_id FROM trip_members WHERE member_id=#{id}) ORDER BY c.created_at DESC"
   )
   List<Map<String, Object>> list(String id);
 

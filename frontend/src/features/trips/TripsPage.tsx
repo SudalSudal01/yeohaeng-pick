@@ -21,6 +21,7 @@ export default function TripsPage() {
   const trips = useQuery({
     queryKey: ["trips"],
     queryFn: () => api<Trip[]>("/trips"),
+    refetchInterval: 15000,
   });
   const invites = useQuery({
     queryKey: ["invitations"],

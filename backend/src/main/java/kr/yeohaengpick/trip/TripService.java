@@ -38,11 +38,15 @@ public class TripService {
   }
 
   public Map<String, Object> access(String id, String member) {
-    var trip = trips.get(id);
+    // 쓰기 트랜잭션은 권한 검사부터 완료까지 여행 행을 잠급니다. 참여 해제 직후 오래된 권한으로 쓰는 경쟁을 막습니다.
+    var trip =
+      org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()
+        ? trips.lock(id)
+        : trips.get(id);
     if (trip == null) throw new DomainException(404, "여행을 찾을 수 없어요.");
     if (trips.access(id, member) == 0) throw new DomainException(
       403,
-      "초대를 수락한 동행만 이 여행에 접근할 수 있어요."
+      "현재 참여 중인 동행만 이 여행에 접근할 수 있어요. 참여가 종료됐다면 새 초대를 받아 주세요."
     );
     return trip;
   }
@@ -1082,6 +1086,7 @@ public class TripService {
     trips.delete(id);
   }
 
+  @Transactional
   public Object task(
     String id,
     String member,
@@ -1100,6 +1105,7 @@ public class TripService {
     return trips.tasks(id);
   }
 
+  @Transactional
   public Object expense(String id, String member, String label, int amount) {
     access(id, member);
     if (

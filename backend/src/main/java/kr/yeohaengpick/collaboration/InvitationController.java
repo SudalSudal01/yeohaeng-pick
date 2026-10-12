@@ -50,6 +50,7 @@ public class InvitationController {
   }
 
   @PostMapping
+  @Transactional
   Object invite(@RequestBody Invite i, Authentication a) {
     String member = auth.id(a);
     var trip = trips.access(i.tripId, member);
@@ -88,11 +89,21 @@ public class InvitationController {
     if (
       community.blocked(member, (String) invite.get("senderId")) > 0
     ) throw new DomainException(403, "차단한 회원의 초대예요.");
+    // 초대 응답도 참여 해제·편집과 같은 잠금 순서(여행→초대)를 사용합니다.
+    // 수락과 해제가 겹쳐도 이전 초대가 참여 권한을 되살리지 못하게 합니다.
+    String trip = (String) invite.get("tripId");
+    if (mapper.lock(trip) == null) throw new DomainException(
+      404,
+      "여행을 찾을 수 없어요."
+    );
     if (
       invites.respond(id, member, r.accept ? "ACCEPTED" : "DECLINED") != 1
     ) throw new DomainException(409, "이미 처리된 초대예요.");
-    String trip = (String) invite.get("tripId");
     if (r.accept) {
+      if (mapper.access(trip, member) > 0) throw new DomainException(
+        409,
+        "이미 참여 중인 여행이에요."
+      );
       mapper.member(trip, member);
       Set<String> merged = new LinkedHashSet<>(
         json.strings((String) mapper.get(trip).get("preferences"))

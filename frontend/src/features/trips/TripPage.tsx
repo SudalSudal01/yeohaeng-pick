@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  accessEnded,
   money,
   activityPrice,
   bookingLabels,
@@ -43,6 +44,7 @@ import BookingSchedulePanel from "./BookingSchedulePanel";
 import WholeSchedulePanel from "./WholeSchedulePanel";
 import TourismInfoButton from "../catalog/TourismInfoButton";
 import VisitConditionsModal from "./VisitConditionsModal";
+import TripMembersPanel from "./TripMembersPanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
 import { lodgingBudget, activityBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
@@ -57,7 +59,10 @@ export default function TripPage() {
   const query = useQuery({
     queryKey: ["trip", id],
     queryFn: () => api<Trip>("/trips/" + id),
-    refetchInterval: 15000,
+    refetchInterval: (query) =>
+      accessEnded(query.state.error) ? false : 15000,
+    retry: false,
+    gcTime: 0,
   });
   const [day, setDay] = useState(0);
   const items = useMemo(
@@ -83,6 +88,16 @@ export default function TripPage() {
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const ended = accessEnded(query.error);
+  useEffect(() => {
+    if (!ended) return;
+    // 화면 밖에 남은 비교 결과를 정리하고 목록도 현재 참여 기준으로 갱신합니다.
+    client.removeQueries({
+      predicate: (q) => q.queryKey[0] !== "trip" && q.queryKey.includes(id),
+    });
+    void client.invalidateQueries({ queryKey: ["trips"] });
+    void client.invalidateQueries({ queryKey: ["rooms"] });
+  }, [ended, client, id]);
   const closeCompare = useCallback(() => setCompare(null), []);
   const closeBooking = useCallback(() => setBooking(null), []);
   const closeInvite = useCallback(() => setInvite(false), []);
@@ -112,7 +127,21 @@ export default function TripPage() {
     }
   }
   if (query.isPending) return <Loading />;
-  if (query.error || !query.data) return <ErrorState error={query.error} />;
+  if (ended)
+    return (
+      <div className="page access-ended" role="status">
+        <h1>이 여행에 접근할 수 없어요</h1>
+        <p>
+          참여가 종료됐거나 여행이 더 이상 존재하지 않아요. 다시 함께 준비하려면
+          소유자에게 새 초대를 받아 주세요.
+        </p>
+        <Link className="button primary" to="/trips">
+          내 여행으로 돌아가기
+        </Link>
+      </div>
+    );
+  if (query.error || !query.data)
+    return <ErrorState error={query.error} retry={() => query.refetch()} />;
   const trip = query.data;
   const days = [...new Set(trip.items.map((i) => i.dayIndex))];
   const activitySummary = activityBudget(trip);
@@ -565,35 +594,14 @@ export default function TripPage() {
         </div>
       ) : tab === "함께 준비" ? (
         <div className="preparation-grid">
-          <section className="panel">
-            <h2>
-              함께하는 사람들{" "}
-              <span className="badge">{trip.members.length}</span>
-            </h2>
-            {trip.members.map((m) => (
-              <div className="member-row" key={m.id}>
-                <span className="avatar">{m.nickname.slice(0, 1)}</span>
-                <div>
-                  <strong>{m.nickname}</strong>
-                  <p>
-                    {m.preferences.join(" · ") ||
-                      "기본 취향을 아직 고르지 않았어요."}
-                  </p>
-                </div>
-                {m.id === trip.ownerId && (
-                  <span className="badge subtle">여행 소유자</span>
-                )}
-              </div>
-            ))}
-            <button className="button secondary full" onClick={groupChat}>
-              <MessageCircle size={17} />
-              여행 단체 대화 열기
-            </button>
-            <p className="small muted">
-              초대를 수락한 사람만 참여해요. 개인 메시지 수신 설정과 여행 참여는
-              별도로 관리돼요.
-            </p>
-          </section>
+          <TripMembersPanel
+            trip={trip}
+            userId={user?.id ?? ""}
+            invite={() => setInvite(true)}
+            groupChat={groupChat}
+            refresh={refresh}
+            left={() => navigate("/trips", { replace: true })}
+          />
           <section className="panel">
             <h2>같이 챙기는 준비물</h2>
             {trip.tasks.map((t) => (

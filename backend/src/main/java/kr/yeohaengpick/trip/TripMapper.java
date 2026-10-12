@@ -103,6 +103,15 @@ public interface TripMapper {
   @Select("SELECT * FROM trips WHERE id=#{id}")
   Map<String, Object> get(String id);
 
+  /** 참여 해제와 편집을 같은 여행 행에서 직렬화합니다. 먼저 완료한 요청 다음에 권한을 다시 확인합니다. */
+  @Select("SELECT * FROM trips WHERE id=#{id} FOR UPDATE")
+  Map<String, Object> lock(String id);
+
+  @Delete(
+    "DELETE FROM trip_members WHERE trip_id=#{trip} AND member_id=#{member}"
+  )
+  int removeMember(@Param("trip") String trip, @Param("member") String member);
+
   @Select(
     "SELECT COUNT(*) FROM trip_members WHERE trip_id=#{trip} AND member_id=#{member}"
   )

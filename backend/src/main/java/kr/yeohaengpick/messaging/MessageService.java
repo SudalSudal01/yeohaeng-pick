@@ -92,6 +92,7 @@ public class MessageService {
     return detail(id, member);
   }
 
+  @Transactional
   public Object group(String trip, String member) {
     trips.access(trip, member);
     var room = messages.group(trip);
@@ -103,6 +104,7 @@ public class MessageService {
     return detail((String) room.get("id"), member);
   }
 
+  @Transactional
   public Object send(String id, String body, String member) {
     checkBody(body);
     var room = access(id, member);

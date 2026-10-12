@@ -2786,6 +2786,460 @@ class TravelFlowTest {
     assertThat(user.call("GET", base, null)).isEqualTo(saved);
   }
 
+  /** 초대는 항상 실제 HTTP로 수락합니다. DB에 참여자를 직접 넣으면 초대 상태·취향 병합을 놓치게 됩니다. */
+  String join(Browser owner, Browser companion, String trip) throws Exception {
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip, "email", companion.email)
+    );
+    var invitations = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body());
+    String invite = invitations.get(0).path("id").asText();
+    companion.call(
+      "POST",
+      "/invitations/" + invite + "/respond",
+      Map.of("accept", true)
+    );
+    return invite;
+  }
+
+  @Test
+  void leavingRevokesPrivateTripAndCreatorGroupAccessButPreservesRecords()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    String invite = join(owner, companion, id);
+    // 나가는 동행이 방을 만들었습니다. requester_id로 목록 접근이 남는 회귀를 재현합니다.
+    var room = companion.call("POST", "/messages/trip/" + id, Map.of());
+    String roomId = room.get("id").toString();
+    companion.call(
+      "POST",
+      "/messages/" + roomId,
+      Map.of("body", "출발 전에 남긴 기록")
+    );
+    companion.call(
+      "POST",
+      base + "/expenses",
+      Map.of("label", "함께 준비한 간식", "amount", 12000)
+    );
+    owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        1,
+        "itemId",
+        items(trip).getFirst().get("id"),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "직접 확인한 예약 기록 보존",
+        "fixed",
+        true
+      )
+    );
+    String companionId = companion
+      .call("GET", "/auth/me", null)
+      .get("id")
+      .toString();
+    String token = owner
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    var saved = owner.call("GET", base, null);
+    int version = ((Number) saved.get("version")).intValue();
+    assertThat(
+      companion
+        .request("POST", base + "/leave", Map.of("version", version), false)
+        .statusCode()
+    ).isEqualTo(403);
+    companion.call("POST", base + "/leave", Map.of("version", version));
+    var after = owner.call("GET", base, null);
+    assertThat(after.get("version")).isEqualTo(version + 1);
+    for (String key : List.of(
+      "items",
+      "tasks",
+      "expenses",
+      "history",
+      "lodgings",
+      "externalBookings",
+      "partySize",
+      "budget",
+      "preferences"
+    ))
+      assertThat(after.get(key))
+        .as(key + " is preserved")
+        .isEqualTo(saved.get(key));
+    assertThat(json.write(after.get("members"))).doesNotContain(companionId);
+    assertThat(
+      json.mapper().valueToTree(after.get("members")).size()
+    ).isEqualTo(1);
+    assertThat(
+      companion.request("GET", base, null, false).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion.request("GET", "/trips", null, false).body()
+    ).doesNotContain(id);
+    assertThat(
+      companion.request("GET", "/messages", null, false).body()
+    ).doesNotContain(roomId);
+    assertThat(
+      companion.request("GET", "/messages/" + roomId, null, false).statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          "/messages/" + roomId,
+          Map.of("body", "나간 뒤 전송"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request("POST", "/messages/trip/" + id, Map.of(), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request("POST", base + "/leave", Map.of("version", version + 1), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          "/invitations/" + invite + "/respond",
+          Map.of("accept", true),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      json.write(owner.call("GET", "/messages/" + roomId, null))
+    ).contains("출발 전에 남긴 기록");
+    var shared = new Browser().call("GET", "/share/" + token, null);
+    assertThat(shared).doesNotContainKeys(
+      "members",
+      "expenses",
+      "origin",
+      "ownerId"
+    );
+    // 새 초대를 수락해야만 같은 방과 여행 기록에 다시 접근할 수 있습니다.
+    assertThat(join(owner, companion, id)).isNotEqualTo(invite);
+    assertThat(
+      companion.call("POST", "/messages/trip/" + id, Map.of()).get("id")
+    ).isEqualTo(roomId);
+    assertThat(
+      companion.request("GET", "/messages", null, false).body()
+    ).contains(roomId);
+    assertThat(companion.call("GET", base, null).get("expenses")).isEqualTo(
+      saved.get("expenses")
+    );
+  }
+
+  @Test
+  void onlyOwnerCanRemoveCurrentCompanionAndStaleChoicesCannotRevokeAccess()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var remaining = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, companion, id);
+    join(owner, remaining, id);
+    String target = companion
+      .call("GET", "/auth/me", null)
+      .get("id")
+      .toString();
+    String ownerId = trip.get("ownerId").toString();
+    var saved = owner.call("GET", base, null);
+    int version = ((Number) saved.get("version")).intValue();
+    var route = routeRequest(companion, saved, 0, 1, 60);
+    assertThat(
+      companion
+        .request("POST", base + "/transport/timing/preview", route, true)
+        .statusCode()
+    ).isEqualTo(200);
+    String remove = base + "/members/" + target + "/remove";
+    assertThat(
+      companion
+        .request("POST", remove, Map.of("version", version), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request("POST", base + "/leave", Map.of("version", version), true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/members/" + ownerId + "/remove",
+          Map.of("version", version),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      owner.request("POST", remove, Map.of("version", -1), true).statusCode()
+    ).isEqualTo(400);
+    assertThat(
+      owner
+        .request("POST", remove, Map.of("version", version - 1), true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      companion
+        .request("POST", base + "/leave", Map.of("version", version - 1), true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(companion.call("GET", base, null)).isEqualTo(saved);
+    var changed = owner.call("POST", remove, Map.of("version", version));
+    assertThat(changed.get("version")).isEqualTo(version + 1);
+    assertThat(
+      json.mapper().valueToTree(changed.get("members")).size()
+    ).isEqualTo(2);
+    assertThat(
+      remaining.request("GET", base, null, false).statusCode()
+    ).isEqualTo(200);
+    // 미리 열어 둔 비교·예약·준비물 양식도 다음 요청에서 권한을 새로 검사합니다.
+    assertThat(
+      companion
+        .request("POST", base + "/transport/timing/apply", route, true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          base + "/schedule/whole/preview",
+          wholeRequest(version, "EARLIER"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          base + "/tasks",
+          Map.of("content", "나간 뒤 준비물"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          base + "/expenses",
+          Map.of("label", "나간 뒤 지출", "amount", 1),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "PUT",
+          base + "/booking",
+          Map.of(
+            "version",
+            version,
+            "itemId",
+            items(saved).getFirst().get("id"),
+            "status",
+            "USER_CONFIRMED",
+            "reason",
+            "검증",
+            "fixed",
+            true
+          ),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      companion
+        .request(
+          "PUT",
+          base + "/items/" + items(saved).getFirst().get("id") + "/conditions",
+          visitRequest(version, "10:00", "20:00", 0),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      owner
+        .request("POST", remove, Map.of("version", version + 1), true)
+        .statusCode()
+    ).isEqualTo(404);
+    assertThat(owner.call("GET", base, null)).isEqualTo(changed);
+  }
+
+  @Test
+  void leavingKeepsAcceptedDmButEndsCompanionOnlyEligibilityForNewRequests()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var another = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, companion, id);
+    join(owner, another, id);
+    owner.call(
+      "PUT",
+      "/auth/profile",
+      Map.of(
+        "nickname",
+        "소유자",
+        "preferences",
+        List.of(),
+        "dmScope",
+        "COMPANIONS"
+      )
+    );
+    another.call(
+      "PUT",
+      "/auth/profile",
+      Map.of(
+        "nickname",
+        "다른 동행",
+        "preferences",
+        List.of(),
+        "dmScope",
+        "COMPANIONS"
+      )
+    );
+    var dm = companion.call(
+      "POST",
+      "/messages",
+      Map.of("email", owner.email, "body", "개인 대화 요청")
+    );
+    String room = dm.get("id").toString();
+    owner.call(
+      "POST",
+      "/messages/" + room + "/respond",
+      Map.of("accept", true)
+    );
+    var saved = companion.call("GET", base, null);
+    companion.call(
+      "POST",
+      base + "/leave",
+      Map.of("version", saved.get("version"))
+    );
+    assertThat(
+      companion
+        .call(
+          "POST",
+          "/messages/" + room,
+          Map.of("body", "개인 대화는 별도 유지")
+        )
+        .get("id")
+    ).isEqualTo(room);
+    assertThat(
+      companion.request("GET", "/messages", null, false).body()
+    ).contains(room);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          "/messages",
+          Map.of("email", another.email, "body", "새 대화 요청"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    join(owner, companion, id);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          "/messages",
+          Map.of("email", another.email, "body", "다시 동행으로 대화 요청"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(200);
+  }
+
+  @Test
+  void concurrentRemovalAndGroupSendSerializeAndLaterWritesAreDenied()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip();
+    String id = trip.get("id").toString(),
+      base = "/trips/" + id;
+    join(owner, companion, id);
+    String target = companion
+      .call("GET", "/auth/me", null)
+      .get("id")
+      .toString();
+    String room = companion
+      .call("POST", "/messages/trip/" + id, Map.of())
+      .get("id")
+      .toString();
+    var saved = owner.call("GET", base, null);
+    var barrier = new java.util.concurrent.CyclicBarrier(2);
+    var send = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        barrier.await();
+        return companion.request(
+          "POST",
+          "/messages/" + room,
+          Map.of("body", "동시 전송 기록"),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var remove = java.util.concurrent.CompletableFuture.supplyAsync(() -> {
+      try {
+        barrier.await();
+        return owner.request(
+          "POST",
+          base + "/members/" + target + "/remove",
+          Map.of("version", saved.get("version")),
+          true
+        );
+      } catch (Exception e) {
+        throw new RuntimeException(e);
+      }
+    });
+    var removal = remove.get(20, java.util.concurrent.TimeUnit.SECONDS);
+    var sent = send.get(20, java.util.concurrent.TimeUnit.SECONDS);
+    assertThat(removal.statusCode()).as(removal.body()).isEqualTo(200);
+    // 먼저 잠근 전송만 완료할 수 있습니다. 해제 이후 잠금을 얻은 전송은 403이어야 합니다.
+    assertThat(sent.statusCode()).as(sent.body()).isIn(200, 403);
+    assertThat(
+      companion
+        .request(
+          "POST",
+          "/messages/" + room,
+          Map.of("body", "해제 완료 뒤 전송"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    var messages = owner.call("GET", "/messages/" + room, null).get("messages");
+    assertThat(json.write(messages)).doesNotContain("해제 완료 뒤 전송");
+    assertThat(json.mapper().valueToTree(messages).size()).isEqualTo(
+      sent.statusCode() == 200 ? 1 : 0
+    );
+  }
+
   Map<String, Object> visitRequest(
     int version,
     String start,

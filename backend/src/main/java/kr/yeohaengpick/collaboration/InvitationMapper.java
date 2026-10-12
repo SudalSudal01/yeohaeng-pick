@@ -38,6 +38,12 @@ public interface InvitationMapper {
     @Param("status") String status
   );
 
+  /** 과거 수락/대기 초대는 재사용할 수 없습니다. 새로 발급한 초대를 수락해야만 다시 참여합니다. */
+  @Update(
+    "UPDATE invitations SET status='REVOKED' WHERE trip_id=#{trip} AND recipient_id=#{member} AND status IN ('PENDING','ACCEPTED')"
+  )
+  void revoke(@Param("trip") String trip, @Param("member") String member);
+
   @Update(
     "UPDATE trips SET preferences=#{preferences},version=version+1 WHERE id=#{trip}"
   )

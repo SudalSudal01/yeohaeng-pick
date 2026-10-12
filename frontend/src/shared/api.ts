@@ -9,6 +9,9 @@ export class ApiError extends Error {
     super(message);
   }
 }
+/** 비공개 자료가 더 이상 허용되지 않으면 캐시된 내용 대신 접근 종료 화면을 표시합니다. */
+export const accessEnded = (error: unknown) =>
+  error instanceof ApiError && (error.status === 403 || error.status === 404);
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},

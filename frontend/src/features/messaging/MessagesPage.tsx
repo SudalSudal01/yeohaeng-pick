@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle,
@@ -9,7 +9,7 @@ import {
   Check,
   Flag,
 } from "lucide-react";
-import { api } from "../../shared/api";
+import { api, accessEnded } from "../../shared/api";
 import type { Room } from "../../shared/types";
 import { useAuth, useToast } from "../../shared/providers";
 import { Empty, Loading, ErrorState, Modal } from "../../shared/ui";
@@ -47,12 +47,24 @@ export default function MessagesPage() {
     queryKey: ["room", id],
     queryFn: () => api<Room>("/messages/" + id),
     enabled: !!id,
-    refetchInterval: 5000,
+    refetchInterval: (query) => (accessEnded(query.state.error) ? false : 5000),
+    retry: false,
+    gcTime: 0,
   });
-  const listed = rooms.data?.filter((r) =>
-    requestTab ? r.status === "PENDING" : r.status !== "DECLINED",
+  const listed = rooms.data?.filter(
+    (r) =>
+      !(r.id === id && accessEnded(room.error)) &&
+      (requestTab ? r.status === "PENDING" : r.status !== "DECLINED"),
   );
   const current = room.data;
+  const ended = accessEnded(room.error);
+  useEffect(() => {
+    if (!ended) return;
+    // 접근이 끝난 단체 대화의 작성 중 문구·신고 양식을 다른 방으로 넘기지 않습니다.
+    setBody("");
+    setReport(null);
+    void client.invalidateQueries({ queryKey: ["rooms"] });
+  }, [ended, id, client]);
   async function refresh() {
     await client.invalidateQueries({ queryKey: ["rooms"] });
     await client.invalidateQueries({ queryKey: ["room", id] });
@@ -83,6 +95,8 @@ export default function MessagesPage() {
       await refresh();
     } catch (e) {
       toast((e as Error).message, true);
+      // 전송 직전 참여가 종료되면 이전 메시지 대신 권한 종료 화면을 다시 확인합니다.
+      if (accessEnded(e)) await refresh();
     } finally {
       setBusy(false);
     }
@@ -174,7 +188,29 @@ export default function MessagesPage() {
           ) : room.isPending ? (
             <Loading />
           ) : room.error ? (
-            <ErrorState error={room.error} />
+            accessEnded(room.error) ? (
+              <div className="access-ended" role="status">
+                <h2>이 대화에 접근할 수 없어요</h2>
+                <p>
+                  여행 참여가 종료됐거나 대화방이 더 이상 존재하지 않아요. 여행
+                  단체 대화는 현재 참여 중인 동행만 이용할 수 있어요.
+                </p>
+                <Link className="button secondary" to="/trips">
+                  내 여행 확인하기
+                </Link>
+                <button
+                  className="text-button"
+                  onClick={() => {
+                    setParams({});
+                    void client.invalidateQueries({ queryKey: ["rooms"] });
+                  }}
+                >
+                  다른 대화 보기
+                </button>
+              </div>
+            ) : (
+              <ErrorState error={room.error} />
+            )
           ) : (
             current && (
               <>
