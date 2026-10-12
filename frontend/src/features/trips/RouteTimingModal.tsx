@@ -244,20 +244,27 @@ export default function RouteTimingModal({
                   <p>다른 안을 고르거나 방문 장소·교통편을 확인해 주세요.</p>
                 </div>
               )}
-              <button
-                className="button primary full"
-                disabled={
-                  !plan.canApply || busy || dirty || !!error || query.isFetching
-                }
-                onClick={() => apply(plan.strategy)}
-              >
-                {busy ? (
-                  <Loader2 size={16} className="spin" />
-                ) : (
-                  <Clock3 size={16} />
-                )}
-                이 안으로 일정에 반영
-              </button>
+              {/* 안내·변경 목록과 실행 영역을 분리해 내용 길이와 관계없이 충분한 간격을 확보합니다. */}
+              <div className="schedule-plan-actions">
+                <button
+                  className="button primary full"
+                  disabled={
+                    !plan.canApply ||
+                    busy ||
+                    dirty ||
+                    !!error ||
+                    query.isFetching
+                  }
+                  onClick={() => apply(plan.strategy)}
+                >
+                  {busy ? (
+                    <Loader2 size={16} className="spin" />
+                  ) : (
+                    <Clock3 size={16} />
+                  )}
+                  이 안으로 일정에 반영
+                </button>
+              </div>
             </article>
           ))}
         </div>

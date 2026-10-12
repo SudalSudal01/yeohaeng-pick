@@ -118,7 +118,9 @@ export default function App() {
               </>
             ) : (
               <Link className="login-link" to="/login">
-                로그인 / 회원가입
+                {/* 좁은 화면에서는 짧은 진입 문구를 사용합니다. 회원가입 링크는 로그인 화면과 펼친 메뉴에서도 제공됩니다. */}
+                <span className="login-full-label">로그인 / 회원가입</span>
+                <span className="login-mobile-label">로그인</span>
                 <ArrowUpRight size={14} />
               </Link>
             )}

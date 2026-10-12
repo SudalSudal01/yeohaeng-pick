@@ -103,11 +103,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               minLength={register ? 10 : 1}
-              placeholder={
-                register
-                  ? "10자 이상 입력해 주세요"
-                  : "비밀번호를 입력해 주세요"
-              }
+              placeholder={register ? "10자 이상" : "비밀번호 입력"}
               required
             />
             <button

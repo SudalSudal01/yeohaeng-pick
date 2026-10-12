@@ -231,18 +231,21 @@ function ScheduleComparison({
                   </p>
                 </div>
               )}
-              <button
-                className="button primary full"
-                disabled={!plan.canApply || busy || !!error}
-                onClick={() => apply(plan.strategy)}
-              >
-                {busy ? (
-                  <Loader2 size={16} className="spin" />
-                ) : (
-                  <Clock3 size={16} />
-                )}
-                이 조정안 적용하기
-              </button>
+              {/* 경로 비교와 같은 실행 영역을 사용해 하단 설명과 버튼 사이 여백을 일관되게 유지합니다. */}
+              <div className="schedule-plan-actions">
+                <button
+                  className="button primary full"
+                  disabled={!plan.canApply || busy || !!error}
+                  onClick={() => apply(plan.strategy)}
+                >
+                  {busy ? (
+                    <Loader2 size={16} className="spin" />
+                  ) : (
+                    <Clock3 size={16} />
+                  )}
+                  이 조정안 적용하기
+                </button>
+              </div>
             </article>
           ))}
         </div>

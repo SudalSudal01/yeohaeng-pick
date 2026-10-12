@@ -66,6 +66,13 @@ export const dateLabel = (value: string) =>
     month: "long",
     day: "numeric",
   });
+/** 모집 날짜는 달력 날짜입니다. 서버가 시각을 붙여 보내도 시간대 변환 없이 날짜만 읽기 좋게 표시합니다. */
+export function calendarDateLabel(value?: string) {
+  const date = value?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return date
+    ? `${date[1]}년 ${Number(date[2])}월 ${Number(date[3])}일`
+    : "날짜 확인 필요";
+}
 export const bookingLabels: Record<string, string> = {
   NONE: "예약 전",
   NEEDS_CONFIRMATION: "결과 확인 필요",

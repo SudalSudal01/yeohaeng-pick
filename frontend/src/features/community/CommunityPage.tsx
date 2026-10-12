@@ -11,7 +11,7 @@ import {
   Flag,
   CalendarDays,
 } from "lucide-react";
-import { api } from "../../shared/api";
+import { api, calendarDateLabel } from "../../shared/api";
 import type { Post } from "../../shared/types";
 import { useAuth, useToast } from "../../shared/providers";
 import { Empty, Loading, ErrorState, Modal } from "../../shared/ui";
@@ -109,7 +109,7 @@ export default function CommunityPage() {
               {p.category === "동행" && (
                 <div className="recruit-meta">
                   <CalendarDays size={15} />
-                  {p.recruitmentDate}
+                  {calendarDateLabel(p.recruitmentDate)}
                   <Users size={15} />
                   {p.capacity}명
                 </div>
@@ -315,7 +315,7 @@ export function PostPage() {
         {p.category === "동행" && (
           <div className="notice">
             <CalendarDays size={18} />
-            {p.recruitmentDate} · {p.capacity}명 모집 ·{" "}
+            {calendarDateLabel(p.recruitmentDate)} · {p.capacity}명 모집 ·{" "}
             {p.status === "OPEN" ? "모집 중" : "모집 종료"}
           </div>
         )}
