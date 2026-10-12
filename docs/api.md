@@ -29,6 +29,7 @@
 | 공개 일정 | GET /share/{token} | 안전한 필드만 노출 |
 | 일정 가져오기 | POST /trips/import | 로그인·CSRF·공개 스냅샷·요청 키. `{id}`로 독립 여행 생성, 예약/개인 기록 제외. [복사·중복 방지 계약](shared-trip-import.md) |
 | 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록 |
+| 여행 투표 | GET/POST /trips/{id}/polls, PUT /trips/{id}/polls/{pollId}/ballot, POST /trips/{id}/polls/{pollId}/close, DELETE /trips/{id}/polls/{pollId} | 참여자 생성·집계/내 선택 조회·재투표/취소. 만든 사람 또는 현재 소유자 마감·삭제. [계약과 개인정보 범위](trip-polls.md) |
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |
 | 소유권 이전 | POST /trips/{id}/ownership/transfer | `{version,memberId}`·현재 소유자/대상 참여 검사·대기 초대 종료·별도 변경 기록. [권한과 계약](trip-ownership.md) |
@@ -40,6 +41,57 @@
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | 요청·조회·수락 후 추가 발송 |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |
 | 차단 | GET /messages/blocks, PUT /messages/blocks/{member} | 사용자 차단/해제 |
+
+## 여행 공동 의사결정 투표
+
+모든 경로는 로그인과 현재 여행 참여를 검사합니다. 변경 요청은 CSRF 토큰이 필요합니다. 목록은 `GET /trips/{id}/polls`, 생성은 `POST /trips/{id}/polls`이며 생성 본문은 아래와 같습니다. 질문은 공백을 제외해 최대 120자, 후보는 공백을 제외해 각각 최대 100자이고 대소문자를 무시해 서로 다른 2~10개여야 합니다. 한 여행에는 삭제되지 않은 투표를 50개까지 둘 수 있습니다.
+
+```json
+{
+  "title": "저녁은 어디에서 먹을까요?",
+  "selectionType": "SINGLE",
+  "options": [{ "label": "시장" }, { "label": "해변 식당" }],
+  "closesAt": "2026-10-14T18:00:00"
+}
+```
+
+`selectionType`은 한 후보만 고르는 `SINGLE` 또는 여러 후보를 고르는 `MULTIPLE`입니다. `closesAt`은 선택 사항인 한국 현지 시각이며 오프셋 없는 ISO `LocalDateTime`으로 전송합니다. 현재보다 뒤여야 하고 연도는 9999 이하입니다. 생략하면 관리자가 직접 마감할 때까지 열립니다.
+
+- `PUT /trips/{id}/polls/{pollId}/ballot`: `{ "optionIds": ["후보 UUID"] }`. 기존 선택 전체를 새 목록으로 바꾸며 빈 배열은 본인 투표 취소입니다. `SINGLE`은 0~1개, `MULTIPLE`은 0~10개입니다.
+- `POST /trips/{id}/polls/{pollId}/close`: `{ "version": 0 }`. 투표를 만든 현재 참여자 또는 현재 여행 소유자만 직접 마감할 수 있습니다.
+- `DELETE /trips/{id}/polls/{pollId}`: `{ "version": 0 }`. 같은 관리 권한과 투표 version을 검사하며 성공은 204입니다. 후보와 표도 함께 삭제됩니다.
+
+목록·생성·투표·마감 응답의 한 투표는 아래 필드를 제공합니다. `OPEN`은 투표 가능, `CLOSED`는 직접 마감, `EXPIRED`는 저장 상태가 OPEN이어도 `closesAt`이 지난 자동 종료 상태입니다. 자동 종료와 직접 마감은 되돌리지 않습니다.
+
+```json
+{
+  "id": "투표 UUID",
+  "title": "저녁은 어디에서 먹을까요?",
+  "selectionType": "SINGLE",
+  "status": "OPEN",
+  "closesAt": "2026-10-14T18:00:00",
+  "closedAt": null,
+  "version": 0,
+  "createdAt": "2026-10-13T12:00:00",
+  "creatorName": "수달수달",
+  "canManage": true,
+  "votedMemberCount": 2,
+  "eligibleMemberCount": 3,
+  "options": [
+    {
+      "id": "후보 UUID",
+      "label": "시장",
+      "sortOrder": 0,
+      "voteCount": 2,
+      "selectedByMe": true
+    }
+  ]
+}
+```
+
+`votedMemberCount`는 한 후보 이상 고른 현재 참여자 수, `eligibleMemberCount`는 현재 여행 참여자 수입니다. 복수 선택에서는 후보별 표 합계가 투표 참여자 수보다 클 수 있습니다. 응답은 후보별 `voteCount`와 요청 회원의 `selectedByMe`만 제공하며, 다른 참여자가 어떤 후보를 골랐는지, 회원 내부 UUID와 이메일은 제공하지 않습니다. 탈퇴한 작성자의 질문은 남고 이름은 계정 비식별화 결과인 `탈퇴한 회원`으로 표시됩니다.
+
+잘못된 형식·중복 후보·지난 마감·다른 투표 후보는 400, 비로그인은 401, 비참여자 또는 관리 권한 부족은 403, 여행·투표 없음은 404입니다. 이미 닫힌 투표, 오래된 version, 50개 상한은 409입니다. 서비스는 먼저 URL의 여행과 투표 소속을 함께 잠가 확인한 뒤, 검증된 투표 ID 범위에서 후보와 본인 표를 처리합니다. 투표 version은 마감·삭제 수명 주기만 보호하며 개별 표 변경으로 증가하지 않습니다. 여행 일정 version과도 분리되어 투표로 일정·예약·경비가 바뀌지 않습니다.
 
 ## 저장한 여행의 방문 장소 비교
 

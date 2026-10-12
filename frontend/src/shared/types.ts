@@ -189,6 +189,31 @@ export type Trip = Omit<
     createdAt: string;
   }[];
 };
+/**
+ * 여행 동행이 함께 결정하는 투표입니다.
+ * 다른 회원이 고른 개별 선택은 공개하지 않고, 선택지별 합계와 현재 회원의 선택만 제공합니다.
+ */
+export type TripPoll = {
+  id: string;
+  title: string;
+  selectionType: "SINGLE" | "MULTIPLE";
+  status: "OPEN" | "CLOSED" | "EXPIRED";
+  closesAt: string | null;
+  closedAt: string | null;
+  version: number;
+  createdAt: string;
+  creatorName: string;
+  canManage: boolean;
+  votedMemberCount: number;
+  eligibleMemberCount: number;
+  options: {
+    id: string;
+    label: string;
+    sortOrder: number;
+    voteCount: number;
+    selectedByMe: boolean;
+  }[];
+};
 /** 숙박비는 전체 기간·전체 객실의 직접 입력 참고 금액이며 예약 성공/결제 여부와 별개입니다. */
 export type Lodging = {
   placeId: string;

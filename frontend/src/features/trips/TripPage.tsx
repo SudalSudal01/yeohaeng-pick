@@ -51,6 +51,7 @@ import PlaceComparisonModal from "./PlaceComparisonModal";
 import { lodgingBudget, activityBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
 import { isVisitChangeProtected } from "./visitComparisonCandidates";
+import TripPollPanel from "./TripPollPanel";
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
 export default function TripPage() {
@@ -616,6 +617,7 @@ export default function TripPage() {
         </div>
       ) : tab === "함께 준비" ? (
         <div className="preparation-grid">
+          <TripPollPanel tripId={trip.id} />
           <TripMembersPanel
             trip={trip}
             userId={user?.id ?? ""}

@@ -58,6 +58,9 @@ public class WithdrawalService {
       "소유한 여행이 남아 있어요. 소유권을 넘기거나 여행을 삭제한 뒤 다시 진행해 주세요."
     );
     trips.forEach(t -> withdrawal.bump((String) t.get("id")));
+    // 참여 연결을 끊기 전에 표를 지워 재가입이나 재초대가 과거 선택을 복구하지 않게 합니다.
+    // 탈퇴 회원이 만든 질문과 다른 참여자의 집계는 공동 여행 기록으로 유지합니다.
+    withdrawal.pollVotes(member);
     withdrawal.leaveAll(member);
     withdrawal.invitations(member);
     withdrawal.blocks(member);

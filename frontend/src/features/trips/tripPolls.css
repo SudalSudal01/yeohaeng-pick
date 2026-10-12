@@ -1,0 +1,572 @@
+/* 동행 투표는 함께 준비 영역 전체 너비를 사용합니다. 질문과 결과가 두 개의 좁은 패널 사이에 끼지 않게 합니다. */
+.trip-poll-panel {
+  grid-column: 1 / -1;
+}
+
+.trip-poll-panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.trip-poll-panel-heading h2 {
+  margin-bottom: 6px;
+}
+
+.trip-poll-panel-heading p {
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-panel-heading > .button {
+  flex-shrink: 0;
+}
+
+.trip-poll-refresh-error {
+  margin-bottom: 20px;
+}
+
+.trip-poll-refresh-error .notice {
+  margin-bottom: 0;
+}
+
+/* 오류 설명을 충분히 읽은 뒤 재시도할 수 있게 안내와 실행 버튼을 24px 이상 분리합니다. */
+.trip-poll-query-error .notice {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  column-gap: 10px;
+}
+
+.trip-poll-query-error .notice > .text-button {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 24px;
+}
+
+.trip-poll-refresh-error > p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-list {
+  display: grid;
+  gap: 18px;
+}
+
+.trip-poll-card {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: #fcfdfb;
+}
+
+.trip-poll-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.trip-poll-card-heading > div:first-child {
+  min-width: 0;
+}
+
+.trip-poll-card-heading h3 {
+  margin-top: 10px;
+  font-size: 19px;
+  overflow-wrap: anywhere;
+}
+
+.poll-status-CLOSED,
+.poll-status-EXPIRED {
+  background: #f0f2ee;
+  color: var(--muted);
+}
+
+.trip-poll-author {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 45%;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.7;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.trip-poll-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 14px 0;
+  margin: 15px 0 5px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.trip-poll-options,
+.trip-poll-type-field,
+.trip-poll-option-field {
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
+}
+
+.trip-poll-option {
+  display: block;
+  min-width: 0;
+  margin: 12px 0 0;
+  padding: 13px 14px 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.trip-poll-option:hover {
+  border-color: #a8beb1;
+}
+
+.trip-poll-option.selected {
+  border-color: var(--green);
+  background: #f1f7f3;
+}
+
+.trip-poll-options:disabled .trip-poll-option {
+  cursor: default;
+}
+
+.trip-poll-options:disabled .trip-poll-option:hover {
+  border-color: var(--border);
+}
+
+.trip-poll-option-control {
+  display: grid !important;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
+  align-items: center;
+  gap: 10px !important;
+  min-height: 44px;
+}
+
+/* 공통 입력 규칙이 radio까지 너비 100%로 만들기 때문에 투표 선택 컨트롤은 본래 크기로 되돌립니다. */
+.trip-poll-option input[type="radio"],
+.trip-poll-option input[type="checkbox"],
+.trip-poll-type-options input[type="radio"] {
+  appearance: auto;
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  box-shadow: none;
+  accent-color: var(--green);
+}
+
+.trip-poll-option-label {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0;
+}
+
+.trip-poll-option-label strong {
+  font-size: var(--text-body);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.trip-poll-option-label > span {
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  line-height: 1.7;
+}
+
+.trip-poll-result-track {
+  display: block !important;
+  width: 100%;
+  height: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #e8ede9;
+}
+
+.trip-poll-result-track > span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: var(--green);
+  transition: width 0.2s ease;
+}
+
+.trip-poll-vote-area {
+  margin-top: 18px;
+}
+
+.trip-poll-vote-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.trip-poll-vote-area .field-help,
+.trip-poll-create-form .field-help,
+.trip-poll-confirm-modal .field-help {
+  color: var(--muted);
+  font-size: var(--text-support);
+  font-weight: 400;
+  line-height: 1.8;
+}
+
+.trip-poll-clear {
+  min-height: 44px;
+  font-size: var(--text-support);
+}
+
+.trip-poll-save {
+  width: 100%;
+}
+
+.trip-poll-finished-note,
+.trip-poll-no-open {
+  padding: 14px;
+  border-radius: 10px;
+  background: #f2f4f1;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-finished-note {
+  margin-top: 18px;
+}
+
+.trip-poll-manage-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.trip-poll-manage-actions .text-button {
+  min-height: 44px;
+  font-size: var(--text-support);
+}
+
+.trip-poll-card > .notice {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+.trip-poll-empty {
+  padding: 35px 20px;
+  text-align: center;
+  border: 1px dashed #ced9d1;
+  border-radius: 14px;
+  background: #fbfcfa;
+}
+
+.trip-poll-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 12px;
+  border-radius: 15px;
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.trip-poll-empty h3 {
+  font-size: 18px;
+}
+
+.trip-poll-empty p {
+  max-width: 520px;
+  margin: 8px auto 0;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-empty .button {
+  margin-top: 24px;
+}
+
+.trip-poll-archive {
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.trip-poll-archive > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 2px;
+  font-size: var(--text-support);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.trip-poll-archive[open] > summary {
+  margin-bottom: 10px;
+}
+
+/* 생성 모달 */
+.trip-poll-create-form > .field-help:first-child {
+  margin-bottom: 20px;
+}
+
+.trip-poll-create-form label,
+.trip-poll-create-form fieldset {
+  min-width: 0;
+}
+
+/* 공통 입력보다 한 단계 크게 유지해 모바일 확대 없이도 질문과 선택지를 편하게 편집합니다. */
+.trip-poll-create-form input:not([type="radio"]),
+.trip-poll-create-form textarea {
+  font-size: 16px;
+}
+
+.trip-poll-title-field textarea {
+  min-height: 98px;
+}
+
+.poll-field-meta {
+  display: block !important;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 400;
+  text-align: right;
+}
+
+.trip-poll-type-field,
+.trip-poll-option-field {
+  margin-top: 23px;
+}
+
+.trip-poll-type-field legend,
+.trip-poll-option-field legend {
+  font-size: var(--text-support);
+  font-weight: 700;
+  color: #42594c;
+}
+
+.trip-poll-type-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-top: 9px;
+}
+
+.trip-poll-type-options label {
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 88px;
+  margin: 0;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  cursor: pointer;
+}
+
+.trip-poll-type-options label.selected {
+  border-color: var(--green);
+  background: #f1f7f3;
+}
+
+.trip-poll-type-options label > span {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 2px !important;
+  min-width: 0;
+}
+
+.trip-poll-type-options small {
+  margin: 0;
+  font-size: var(--text-caption);
+  line-height: 1.65;
+}
+
+.trip-poll-option-field > .field-help {
+  margin-top: 4px;
+}
+
+.trip-poll-option-inputs {
+  display: grid;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.trip-poll-option-input {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: end;
+  gap: 9px;
+  min-width: 0;
+}
+
+.trip-poll-option-input label {
+  min-width: 0;
+  margin: 0;
+}
+
+.trip-poll-option-input input {
+  margin-top: 0;
+}
+
+.trip-poll-option-input .icon-button {
+  width: 44px;
+  height: 46px;
+}
+
+.trip-poll-add-option {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.trip-poll-create-form input[type="datetime-local"] {
+  font-size: 16px;
+}
+
+.trip-poll-create-actions,
+.trip-poll-confirm-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.trip-poll-create-actions .button,
+.trip-poll-confirm-actions .button {
+  flex: 1;
+}
+
+.trip-poll-confirm-target {
+  padding: 17px;
+  border-radius: 12px;
+  background: #f3f6f1;
+}
+
+.trip-poll-confirm-target strong {
+  display: block;
+  margin-top: 10px;
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.trip-poll-confirm-target p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+
+.trip-poll-confirm-target + .field-help {
+  margin-top: 14px;
+}
+
+.trip-poll-confirm-modal .notice {
+  margin-top: 16px;
+  margin-bottom: 0;
+}
+
+@media (max-width: 600px) {
+  .trip-poll-panel-heading {
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .trip-poll-card-heading {
+    flex-direction: column;
+    gap: 13px;
+  }
+
+  .trip-poll-panel-heading > .button {
+    width: 100%;
+  }
+
+  .trip-poll-author {
+    align-items: flex-start;
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .trip-poll-summary {
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .trip-poll-type-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .trip-poll-type-options label {
+    min-height: 74px;
+  }
+}
+
+@media (max-width: 400px) {
+  .trip-poll-card {
+    padding: 16px 14px;
+    border-radius: 12px;
+  }
+
+  .trip-poll-card-heading h3 {
+    font-size: 17px;
+  }
+
+  .trip-poll-option {
+    padding: 11px 10px 10px;
+  }
+
+  .trip-poll-option-control {
+    grid-template-columns: 18px minmax(0, 1fr) 18px;
+    gap: 8px !important;
+  }
+
+  .trip-poll-manage-actions,
+  .trip-poll-create-actions,
+  .trip-poll-confirm-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .trip-poll-manage-actions .button,
+  .trip-poll-manage-actions .text-button,
+  .trip-poll-create-actions .button,
+  .trip-poll-confirm-actions .button {
+    width: 100%;
+  }
+
+  .trip-poll-empty {
+    padding: 29px 14px;
+  }
+}

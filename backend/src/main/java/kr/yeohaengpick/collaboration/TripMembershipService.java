@@ -12,15 +12,18 @@ public class TripMembershipService {
   private final TripService trips;
   private final TripMapper mapper;
   private final InvitationMapper invites;
+  private final TripPollMapper polls;
 
   public TripMembershipService(
     TripService trips,
     TripMapper mapper,
-    InvitationMapper invites
+    InvitationMapper invites,
+    TripPollMapper polls
   ) {
     this.trips = trips;
     this.mapper = mapper;
     this.invites = invites;
+    this.polls = polls;
   }
 
   /** 소유자는 여행을 남겨둔 채 나갈 수 없습니다. 소유권 이전은 별도 기능으로 다룹니다. */
@@ -61,6 +64,9 @@ public class TripMembershipService {
       409,
       "여행이 변경됐어요. 최신 참여자를 확인한 뒤 다시 진행해 주세요."
     );
+    // 투표는 현재 함께 결정하는 사람의 선택입니다. 표를 먼저 지워 새 초대로 돌아와도
+    // 과거 선택이 자동으로 되살아나지 않게 하며, 질문과 다른 참여자의 표는 공동 기록으로 남깁니다.
+    polls.clearMemberVotes(id, target);
     mapper.removeMember(id, target);
     invites.revoke(id, target);
     // 인원은 실제 여행 인원, 참여자는 편집 계정입니다. 인원·취향·예약·경비·이력과 공개 링크는 유지합니다.

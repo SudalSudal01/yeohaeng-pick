@@ -47,6 +47,10 @@ public interface WithdrawalMapper {
   @Delete("DELETE FROM favorite_places WHERE member_id=#{member}")
   void favorites(String member);
 
+  /** 공동 투표 질문은 남기되 탈퇴 회원의 현재 선택은 제거해 남은 참여자의 결과에 포함하지 않습니다. */
+  @Delete("DELETE FROM trip_poll_votes WHERE member_id=#{member}")
+  void pollVotes(String member);
+
   @Update(
     "UPDATE conversations SET status='CLOSED' WHERE trip_id IS NULL AND (requester_id=#{member} OR recipient_id=#{member})"
   )
