@@ -636,6 +636,52 @@ public class TripService {
     int version
   ) {}
 
+  /** 숙소만 교체합니다. 새 숙소에 이전 예약·가격·이용 정책을 복사하지 않고 관련 조회 기록만 해제합니다.
+   * 방문 시각·고정 방문·교통 예약은 유지하므로 사용자가 새 숙소의 실제 경로를 다시 비교할 수 있습니다. */
+  @Transactional
+  public Object applyLodging(
+    String id,
+    String member,
+    int version,
+    Place candidate
+  ) {
+    access(id, member);
+    var hotels = trips.lodgings(id);
+    var current = hotels
+      .stream()
+      .filter(h -> candidate.region().equals(h.get("region")))
+      .findFirst();
+    if (
+      current.isPresent() &&
+      List.of("USER_CONFIRMED", "PARTNER_CONFIRMED").contains(
+        current.get().get("bookingStatus")
+      )
+    ) throw new DomainException(
+      409,
+      "예약 완료 숙소의 상태를 먼저 정리해 주세요."
+    );
+    revision(
+      id,
+      version,
+      member,
+      current.isPresent()
+        ? "숙소 변경 · " + candidate.name()
+        : "숙소 추가 · " + candidate.name()
+    );
+    if (current.isPresent()) {
+      // 과거 숙소를 나중에 다시 선택해도 해제한 영수증이 부활하지 않도록 저장 행을 지웁니다.
+      for (var payload : trips.routeTimings(id)) {
+        var timing = json.read(payload, RouteTiming.class);
+        if (
+          LodgingStay.uses(timing, current.get().get("placeId").toString())
+        ) trips.clearRouteTiming(id, timing.toItemId());
+      }
+      trips.removeLodging(id, candidate.region());
+    }
+    trips.lodging(id, candidate);
+    return detail(id, member);
+  }
+
   /** 숙박 조건만 저장하며 예약/결제 상태나 방문 시각은 변경하지 않습니다. 동행의 수정은 version으로 보호합니다. */
   @Transactional
   public Object lodgingStay(

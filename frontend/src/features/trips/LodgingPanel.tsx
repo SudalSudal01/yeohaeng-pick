@@ -1,7 +1,15 @@
 import { useCallback, useState } from "react";
-import { Hotel, ArrowUpRight, Check, Loader2 } from "lucide-react";
+import {
+  Hotel,
+  ArrowUpRight,
+  Check,
+  Loader2,
+  GitCompareArrows,
+} from "lucide-react";
 import type { Trip, Lodging } from "../../shared/types";
 import LodgingStayModal from "./LodgingStayModal";
+import LodgingChoiceModal from "./LodgingChoiceModal";
+import { lodgingRegions } from "./lodgingChoice";
 import { api, bookingLabels, money } from "../../shared/api";
 import { useToast } from "../../shared/providers";
 
@@ -20,6 +28,12 @@ export default function LodgingPanel({
     null,
   );
   const close = useCallback(() => setEditing(null), []);
+  const [comparing, setComparing] = useState<{
+    trip: Trip;
+    region: string;
+  } | null>(null);
+  const closeComparison = useCallback(() => setComparing(null), []);
+  const regions = lodgingRegions(trip);
   async function change(placeId: string, status: string) {
     setBusy(true);
     try {
@@ -42,12 +56,32 @@ export default function LodgingPanel({
       setBusy(false);
     }
   }
-  if (!trip.lodgings?.length) return null;
+  if (!trip.lodgings?.length && !regions.length) return null;
   return (
     <div className="trip-note">
       <h3>
         <Hotel size={18} /> 여행의 베이스캠프
       </h3>
+      <p className="small muted">
+        숙소를 아직 정하지 않았거나 다른 후보가 궁금하다면 일정 앞뒤 이동
+        부담부터 비교해 보세요.
+      </p>
+      {!!regions.length && (
+        <div className="lodging-choice-entry">
+          <button
+            className="button secondary"
+            disabled={busy}
+            onClick={() => setComparing({ trip, region: regions[0] })}
+          >
+            <GitCompareArrows size={17} /> 숙소 추가·변경 비교
+          </button>
+        </div>
+      )}
+      {!trip.lodgings.length && (
+        <p className="notice">
+          아직 선택한 숙소가 없어요. 후보를 비교한 뒤 일정에 추가할 수 있어요.
+        </p>
+      )}
       {trip.lodgings.map((p) => (
         <div className="lodging-summary" key={p.placeId}>
           <span className="badge subtle">{p.region} · 숙소 기준 동선</span>
@@ -101,6 +135,18 @@ export default function LodgingPanel({
               숙박 조건 {p.checkInDate ? "수정" : "입력"}
             </button>
           </div>
+          {regions.includes(p.region) && (
+            <div className="lodging-choice-entry">
+              <button
+                className="text-button"
+                disabled={busy}
+                onClick={() => setComparing({ trip, region: p.region })}
+                aria-label={`${p.region} 다른 숙소와 비교`}
+              >
+                <GitCompareArrows size={17} /> 다른 숙소와 비교
+              </button>
+            </div>
+          )}
           <label>
             예약 확인 상태
             <select
@@ -137,6 +183,15 @@ export default function LodgingPanel({
           hotel={editing.hotel}
           refresh={refresh}
           close={close}
+        />
+      )}
+      {comparing && (
+        <LodgingChoiceModal
+          key={`${comparing.trip.version}:${comparing.region}`}
+          trip={comparing.trip}
+          initialRegion={comparing.region}
+          refresh={refresh}
+          close={closeComparison}
         />
       )}
     </div>

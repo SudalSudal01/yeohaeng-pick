@@ -86,8 +86,8 @@ export default function OvernightPanel({
       {!trip.lodgings.length ? (
         <div className="overnight-empty">
           <p className="small muted">
-            먼저 여행을 만들 때 숙소 후보를 선택해 주세요. 현재 여행에 저장한
-            숙소가 있어야 앞뒤 경로를 비교할 수 있어요.
+            아래 ‘여행의 베이스캠프’에서 숙소 후보를 비교해 추가해 주세요. 현재
+            여행에 저장한 숙소가 있어야 앞뒤 경로를 비교할 수 있어요.
           </p>
           <Link
             className="button secondary"

@@ -128,6 +128,26 @@ export type Comparison = {
   conflicts: string[];
   summary: string;
 };
+
+/** 숙소 앞뒤 구간의 좌표 기반 비교입니다. 실제 조회 영수증·객실 가격·운행 보장을 뜻하지 않습니다. */
+export type LodgingChoicePreview = {
+  candidate: Place;
+  currentName: string | null;
+  legs: {
+    dayIndex: number;
+    direction: "INBOUND" | "OUTBOUND";
+    placeName: string;
+    beforeMinutes: number | null;
+    afterMinutes: number;
+  }[];
+  beforeMinutes: number | null;
+  afterMinutes: number;
+  minutesDelta: number | null;
+  clearedRouteCount: number;
+  resetsStay: boolean;
+  conflicts: string[];
+  canApply: boolean;
+};
 export type Post = {
   id: string;
   authorId: string;

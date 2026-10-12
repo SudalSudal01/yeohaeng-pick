@@ -61,6 +61,11 @@ public interface TripMapper {
   @Select("SELECT * FROM trip_lodgings WHERE trip_id=#{trip} ORDER BY region")
   List<Map<String, Object>> lodgings(String trip);
 
+  @Delete(
+    "DELETE FROM trip_lodgings WHERE trip_id=#{trip} AND region=#{region}"
+  )
+  int removeLodging(@Param("trip") String trip, @Param("region") String region);
+
   @Update(
     "UPDATE trip_lodgings SET check_in_date=#{s.checkInDate},check_out_date=#{s.checkOutDate},guest_count=#{s.guestCount},room_count=#{s.roomCount},total_amount=#{s.totalAmount},check_in_time=#{s.checkInTime},check_out_time=#{s.checkOutTime} WHERE trip_id=#{trip} AND place_id=#{place}"
   )

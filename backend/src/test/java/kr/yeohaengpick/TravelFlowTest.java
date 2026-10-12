@@ -263,6 +263,360 @@ class TravelFlowTest {
     );
   }
 
+  String lodgingCandidate(Browser user, String base) throws Exception {
+    var response = user.request(
+      "GET",
+      base +
+        "/lodgings/candidates?region=" +
+        java.net.URLEncoder.encode(
+          "서울",
+          java.nio.charset.StandardCharsets.UTF_8
+        ),
+      null,
+      false
+    );
+    assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+    var choices = json.mapper().readTree(response.body());
+    assertThat(choices.isArray() && !choices.isEmpty()).isTrue();
+    return choices.get(0).path("id").asText();
+  }
+
+  Map<String, Object> choiceRequest(String candidate, int version) {
+    return new HashMap<>(
+      Map.of(
+        "region",
+        "서울",
+        "query",
+        "",
+        "placeId",
+        candidate,
+        "version",
+        version
+      )
+    );
+  }
+
+  @Test
+  void lodgingCanBeAddedAfterSavingWithoutChangingVisitsPaymentsOrSharing()
+    throws Exception {
+    var owner = new Browser().signup();
+    var c = hotelConditions();
+    c.put("lodgingIds", List.of());
+    var trip = owner.trip(c);
+    String base = "/trips/" + trip.get("id");
+    String candidate = lodgingCandidate(owner, base);
+    var request = choiceRequest(candidate, 0);
+    var comparison = owner.call("POST", base + "/lodgings/preview", request);
+    assertThat(comparison.get("beforeMinutes")).isNull();
+    assertThat(comparison.get("minutesDelta")).isNull();
+    assertThat(comparison.get("canApply")).isEqualTo(true);
+    assertThat(owner.call("GET", base, null))
+      .containsEntry("version", 0)
+      .containsEntry("lodgings", List.of());
+    request.put("name", "위조 숙소");
+    request.put("totalAmount", 1);
+    request.put("bookingStatus", "PARTNER_CONFIRMED");
+    var saved = owner.call("POST", base + "/lodgings/apply", request);
+    var hotel = json.mapper().valueToTree(saved).path("lodgings").get(0);
+    assertThat(hotel.path("placeId").asText()).isEqualTo(candidate);
+    assertThat(hotel.path("name").asText()).isNotEqualTo("위조 숙소");
+    assertThat(hotel.path("bookingStatus").asText()).isEqualTo("NONE");
+    assertThat(hotel.hasNonNull("totalAmount")).isFalse();
+    assertThat(saved)
+      .containsEntry("version", 1)
+      .containsEntry("items", trip.get("items"))
+      .containsEntry("expenses", trip.get("expenses"));
+    assertThat(owner.call("GET", base, null).get("lodgings")).isEqualTo(
+      saved.get("lodgings")
+    );
+    String token = owner
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    assertThat(
+      new Browser().call("GET", "/share/" + token, null)
+    ).doesNotContainKeys("lodgings", "routeTimings");
+  }
+
+  @Test
+  void lodgingReplacementClearsOnlyOldHotelRoutesAndConditionsAndUndoDoesNotResurrectThem()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    trip = owner.call("PUT", base + "/lodgings/sample-11/stay", stayRequest(0));
+    trip = owner.call(
+      "POST",
+      base + "/transport/overnight/apply",
+      overnightRequest(owner, trip)
+    );
+    // 숙소와 무관한 방문 간 조회 기록은 교체 후에도 남겨야 합니다.
+    trip = owner.call(
+      "POST",
+      base + "/transport/timing/apply",
+      routeRequest(
+        owner,
+        trip,
+        items(trip).size() - 2,
+        items(trip).size() - 1,
+        30
+      )
+    );
+    var unrelated = json.mapper().valueToTree(trip).path("routeTimings");
+    var remaining = new ArrayList<Object>();
+    unrelated.forEach(t -> {
+      if (!t.hasNonNull("overnight")) remaining.add(t);
+    });
+    assertThat(remaining).hasSize(1);
+    var unchangedVisits = trip.get("items");
+    var comparisonRequest = choiceRequest(lodgingCandidate(owner, base), 3);
+    var preview = owner.call(
+      "POST",
+      base + "/lodgings/preview",
+      comparisonRequest
+    );
+    assertThat(preview)
+      .containsEntry("clearedRouteCount", 1)
+      .containsEntry("resetsStay", true)
+      .containsEntry("canApply", true);
+    assertThat(preview.get("beforeMinutes")).isNotNull();
+    var saved = owner.call("POST", base + "/lodgings/apply", comparisonRequest);
+    assertThat(saved)
+      .containsEntry("version", 4)
+      .containsEntry("items", unchangedVisits);
+    assertThat(json.mapper().valueToTree(saved).path("routeTimings")).isEqualTo(
+      json.mapper().valueToTree(remaining)
+    );
+    var hotel = json.mapper().valueToTree(saved).path("lodgings").get(0);
+    assertThat(hotel.path("placeId").asText()).isNotEqualTo("sample-11");
+    assertThat(hotel.hasNonNull("checkInDate")).isFalse();
+    assertThat(hotel.hasNonNull("totalAmount")).isFalse();
+    assertThat(hotel.path("bookingStatus").asText()).isEqualTo("NONE");
+    String history = json
+      .mapper()
+      .valueToTree(saved)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    var restored = owner.call(
+      "POST",
+      base + "/undo",
+      Map.of("historyId", history, "version", 4)
+    );
+    assertThat(restored.get("lodgings")).isEqualTo(saved.get("lodgings"));
+    assertThat(restored.get("routeTimings")).isEqualTo(
+      saved.get("routeTimings")
+    );
+  }
+
+  @Test
+  void confirmedLodgingCannotBeReplacedAndStaleChoiceIsRejectedAfterCancellationRecord()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    String candidate = lodgingCandidate(owner, base);
+    owner.call(
+      "PUT",
+      base + "/lodging-booking",
+      Map.of(
+        "itemId",
+        "sample-11",
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "가상 예약 상태 검증",
+        "fixed",
+        false,
+        "version",
+        0
+      )
+    );
+    var request = choiceRequest(candidate, 1);
+    var preview = owner.call("POST", base + "/lodgings/preview", request);
+    assertThat(preview.get("canApply")).isEqualTo(false);
+    assertThat(preview.get("conflicts").toString()).contains("예약 완료");
+    assertThat(
+      owner
+        .request("POST", base + "/lodgings/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    owner.call(
+      "PUT",
+      base + "/lodging-booking",
+      Map.of(
+        "itemId",
+        "sample-11",
+        "status",
+        "CANCELLED",
+        "reason",
+        "외부 예약 없는 테스트 기록",
+        "fixed",
+        false,
+        "version",
+        1
+      )
+    );
+    assertThat(
+      owner
+        .request("POST", base + "/lodgings/preview", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      owner
+        .request("POST", base + "/lodgings/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    request.put("version", 2);
+    assertThat(
+      owner.call("POST", base + "/lodgings/apply", request).get("version")
+    ).isEqualTo(3);
+  }
+
+  @Test
+  void lodgingChoiceValidatesMembershipCsrfRegionCategoryQueryAndDayTrip()
+    throws Exception {
+    var owner = new Browser().signup();
+    var other = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    var request = choiceRequest(lodgingCandidate(owner, base), 0);
+    assertThat(
+      other
+        .request(
+          "GET",
+          base +
+            "/lodgings/candidates?region=" +
+            java.net.URLEncoder.encode(
+              "서울",
+              java.nio.charset.StandardCharsets.UTF_8
+            ),
+          null,
+          false
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    for (String endpoint : List.of("preview", "apply")) {
+      assertThat(
+        other
+          .request("POST", base + "/lodgings/" + endpoint, request, true)
+          .statusCode()
+      ).isEqualTo(403);
+      assertThat(
+        owner
+          .request("POST", base + "/lodgings/" + endpoint, request, false)
+          .statusCode()
+      ).isEqualTo(403);
+    }
+    for (var invalid : List.of(
+      Map.entry("region", "부산"),
+      Map.entry("placeId", "sample-0"),
+      Map.entry("placeId", "sample-11"),
+      Map.entry("query", "x".repeat(101)),
+      Map.entry("query", "존재하지않는호텔")
+    )) {
+      var bad = new HashMap<>(request);
+      bad.put(invalid.getKey(), invalid.getValue());
+      assertThat(
+        owner.request("POST", base + "/lodgings/apply", bad, true).statusCode()
+      ).isEqualTo(400);
+    }
+    var dayTrip = owner.trip();
+    assertThat(
+      owner
+        .request(
+          "POST",
+          "/trips/" + dayTrip.get("id") + "/lodgings/apply",
+          request,
+          true
+        )
+        .statusCode()
+    ).isEqualTo(400);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(0);
+  }
+
+  @Test
+  void acceptedCompanionCanChooseLodgingAndConcurrentOwnerChoiceFails()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    var request = choiceRequest(lodgingCandidate(owner, base), 0);
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip.get("id"), "email", companion.email)
+    );
+    assertThat(
+      companion
+        .request("POST", base + "/lodgings/apply", request, true)
+        .statusCode()
+    ).isEqualTo(403);
+    var invites = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body());
+    companion.call(
+      "POST",
+      "/invitations/" + invites.get(0).path("id").asText() + "/respond",
+      Map.of("accept", true)
+    );
+    var current = owner.call("GET", base, null);
+    request.put("version", current.get("version"));
+    companion.call("POST", base + "/lodgings/apply", request);
+    assertThat(
+      owner
+        .request("POST", base + "/lodgings/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+  }
+
+  @Test
+  void lodgingChoiceKeepsOtherRegionsAndRejectsRegionVisitedOnlyOnLastDay()
+    throws Exception {
+    var owner = new Browser().signup();
+    var c = hotelConditions();
+    c.put("regions", List.of("서울", "부산", "강릉"));
+    c.put("endDate", "2026-11-03");
+    c.put("lodgingIds", List.of("sample-11", "sample-23"));
+    var trip = owner.trip(c);
+    String base = "/trips/" + trip.get("id");
+    var hotels = json.mapper().valueToTree(trip).path("lodgings");
+    Object busan = null;
+    for (var h : hotels)
+      if (h.path("region").asText().equals("부산")) busan = h;
+    assertThat(busan).isNotNull();
+    var request = choiceRequest(lodgingCandidate(owner, base), 0);
+    var preview = owner.call("POST", base + "/lodgings/preview", request);
+    var legs = json.mapper().valueToTree(preview).path("legs");
+    assertThat(legs.size()).isEqualTo(2);
+    assertThat(legs.get(0).path("dayIndex").asInt()).isEqualTo(0);
+    assertThat(legs.get(1).path("dayIndex").asInt()).isEqualTo(1);
+    var saved = owner.call("POST", base + "/lodgings/apply", request);
+    var savedHotels = json.mapper().valueToTree(saved).path("lodgings");
+    assertThat(savedHotels.size()).isEqualTo(2);
+    for (var h : savedHotels)
+      if (h.path("region").asText().equals("부산")) assertThat(h).isEqualTo(
+        busan
+      );
+    assertThat(
+      owner
+        .request(
+          "GET",
+          base +
+            "/lodgings/candidates?region=" +
+            java.net.URLEncoder.encode(
+              "강릉",
+              java.nio.charset.StandardCharsets.UTF_8
+            ),
+          null,
+          false
+        )
+        .statusCode()
+    ).isEqualTo(400);
+  }
+
   @Test
   void lodgingStayPersistsWithoutMarkingPaidAndProtectsAccessVersionAndSharing()
     throws Exception {
