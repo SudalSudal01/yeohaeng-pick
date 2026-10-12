@@ -212,8 +212,12 @@ public class WholeSchedule {
         int duration = RouteTiming.number(item, "duration");
         int outgoing =
           n + 1 < day.size() ? gap(timings, item, day.get(n + 1), mode, s) : 0;
-        var lower = at(date, item, s.start());
-        var upper = at(date, item, s.end() - duration);
+        var lower = at(date, item, VisitConditions.earliest(item, s.start()));
+        var upper = at(
+          date,
+          item,
+          VisitConditions.latestStart(item, s.end() - duration)
+        );
         if (early && n > 0) {
           var previous = day.get(n - 1);
           lower = max(
@@ -278,7 +282,7 @@ public class WholeSchedule {
               (Boolean.TRUE.equals(item.get("fixed"))
                 ? "의 고정 시간과 "
                 : "을 ") +
-              "하루 범위·앞뒤 이동 조건에 함께 맞출 수 없어요."
+              "하루 범위·방문 가능 시간·앞뒤 이동 조건에 함께 맞출 수 없어요."
           );
         }
         // 불가능한 임시 시각을 DB 형식으로 만들지 않습니다. 충돌이 있으면 해당 안 전체의 적용이 차단됩니다.

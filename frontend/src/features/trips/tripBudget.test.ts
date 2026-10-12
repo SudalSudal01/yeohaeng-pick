@@ -1,6 +1,29 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "../../shared/types";
-import { lodgingBudget } from "./tripBudget";
+import { lodgingBudget, activityBudget } from "./tripBudget";
+import { activityPrice } from "../../shared/api";
+
+describe("직접 입력 방문 비용", () => {
+  it("0원 입력과 미확인 값을 구분하고 전체 인원 비용을 한 번만 계산한다", () => {
+    const trip = {
+      partySize: 2,
+      items: [
+        { source: "KAKAO", cost: 0, visitCost: null },
+        { source: "KAKAO", cost: 20000, visitCost: 0 },
+        { source: "KAKAO", cost: 0, visitCost: 3000 },
+        { source: "SAMPLE", cost: 5000 },
+      ],
+    } as unknown as Trip;
+    expect(activityBudget(trip)).toEqual({
+      total: 16000,
+      entered: 6000,
+      unpriced: 1,
+    });
+    expect(activityPrice(trip.items[0])).toBe("요금 확인 필요");
+    expect(activityPrice(trip.items[1])).toBe("0원 / 인 · 직접 입력");
+    expect(activityPrice(trip.items[2])).toBe("3,000원 / 인 · 직접 입력");
+  });
+});
 
 const base = {
   startDate: "2026-11-01",

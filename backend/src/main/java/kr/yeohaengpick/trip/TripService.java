@@ -183,6 +183,7 @@ public class TripService {
     );
     result.put("routeTimings", timings);
     result.put("externalBookings", reserved);
+    result.put("visitConditionIssues", VisitConditions.conflicts(items));
     result.put(
       "schedule",
       schedule.inspect(
@@ -284,6 +285,11 @@ public class TripService {
     m.put("fixed", s.fixed());
     m.put("bookingStatus", s.bookingStatus());
     m.put("bookingReason", "");
+    // 장소에 종속된 조건입니다. 후보 변경 시 이전 시설의 이용시간·요금을 넘기지 않도록 항상 초기화합니다.
+    m.put("visitStart", null);
+    m.put("visitEnd", null);
+    m.put("visitCost", null);
+    m.put("visitNote", "");
     return m;
   }
 
@@ -473,11 +479,11 @@ public class TripService {
       .forEach(issue -> conflicts.add(issue.message()));
     int cost = next
       .stream()
-      .mapToInt(m -> ((Number) m.get("cost")).intValue() * party)
+      .mapToInt(m -> VisitConditions.cost(m) * party)
       .sum();
     int before = old
       .stream()
-      .mapToInt(m -> ((Number) m.get("cost")).intValue() * party)
+      .mapToInt(m -> VisitConditions.cost(m) * party)
       .sum();
     return Map.of(
       "items",
@@ -638,6 +644,36 @@ public class TripService {
     boolean fixed,
     int version
   ) {}
+
+  /** 조건 저장은 방문 시각을 바꾸지 않습니다. 불일치도 저장하고 다음 비교에서 해결하도록 안내합니다. */
+  @Transactional
+  public Object visitConditions(
+    String id,
+    String itemId,
+    VisitConditions.Request r,
+    String member
+  ) {
+    access(id, member);
+    var target = trips
+      .items(id)
+      .stream()
+      .filter(i -> i.get("id").equals(itemId))
+      .findFirst()
+      .orElseThrow(() ->
+        new DomainException(404, "방문 일정을 찾을 수 없어요.")
+      );
+    var values = VisitConditions.validate(
+      r,
+      ((Number) target.get("duration")).intValue()
+    );
+    // 같은 장소의 최신 조건은 복원에서도 유지합니다. 방문일정 복원 이력과 분리하고 버전 검사로 공동 편집을 보호합니다.
+    if (trips.bump(id, r.version()) != 1) throw new DomainException(
+      409,
+      "동행이 일정을 변경했어요. 최신 일정을 불러온 뒤 다시 입력해 주세요."
+    );
+    trips.visitConditions(id, itemId, values);
+    return detail(id, member);
+  }
 
   /** 숙소만 교체합니다. 새 숙소에 이전 예약·가격·이용 정책을 복사하지 않고 관련 조회 기록만 해제합니다.
    * 방문 시각·고정 방문·교통 예약은 유지하므로 사용자가 새 숙소의 실제 경로를 다시 비교할 수 있습니다. */
@@ -805,7 +841,33 @@ public class TripService {
       (String) h.get("snapshot"),
       List.class
     );
-    for (var current : trips.items(id))
+    // 이전 이력에 조건이 없어도 같은 장소의 최신 확인값을 유지합니다. 장소가 바뀌는 복원은 조건 재확인이 필요합니다.
+    var currentItems = trips.items(id);
+    for (var restored : snapshot) {
+      var current = currentItems
+        .stream()
+        .filter(
+          i ->
+            i.get("id").equals(restored.get("id")) &&
+            i.get("placeId").equals(restored.get("placeId"))
+        )
+        .findFirst();
+      for (String key : List.of(
+        "visitStart",
+        "visitEnd",
+        "visitCost",
+        "visitNote"
+      ))
+        restored.put(
+          key,
+          current.isPresent()
+            ? current.get().get(key)
+            : key.equals("visitNote")
+              ? ""
+              : null
+        );
+    }
+    for (var current : currentItems)
       if ((Boolean) current.get("fixed")) {
         var original = snapshot
           .stream()
@@ -835,7 +897,7 @@ public class TripService {
         .isEmpty()
     ) throw new DomainException(
       409,
-      "현재 교통 예약의 이동·여유 시간과 겹치는 복원이어서 적용할 수 없어요."
+      "직접 입력한 방문 가능 시간 또는 현재 교통 예약과 충돌하는 복원이어서 적용할 수 없어요."
     );
     if (
       !RouteTiming.conflicts(

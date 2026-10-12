@@ -118,6 +118,16 @@ public class TripController {
     return trips.booking(id, b, auth.id(a));
   }
 
+  @PutMapping("/trips/{id}/items/{item}/conditions")
+  Object visitConditions(
+    @PathVariable String id,
+    @PathVariable String item,
+    @RequestBody VisitConditions.Request r,
+    Authentication a
+  ) {
+    return trips.visitConditions(id, item, r, auth.id(a));
+  }
+
   @PutMapping("/trips/{id}/lodging-booking")
   Object lodgingBooking(
     @PathVariable String id,

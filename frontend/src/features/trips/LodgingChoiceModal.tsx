@@ -61,7 +61,7 @@ export default function LodgingChoiceModal({
     ? lodgingChoiceBudget(trip, result.candidate)
     : null;
   const activities = trip.items.reduce(
-    (sum, i) => sum + i.cost * trip.partySize,
+    (sum, i) => sum + (i.visitCost ?? i.cost) * trip.partySize,
     0,
   );
   const dirty = query.trim() !== search;

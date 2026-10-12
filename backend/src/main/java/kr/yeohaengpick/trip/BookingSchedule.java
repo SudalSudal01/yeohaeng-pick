@@ -175,6 +175,10 @@ public class BookingSchedule {
         )
       );
     }
+    // 모든 시간 변경 엔진이 이 공통 검사를 사용합니다. 경로·숙소 비교에서도 사용자 확인 시간을 우회할 수 없습니다.
+    VisitConditions.conflicts(items).forEach(message ->
+      issues.add(new Issue("VISIT_WINDOW", List.of(), List.of(), message))
+    );
     return new Report(windows, issues, unlinked);
   }
 
@@ -268,6 +272,15 @@ public class BookingSchedule {
       var saved = start(date, i);
       var candidate = saved;
       int duration = number(i, "duration");
+      var boundDate = saved.toLocalDate().atStartOfDay();
+      var visitBound = boundDate.plusMinutes(
+        later
+          ? VisitConditions.earliest(i, 360)
+          : VisitConditions.latestStart(i, 1320 - duration)
+      );
+      if (
+        later ? candidate.isBefore(visitBound) : candidate.isAfter(visitBound)
+      ) candidate = visitBound;
       if (
         neighbor != null &&
         number(neighbor, "dayIndex") == number(i, "dayIndex")

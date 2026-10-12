@@ -57,10 +57,16 @@ export async function api<T>(
 export const money = (amount: number) =>
   new Intl.NumberFormat("ko-KR").format(amount) + "원";
 // 외부 검색의 미제공 요금을 무료로 표시하지 않습니다. 식비·카페 비용도 실제 결제 금액이 아닌 추정입니다.
-export const activityPrice = (place: { source: string; cost: number }) =>
-  place.source === "KAKAO" && place.cost === 0
-    ? "요금 확인 필요"
-    : money(place.cost) + " / 인 추정";
+export const activityPrice = (place: {
+  source: string;
+  cost: number;
+  visitCost?: number | null;
+}) =>
+  place.visitCost != null
+    ? money(place.visitCost) + " / 인 · 직접 입력"
+    : place.source === "KAKAO" && place.cost === 0
+      ? "요금 확인 필요"
+      : money(place.cost) + " / 인 추정";
 export const dateLabel = (value: string) =>
   new Date(value + "T00:00:00").toLocaleDateString("ko-KR", {
     month: "long",

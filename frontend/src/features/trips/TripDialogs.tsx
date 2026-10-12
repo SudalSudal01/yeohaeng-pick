@@ -143,6 +143,10 @@ export function ComparisonModal({
               숙박비는 저장한 총 숙박비와 예시 금액을 사용해요. 미확인
               숙박비·장소 비용, 교통비와 미선택 숙소 비용은 포함하지 않았어요.
             </p>
+            <p className="small muted">
+              바꾸는 장소의 방문 조건·직접 입력 비용은 초기화해요. 유지하는
+              장소의 확인 조건은 그대로 지켜요.
+            </p>
             {comparison.data.conflicts.map((c) => (
               <p className="field-error" key={c}>
                 {c}

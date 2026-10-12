@@ -119,9 +119,18 @@ public interface TripMapper {
   List<Map<String, Object>> items(String id);
 
   @Insert(
-    "INSERT INTO itinerary_items(id,trip_id,day_index,sort_order,place_id,place_name,region,category,latitude,longitude,start_time,duration,cost,indoor,source,place_url,fixed,booking_status,booking_reason) VALUES(#{id},#{tripId},#{dayIndex},#{sortOrder},#{placeId},#{placeName},#{region},#{category},#{latitude},#{longitude},#{startTime},#{duration},#{cost},#{indoor},#{source},#{placeUrl},#{fixed},#{bookingStatus},#{bookingReason})"
+    "INSERT INTO itinerary_items(id,trip_id,day_index,sort_order,place_id,place_name,region,category,latitude,longitude,start_time,duration,cost,indoor,source,place_url,fixed,booking_status,booking_reason,visit_start,visit_end,visit_cost,visit_note) VALUES(#{id},#{tripId},#{dayIndex},#{sortOrder},#{placeId},#{placeName},#{region},#{category},#{latitude},#{longitude},#{startTime},#{duration},#{cost},#{indoor},#{source},#{placeUrl},#{fixed},#{bookingStatus},#{bookingReason},#{visitStart},#{visitEnd},#{visitCost},COALESCE(#{visitNote},''))"
   )
   void item(Map<String, Object> item);
+
+  @Update(
+    "UPDATE itinerary_items SET visit_start=#{v.start},visit_end=#{v.end},visit_cost=#{v.cost},visit_note=#{v.note} WHERE trip_id=#{trip} AND id=#{item}"
+  )
+  int visitConditions(
+    @Param("trip") String trip,
+    @Param("item") String item,
+    @Param("v") VisitConditions.Values values
+  );
 
   @Delete("DELETE FROM itinerary_items WHERE trip_id=#{id}")
   void clearItems(String id);

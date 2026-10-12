@@ -42,8 +42,9 @@ import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
 import WholeSchedulePanel from "./WholeSchedulePanel";
 import TourismInfoButton from "../catalog/TourismInfoButton";
+import VisitConditionsModal from "./VisitConditionsModal";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
-import { lodgingBudget } from "./tripBudget";
+import { lodgingBudget, activityBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
@@ -71,6 +72,8 @@ export default function TripPage() {
   const [tab, setTab] = useState("일정");
   const [compare, setCompare] = useState<Item | null>(null);
   const [booking, setBooking] = useState<Item | null>(null);
+  const [visitConditions, setVisitConditions] = useState<Item | null>(null);
+  const closeVisitConditions = useCallback(() => setVisitConditions(null), []);
   const [rain, setRain] = useState(false);
   const [invite, setInvite] = useState(false);
   const [share, setShare] = useState(false);
@@ -112,7 +115,8 @@ export default function TripPage() {
   if (query.error || !query.data) return <ErrorState error={query.error} />;
   const trip = query.data;
   const days = [...new Set(trip.items.map((i) => i.dayIndex))];
-  const activity = trip.items.reduce((s, i) => s + i.cost * trip.partySize, 0);
+  const activitySummary = activityBudget(trip);
+  const activity = activitySummary.total;
   const stayBudget = lodgingBudget(trip);
   const stayEstimate = stayBudget.total;
   const plannedEstimate = activity + stayEstimate;
@@ -257,6 +261,10 @@ export default function TripPage() {
               ` 가격 미확인 숙소 ${stayBudget.unpriced}곳은 합계에서 제외했어요.`}{" "}
             왕복 및 지역 간 교통비, 미확인 장소 비용과 아직 선택하지 않은 숙소
             비용은 합계에서 제외돼요.
+            {trip.items.some((i) => i.visitCost != null) &&
+              ` 직접 입력한 활동비 ${money(activitySummary.entered)} 포함이에요.`}
+            {activitySummary.unpriced > 0 &&
+              ` 비용 미확인 장소 ${activitySummary.unpriced}곳이 있어요.`}
           </p>
         </div>
       </div>
@@ -406,8 +414,37 @@ export default function TripPage() {
                             region: item.region,
                             url: item.placeUrl,
                           }}
+                          onSetConditions={() => setVisitConditions(item)}
                         />
+                        <button
+                          className="text-button"
+                          onClick={() => setVisitConditions(item)}
+                          aria-label={item.placeName + " 방문 조건 설정"}
+                        >
+                          <CalendarDays size={17} />
+                          방문 조건 설정
+                        </button>
                       </div>
+                      {(item.visitStart ||
+                        item.visitCost != null ||
+                        item.visitNote) && (
+                        <div className="visit-conditions-summary">
+                          <strong>직접 확인한 방문 조건</strong>
+                          {item.visitStart && (
+                            <p>
+                              {item.visitStart}~{item.visitEnd} 안에 체류 완료
+                            </p>
+                          )}
+                          {item.visitCost != null && (
+                            <p>1인당 {money(item.visitCost)} · 예상 비용</p>
+                          )}
+                          {item.visitNote && (
+                            <p className="visit-conditions-note">
+                              {item.visitNote}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </article>
                     {index < items.length - 1 && (
                       <div className="travel-segment">
@@ -681,7 +718,8 @@ export default function TripPage() {
           <p className="small muted">
             방문 일정만 복원해요. 예약 기록과 반영한 경로 시간은 유지되며
             충돌하면 복원을 막아요. 조회값을 해제하려면 일정 탭의 ‘반영한 이동
-            시간’을 확인해 주세요.
+            시간’을 확인해 주세요. 같은 장소의 최신 방문 조건은 유지하고, 장소가
+            바뀌면 조건을 다시 확인해야 해요.
           </p>
           {!trip.history.length ? (
             <p className="muted">
@@ -726,6 +764,14 @@ export default function TripPage() {
             setCompare(null);
             await refresh();
           }}
+        />
+      )}
+      {visitConditions && (
+        <VisitConditionsModal
+          trip={trip}
+          item={visitConditions}
+          close={closeVisitConditions}
+          refresh={refresh}
         />
       )}
       {booking && (

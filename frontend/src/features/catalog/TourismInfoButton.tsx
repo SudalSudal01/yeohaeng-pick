@@ -28,7 +28,13 @@ import type {
 type Target = { name: string; region: string; url: string };
 
 /** 탐색·저장된 일정에서 같은 관광정보 화면을 엽니다. 사용자 선택 전 이름만으로 장소를 병합하지 않습니다. */
-export default function TourismInfoButton({ target }: { target: Target }) {
+export default function TourismInfoButton({
+  target,
+  onSetConditions,
+}: {
+  target: Target;
+  onSetConditions?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   return (
@@ -41,7 +47,20 @@ export default function TourismInfoButton({ target }: { target: Target }) {
         <BookOpen size={17} />
         운영시간·이용정보
       </button>
-      {open && <TourismInfoModal target={target} close={close} />}
+      {open && (
+        <TourismInfoModal
+          target={target}
+          close={close}
+          onSetConditions={
+            onSetConditions
+              ? () => {
+                  close();
+                  onSetConditions();
+                }
+              : undefined
+          }
+        />
+      )}
     </>
   );
 }
@@ -49,9 +68,11 @@ export default function TourismInfoButton({ target }: { target: Target }) {
 function TourismInfoModal({
   target,
   close,
+  onSetConditions,
 }: {
   target: Target;
   close: () => void;
+  onSetConditions?: () => void;
 }) {
   const config = useConfig();
   const ready = !!config.data?.tourismConfigured;
@@ -288,7 +309,25 @@ function TourismInfoModal({
                   retry={() => detail.refetch()}
                 />
               ) : (
-                detail.data && <TourismFacts detail={detail.data} />
+                detail.data && (
+                  <>
+                    <TourismFacts detail={detail.data} />
+                    {onSetConditions && (
+                      <div className="tourism-set-conditions">
+                        <p className="small muted">
+                          방문 날짜에 맞는 안내를 확인했다면 시간과 예상 비용을
+                          직접 정해 주세요. 원문을 자동으로 저장하지 않아요.
+                        </p>
+                        <button
+                          className="button primary"
+                          onClick={onSetConditions}
+                        >
+                          확인 후 방문 조건 설정
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )
               )}
             </section>
           )}

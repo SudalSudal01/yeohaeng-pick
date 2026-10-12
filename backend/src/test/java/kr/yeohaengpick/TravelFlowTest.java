@@ -2474,6 +2474,333 @@ class TravelFlowTest {
     );
   }
 
+  /** 조건은 결제/방문 시간을 자동 변경하지 않고, 이후 비교와 복원에서 동일하게 보호합니다. */
+  @Test
+  void visitConditionsPersistAndWholeScheduleHonorsWindowAndUndoKeepsLatestConditions()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    String itemId = items(trip).getFirst().get("id").toString();
+    var request = visitRequest(0, "12:00", "20:00", 35000);
+    var saved = user.call(
+      "PUT",
+      base + "/items/" + itemId + "/conditions",
+      request
+    );
+    assertThat(saved.get("version")).isEqualTo(1);
+    assertThat(saved.get("history")).isEqualTo(trip.get("history"));
+    assertThat(saved.get("expenses")).isEqualTo(trip.get("expenses"));
+    assertThat(items(saved).getFirst().get("startTime")).isEqualTo(
+      items(trip).getFirst().get("startTime")
+    );
+    assertThat(items(saved).getFirst().get("visitCost")).isEqualTo(35000);
+    assertThat(items(saved).getFirst().get("bookingStatus")).isEqualTo("NONE");
+    assertThat((List<?>) saved.get("visitConditionIssues")).isNotEmpty();
+    var plansResponse = user.request(
+      "POST",
+      base + "/schedule/whole/preview",
+      wholeRequest(1, "EARLY"),
+      true
+    );
+    assertThat(plansResponse.statusCode())
+      .as(plansResponse.body())
+      .isEqualTo(200);
+    var plans = json.mapper().readTree(plansResponse.body());
+    assertThat(plans.get(0).path("canApply").asBoolean()).isTrue();
+    assertThat(
+      plans.get(0).path("items").get(0).path("startTime").asText()
+    ).isEqualTo("12:00");
+    var applied = user.call(
+      "POST",
+      base + "/schedule/whole/apply",
+      wholeRequest(1, "EARLY")
+    );
+    assertThat(items(applied).getFirst().get("visitCost")).isEqualTo(35000);
+    assertThat((List<?>) applied.get("visitConditionIssues")).isEmpty();
+    String history = json
+      .mapper()
+      .valueToTree(applied)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/undo",
+          Map.of("version", 2, "historyId", history),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    var cleared = user.call(
+      "PUT",
+      base + "/items/" + itemId + "/conditions",
+      visitRequest(2, null, null, 0)
+    );
+    var restored = user.call(
+      "POST",
+      base + "/undo",
+      Map.of("version", 3, "historyId", history)
+    );
+    assertThat(items(restored).getFirst().get("visitCost")).isEqualTo(0);
+    assertThat(items(restored).getFirst().get("visitStart")).isNull();
+    assertThat(restored.get("expenses")).isEqualTo(cleared.get("expenses"));
+    var share = user.call("POST", base + "/share", Map.of("enabled", true));
+    String publicJson = new Browser()
+      .request("GET", "/shared/" + share.get("token"), null, false)
+      .body();
+    assertThat(publicJson).doesNotContain(
+      "visitStart",
+      "visitEnd",
+      "visitCost",
+      "visitNote",
+      "직접 확인 메모"
+    );
+  }
+
+  @Test
+  void visitConditionsValidateMembershipCsrfWindowAndExactMoneyWithoutMutation()
+    throws Exception {
+    var user = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    String path =
+      base + "/items/" + items(trip).getFirst().get("id") + "/conditions";
+    var valid = visitRequest(0, "09:00", "21:00", 0);
+    assertThat(
+      new Browser().request("PUT", path, valid, true).statusCode()
+    ).isEqualTo(401);
+    assertThat(
+      outsider.request("PUT", path, valid, true).statusCode()
+    ).isEqualTo(403);
+    assertThat(user.request("PUT", path, valid, false).statusCode()).isEqualTo(
+      403
+    );
+    assertThat(
+      user
+        .request("PUT", base + "/items/foreign/conditions", valid, true)
+        .statusCode()
+    ).isEqualTo(404);
+    for (var invalid : List.of(
+      visitRequest(0, "09:00", null, 0),
+      visitRequest(0, "21:00", "09:00", 0),
+      visitRequest(0, "09:00", "09:01", 0),
+      visitRequest(0, "05:00", "22:00", 0),
+      visitRequest(0, null, null, 1.5),
+      visitRequest(0, null, null, -1),
+      visitRequest(0, null, null, 500001),
+      visitRequest(-1, null, null, 0)
+    )) {
+      assertThat(user.request("PUT", path, invalid, true).statusCode())
+        .as(invalid.toString())
+        .isEqualTo(400);
+    }
+    var longNote = visitRequest(0, null, null, null);
+    longNote.put("note", "가".repeat(501));
+    assertThat(
+      user.request("PUT", path, longNote, true).statusCode()
+    ).isEqualTo(400);
+    assertThat(user.call("GET", base, null)).isEqualTo(trip);
+    var saved = user.call("PUT", path, valid);
+    assertThat(user.request("PUT", path, valid, true).statusCode()).isEqualTo(
+      409
+    );
+    assertThat(user.call("GET", base, null)).isEqualTo(saved);
+  }
+
+  @Test
+  void visitConditionsResetOnPlaceChangeAndPreviewUsesEnteredCost()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    String itemId = items(trip).getFirst().get("id").toString();
+    var saved = user.call(
+      "PUT",
+      base + "/items/" + itemId + "/conditions",
+      visitRequest(0, "09:00", "21:00", 450000)
+    );
+    var alternatives = json
+      .mapper()
+      .readTree(
+        user
+          .request("GET", base + "/alternatives/" + itemId, null, false)
+          .body()
+      );
+    var change = Map.of(
+      "version",
+      1,
+      "itemId",
+      itemId,
+      "placeId",
+      alternatives.get(0).path("id").asText()
+    );
+    var preview = user.call("POST", base + "/preview", change);
+    var target = items(preview).getFirst();
+    assertThat(target.get("visitStart")).isNull();
+    assertThat(target.get("visitCost")).isNull();
+    assertThat(target.get("visitNote")).isEqualTo("");
+    int newCost = ((Number) target.get("cost")).intValue();
+    assertThat(preview.get("costDelta")).isEqualTo((newCost - 450000) * 2);
+    assertThat(preview.get("canApply")).isEqualTo(true);
+    var applied = user.call("POST", base + "/apply", change);
+    assertThat(items(applied).getFirst().get("visitCost")).isNull();
+    String history = json
+      .mapper()
+      .valueToTree(applied)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    var restored = user.call(
+      "POST",
+      base + "/undo",
+      Map.of("version", 2, "historyId", history)
+    );
+    assertThat(items(restored).getFirst().get("placeId")).isEqualTo(
+      items(saved).getFirst().get("placeId")
+    );
+    assertThat(items(restored).getFirst().get("visitCost")).isNull();
+  }
+
+  @Test
+  void companionCanEditVisitConditionsButCannotOverwriteNewerVersion()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id");
+    String path =
+      base + "/items/" + items(trip).getFirst().get("id") + "/conditions";
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip.get("id"), "email", companion.email)
+    );
+    var invites = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body());
+    companion.call(
+      "POST",
+      "/invitations/" + invites.get(0).path("id").asText() + "/respond",
+      Map.of("accept", true)
+    );
+    int version = (
+      (Number) owner.call("GET", base, null).get("version")
+    ).intValue();
+    var request = visitRequest(version, "09:00", "21:00", null);
+    var saved = companion.call("PUT", path, request);
+    assertThat(
+      owner.request("PUT", path, request, true).statusCode()
+    ).isEqualTo(409);
+    assertThat(owner.call("GET", base, null)).isEqualTo(saved);
+  }
+
+  @Test
+  void fixedVisitAndRouteChangesCannotBypassEnteredVisitWindow()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    String itemId = items(trip).getFirst().get("id").toString();
+    var fixed = user.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        0,
+        "itemId",
+        itemId,
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "고정",
+        "fixed",
+        true
+      )
+    );
+    var saved = user.call(
+      "PUT",
+      base + "/items/" + itemId + "/conditions",
+      visitRequest(1, "12:00", "20:00", 10000)
+    );
+    var plans = json
+      .mapper()
+      .readTree(
+        user
+          .request(
+            "POST",
+            base + "/schedule/whole/preview",
+            wholeRequest(2, "EARLY"),
+            true
+          )
+          .body()
+      );
+    assertThat(plans.get(0).path("canApply").asBoolean()).isFalse();
+    assertThat(plans.get(1).path("canApply").asBoolean()).isFalse();
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/schedule/whole/apply",
+          wholeRequest(2, "EARLY"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    // 고정을 해제해도 방문 가능 시간 자체가 경로 비교의 최종 검사에 남아야 합니다.
+    saved = user.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "version",
+        2,
+        "itemId",
+        itemId,
+        "status",
+        "CANCELLED",
+        "reason",
+        "검증용 고정 해제",
+        "fixed",
+        false
+      )
+    );
+    var route = routeRequest(user, saved, 0, 1, 45);
+    var routePreview = user.request(
+      "POST",
+      base + "/transport/timing/preview",
+      route,
+      true
+    );
+    assertThat(routePreview.statusCode())
+      .as(routePreview.body())
+      .isEqualTo(200);
+    var routePlans = json.mapper().readTree(routePreview.body());
+    assertThat(routePreview.body()).contains("직접 입력한 가능 시간");
+    assertThat(routePlans.get(0).path("canApply").asBoolean()).isFalse();
+    assertThat(routePlans.get(1).path("canApply").asBoolean()).isFalse();
+    assertThat(user.call("GET", base, null)).isEqualTo(saved);
+  }
+
+  Map<String, Object> visitRequest(
+    int version,
+    String start,
+    String end,
+    Object cost
+  ) {
+    var result = new HashMap<String, Object>();
+    result.put("version", version);
+    result.put("startTime", start);
+    result.put("endTime", end);
+    result.put("cost", cost);
+    result.put("note", "직접 확인 메모");
+    return result;
+  }
+
   final Map<String, Object> conditions = Map.of(
     "title",
     "권한 검증 여행",

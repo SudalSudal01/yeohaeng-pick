@@ -116,6 +116,11 @@ export type Item = {
   fixed: boolean;
   bookingStatus: string;
   bookingReason: string;
+  /** 방문일 기준 사용자 확인값. 금액 null은 미입력, 0은 직접 입력한 무료 예상입니다. */
+  visitStart?: string | null;
+  visitEnd?: string | null;
+  visitCost?: number | null;
+  visitNote?: string;
 };
 export type Trip = Omit<Conditions, "lodgingIds"> & {
   id: string;
@@ -126,6 +131,7 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
   routeTimings: RouteTiming[];
   lodgings: Lodging[];
   items: Item[];
+  visitConditionIssues?: string[];
   members: { id: string; nickname: string; preferences: string[] }[];
   tasks: { id: string; content: string; done: boolean }[];
   expenses: { id: string; label: string; amount: number; nickname: string }[];

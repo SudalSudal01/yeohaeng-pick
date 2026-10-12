@@ -1,5 +1,22 @@
 import type { Trip } from "../../shared/types";
 
+/** 직접 입력한 0원도 유효합니다. 미입력일 때만 추천 참고값을 쓰고 실제 미확인 비용을 따로 셉니다. */
+export function activityBudget(trip: Trip) {
+  let total = 0,
+    unpriced = 0,
+    entered = 0;
+  for (const i of trip.items) {
+    if (i.visitCost != null) {
+      total += i.visitCost * trip.partySize;
+      entered += i.visitCost * trip.partySize;
+    } else {
+      total += i.cost * trip.partySize;
+      if (i.source === "KAKAO" && i.cost === 0) unpriced++;
+    }
+  }
+  return { total, entered, unpriced };
+}
+
 /** 직접 입력 합계는 객실 수·숙박 수를 다시 곱하지 않습니다. 비어 있는 실제 가격은 0원으로 확정하지 않습니다.
  * 예시 숙소만 기간·객실 수로 계산하고, 조건 미정의 이전 여행은 일별 지역의 1객실 예시를 유지합니다. */
 export function lodgingBudget(trip: Trip) {

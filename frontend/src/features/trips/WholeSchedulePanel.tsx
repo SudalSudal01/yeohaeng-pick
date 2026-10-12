@@ -40,8 +40,16 @@ export default function WholeSchedulePanel({
           </h2>
           <p>
             하루 시작·마감과 이동 여유를 정하고, 모든 날짜의 변경을 함께
-            비교해요.
+            비교해요. 직접 입력한 방문 가능 시간도 지켜요.
           </p>
+          {!!trip.visitConditionIssues?.length && (
+            <div className="visit-condition-issues" role="status">
+              <strong>방문 시간 확인이 필요해요</strong>
+              {trip.visitConditionIssues.map((issue) => (
+                <p key={issue}>{issue}</p>
+              ))}
+            </div>
+          )}
         </div>
         <button className="button secondary" onClick={() => setSnapshot(trip)}>
           <GitCompareArrows size={17} />
@@ -141,7 +149,8 @@ function WholeScheduleModal({
       </p>
       <div className="whole-schedule-protection">
         <LockKeyhole size={17} />
-        고정 방문 · 연결 교통 예약 · 반영한 이동 소요·숙소 출발 보호
+        고정 방문 · 입력한 방문 가능 시간 · 연결 교통 예약 · 반영한 이동
+        소요·숙소 출발 보호
       </div>
       <form onSubmit={compare} className="whole-schedule-form">
         <fieldset disabled={busy || stale}>
@@ -351,9 +360,9 @@ function WholeScheduleModal({
         </section>
       )}
       <p className="small muted whole-schedule-limits">
-        같은 날의 이동은 앞 방문을 마친 직후로 계산해요. 장소 영업·입장 가능
-        시간과 여행 날짜의 운행은 별도로 확인해 주세요. 방문 순서를 유지해 두
-        방향으로 시간을 조정해요.
+        같은 날의 이동은 앞 방문을 마친 직후로 계산해요. 직접 입력한 방문 가능
+        시간은 지키며, 미입력 장소의 영업·입장과 여행 날짜의 운행은 별도로
+        확인해 주세요. 방문 순서를 유지해 두 방향으로 시간을 조정해요.
       </p>
     </Modal>
   );

@@ -5522,3 +5522,133 @@ textarea {
     padding: 12px;
   }
 }
+/* 방문 조건은 안내→입력→실행을 구분합니다. 작은 화면에서도 시간 입력을 줄여 넣지 않습니다. */
+.visit-conditions-modal {
+  width: min(620px, calc(100% - 24px));
+}
+.visit-conditions-target {
+  background: #f3f6f2;
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 24px;
+  overflow-wrap: anywhere;
+}
+.visit-conditions-target h3 {
+  margin: 12px 0;
+}
+.visit-conditions-target p {
+  font-size: 15px;
+}
+.visit-conditions-modal fieldset {
+  border: 0;
+  padding: 0;
+  margin: 24px 0 0;
+  min-width: 0;
+}
+.visit-conditions-modal legend {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 17px;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+.visit-conditions-modal .task-row {
+  margin: 0 0 20px;
+  align-items: flex-start;
+}
+.visit-conditions-modal .task-row input {
+  flex-shrink: 0;
+}
+.visit-conditions-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.visit-conditions-modal label {
+  min-width: 0;
+}
+.visit-conditions-modal input:not([type="checkbox"]),
+.visit-conditions-modal textarea {
+  width: 100%;
+  min-width: 0;
+  font-size: 16px;
+}
+.visit-conditions-modal .small {
+  margin: 12px 0 24px;
+  line-height: 1.8;
+}
+.visit-conditions-modal .notice {
+  margin-top: 24px;
+  overflow-wrap: anywhere;
+}
+.visit-conditions-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-top: 24px;
+}
+.visit-conditions-actions .button {
+  min-height: 48px;
+  white-space: normal;
+}
+.tourism-entry-action {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.visit-conditions-summary {
+  margin-top: 24px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f1f6f1;
+  overflow-wrap: anywhere;
+}
+.visit-conditions-summary strong {
+  display: block;
+  font-size: 14px;
+}
+.itinerary-card .visit-conditions-summary p {
+  display: block;
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.visit-conditions-note {
+  white-space: pre-wrap;
+}
+.visit-condition-issues {
+  margin-top: 20px;
+  color: #86502a;
+  overflow-wrap: anywhere;
+}
+.visit-condition-issues strong {
+  font-size: 15px;
+}
+.visit-condition-issues p {
+  margin: 8px 0 0;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.tourism-set-conditions {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid #dce5dc;
+}
+.tourism-set-conditions .button {
+  margin-top: 24px;
+  white-space: normal;
+}
+@media (max-width: 480px) {
+  .visit-conditions-times {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+  .visit-conditions-modal {
+    padding: 20px;
+  }
+  .visit-conditions-target {
+    padding: 16px;
+  }
+}
