@@ -1,6 +1,8 @@
 package kr.yeohaengpick.favorite;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.util.*;
 import kr.yeohaengpick.auth.AuthService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -34,5 +36,28 @@ public class FavoriteController {
   @DeleteMapping("/{place}")
   void delete(@PathVariable String place, Authentication a) {
     favorites.delete(auth.id(a), place);
+  }
+
+  public record LodgingLookup(
+    @NotBlank @Size(max = 100) String placeId,
+    @NotBlank @Size(max = 30) String region
+  ) {}
+
+  /** 사용자가 요청한 한 숙소만 재조회합니다. 찜 전체를 자동 조회해 외부 API 쿼터를 소모하지 않습니다. */
+  @PostMapping("/lodgings/resolve")
+  Object lodging(@Valid @RequestBody LodgingLookup input, Authentication a) {
+    var place = favorites
+      .resolveLodgings(
+        auth.id(a),
+        List.of(input.placeId()),
+        List.of(input.region())
+      )
+      .getFirst();
+    return Map.of(
+      "place",
+      place,
+      "checkedAt",
+      java.time.Instant.now().toString()
+    );
   }
 }

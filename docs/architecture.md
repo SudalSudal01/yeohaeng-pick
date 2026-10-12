@@ -137,4 +137,4 @@ AI에는 공개 장소의 ID·이름·분류·지역·좌표와 여행 취향을
 
 ## 개인 장소 찜
 
-`FavoriteService`는 로그인 회원의 비공개 목록, 검색 조건/ID 대조, 회원 행 잠금으로 중복/상한을 관리합니다. `FavoriteMapper`의 모든 읽기·삭제는 회원 범위를 포함합니다. V15는 서버 장소 스냅샷 CLOB과 최초 시각만 보관하며 실제 DB 코멘트와 탈퇴 정리를 함께 추가합니다. `TripService`는 선택한 찜의 소유권을 검사하고 재조회한 장소만 AI 후보에 합칩니다. `Planner`는 찜을 우선 평가하되 방문 강제로 취급하지 않고 코스별 누락을 설명합니다. `FavoriteButton`/`FavoritesPage`/`FavoritePicker`는 저장 상태 재동기화·개인 목록·이번 여행의 명시적 선택을 분리합니다. [계약·캐시·후속 범위](favorites.md)
+`FavoriteService`는 로그인 회원의 비공개 목록, 검색 조건/ID 대조, 회원 행 잠금으로 중복/상한을 관리합니다. `FavoriteMapper`의 모든 읽기·삭제는 회원 범위를 포함합니다. V15는 서버 장소 스냅샷 CLOB과 최초 시각만 보관하며 실제 DB 코멘트와 탈퇴 정리를 함께 추가합니다. `TripService`는 선택한 찜의 소유권을 검사하고 재조회한 장소만 AI 후보에 합칩니다. `Planner`는 찜을 우선 평가하되 방문 강제로 취급하지 않고 코스별 누락을 설명합니다. `FavoriteLodgingCard`는 한 숙소의 명시적 재조회와 선택을 분리하고 `lodgingSelection`은 지역별 한 숙소/개인 선택 표시를 함께 정리합니다. `favoriteLodgingIds`는 `lodgingIds`에 포함된 본인 숙소 찜만 허용하며 일반 후보 밖의 장소도 검증 후 합칩니다. 추천/저장 재검사를 공용 경로로 묶고 개인 찜 표시는 여행/공개 공유에 저장하지 않습니다. `FavoriteButton`/`FavoritesPage`/`FavoritePicker`는 저장 상태 재동기화·개인 목록·이번 여행의 명시적 선택을 분리합니다. [계약·캐시·후속 범위](favorites.md)

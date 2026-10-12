@@ -16,7 +16,8 @@
 | 출발지 검색 | POST /trips/{id}/transport/origins | `{query}` → 회원별 30분 검색 결과 토큰 |
 | 실제 경로 | POST /trips/{id}/transport/routes | 저장 일정·숙소·출발지 토큰 → 경로/요금/좌표 |
 | 개인 찜 | GET/POST /favorites, DELETE /favorites/{placeId} | 본인 전용. 저장 `{placeId,region,query,category}` → `{place,savedAt}`. 중복 멱등/최대 200곳·해제/탈퇴 정리. [계약](favorites.md) |
-| 추천 | POST /recommendations | 여행 조건과 선택적 `favoriteIds` 최대 5개 → 세 코스. 본인 찜·지역 검사/재조회, 우선 평가·반영/제외 경고 |
+| 찜 숙소 확인 | POST /favorites/lodgings/resolve | 로그인/CSRF. `{placeId,region}` → `{place,checkedAt}`. 본인 숙소 찜·지역·현재 장소 재조회. 객실 요금/재고 확인은 아님 |
+| 추천 | POST /recommendations | 여행 조건과 선택적 `favoriteIds` 최대 5개·`lodgingIds`에 포함된 `favoriteLodgingIds` 최대 5개 → 세 코스. 숙소는 지역별 한 곳. 본인 찜·지역 검사/재조회, 우선 평가·반영/제외 경고 |
 | 여행 | GET/POST /trips, GET/DELETE /trips/{id} | 생성·조회·소유자 삭제 |
 | 대안 | GET /trips/{id}/alternatives/{item}?rain= | 중복 제외, 선택적 실내 후보 |
 | 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId, placeId, version}` |

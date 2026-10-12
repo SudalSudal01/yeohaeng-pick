@@ -31,6 +31,8 @@ export type Place = {
 };
 /** 보관 당시의 공개 장소 정보입니다. 현재 요금/영업/예약 확인 결과와 구분합니다. */
 export type Favorite = { place: Place; savedAt: string };
+/** 직접 눌러 재조회한 숙소입니다. checkedAt은 확인 시각이며 객실 가격/재고를 확인한 시각이 아닙니다. */
+export type CheckedLodging = { place: Place; checkedAt: string };
 /** 관광공사 안내는 원문·출처·시각을 유지합니다. 금액/영업 가능 판정으로 자동 환산하지 않습니다. */
 export type TourismContent = {
   id: string;
@@ -78,6 +80,7 @@ export type Conditions = {
   lodging: string;
   lodgingIds: string[];
   favoriteIds?: string[];
+  favoriteLodgingIds?: string[];
 };
 export type Stop = {
   id: string;
@@ -151,7 +154,10 @@ export type SharedTrip = {
     | "placeUrl"
   >[];
 };
-export type Trip = Omit<Conditions, "lodgingIds"> & {
+export type Trip = Omit<
+  Conditions,
+  "lodgingIds" | "favoriteIds" | "favoriteLodgingIds"
+> & {
   id: string;
   ownerId: string;
   version: number;

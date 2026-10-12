@@ -68,8 +68,8 @@ export default function FavoritesPage() {
         <summary>찜과 장소 정보 안내</summary>
         <p>
           목록은 보관 당시 정보이며 추천할 때 다시 조회해요. 요금·영업·예약
-          여부는 방문 전에 확인해 주세요. 숙소 찜은 다시 찾아보는 용도예요.
-          여행의 숙소는 숙소 선택 단계에서 별도로 정해 주세요.
+          여부는 방문 전에 확인해 주세요. 숙소 찜은 여행 만들기의 숙소 단계에서
+          정보를 다시 확인한 뒤 동선 기준으로 선택할 수 있어요.
         </p>
       </details>
       {favorites.isPending ? (
@@ -170,11 +170,11 @@ export default function FavoritesPage() {
                           encodeURIComponent(p.region) +
                           (p.category !== "숙소"
                             ? "&favorite=" + encodeURIComponent(p.id)
-                            : "")
+                            : "&lodgingFavorite=" + encodeURIComponent(p.id))
                         }
                       >
                         {p.category === "숙소"
-                          ? "이 지역 여행 만들기"
+                          ? "이 숙소 확인하고 여행 만들기"
                           : "이 장소 우선 고려하기"}
                         <ArrowRight size={16} />
                       </Link>

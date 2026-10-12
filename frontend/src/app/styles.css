@@ -4126,6 +4126,11 @@ textarea {
   display: grid;
   gap: 5px;
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lodging-option > button > svg {
+  flex-shrink: 0;
 }
 .lodging-option small {
   font-size: var(--text-support);
@@ -6644,4 +6649,132 @@ textarea {
   margin-top: 12px;
   line-height: 1.85;
   max-width: 780px;
+}
+
+/* 찜 숙소는 과거 정보 → 현재 조회 → 명시적 선택 순서로 읽습니다. 설명 다음 실행 영역은 24px 이상 둡니다. */
+.favorite-lodging-section {
+  margin: 28px 0;
+}
+.favorite-lodging-section > h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+}
+.favorite-lodging-section > p {
+  margin: 12px 0 24px;
+  line-height: 1.8;
+  font-size: var(--text-support);
+}
+.favorite-lodging-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.favorite-lodging-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: white;
+  overflow-wrap: anywhere;
+}
+.favorite-lodging-card.selected {
+  border-color: var(--green);
+  background: var(--green-soft);
+}
+.favorite-lodging-card h4 {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 16px 0 8px;
+}
+.favorite-lodging-card .badge {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.favorite-lodging-saved {
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.8;
+}
+.favorite-lodging-selected,
+.favorite-lodging-suggestion {
+  margin-top: 14px;
+  font-size: var(--text-support);
+  line-height: 1.8;
+  color: var(--green);
+}
+.favorite-lodging-selected {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.favorite-lodging-selected svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.favorite-lodging-current {
+  margin-top: 20px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: grid;
+  gap: 8px;
+  font-size: var(--text-support);
+  line-height: 1.8;
+}
+.favorite-lodging-current > span {
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+.favorite-lodging-current .text-button {
+  margin-top: 16px;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: normal;
+}
+.favorite-lodging-actions {
+  margin-top: var(--space-action);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.favorite-lodging-actions .button {
+  width: 100%;
+  white-space: normal;
+  min-height: 44px;
+}
+.lodging-missing .button {
+  margin-top: var(--space-action);
+  white-space: normal;
+}
+.general-lodgings-heading {
+  margin-top: 32px;
+  font-size: 18px;
+}
+.lodging-show-more {
+  margin-top: 24px;
+  white-space: normal;
+  text-align: left;
+}
+.course-lodging-names {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 24px;
+  font-size: var(--text-support);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.course-lodging-names strong {
+  color: var(--green);
+}
+@media (max-width: 640px) {
+  .favorite-lodging-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .favorite-lodging-card {
+    padding: 16px;
+  }
 }

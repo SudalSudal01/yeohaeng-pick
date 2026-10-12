@@ -45,6 +45,7 @@ export default function PlanPage() {
     lodging: "",
     lodgingIds: [],
     favoriteIds: params.get("favorite") ? [params.get("favorite")!] : [],
+    favoriteLodgingIds: [],
   });
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -60,7 +61,9 @@ export default function PlanPage() {
       [key]: f[key].includes(value)
         ? f[key].filter((v) => v !== value)
         : [...f[key], value],
-      ...(key === "regions" ? { lodgingIds: [], favoriteIds: [] } : {}),
+      ...(key === "regions"
+        ? { lodgingIds: [], favoriteIds: [], favoriteLodgingIds: [] }
+        : {}),
     }));
   };
   async function generate() {
@@ -279,8 +282,14 @@ export default function PlanPage() {
               </div>
               <LodgingPicker
                 regions={form.regions}
-                selected={form.lodgingIds}
-                onChange={(ids) => set("lodgingIds", ids)}
+                selection={{
+                  lodgingIds: form.lodgingIds,
+                  favoriteLodgingIds: form.favoriteLodgingIds || [],
+                }}
+                suggestedFavorite={params.get("lodgingFavorite")}
+                onChange={(selection) =>
+                  setForm((f) => ({ ...f, ...selection }))
+                }
               />
               <label>
                 직접 남길 숙소 메모가 있나요? <small>선택</small>
@@ -431,6 +440,17 @@ export default function PlanPage() {
                   <Clock size={16} />
                   일정 내 이동 약 {c.travelMinutes}분
                 </div>
+                {!!c.lodgings?.length && (
+                  <div className="course-lodging-names">
+                    <strong>동선 기준 숙소</strong>
+                    {c.lodgings.map((p) => (
+                      <span key={p.id}>
+                        {p.region} · {p.name}
+                        {form.favoriteLodgingIds?.includes(p.id) && " · 내 찜"}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {!!form.favoriteIds?.length && (
                   <p className="course-favorites">
                     선택한 찜 {form.favoriteIds.length}곳 중{" "}

@@ -149,7 +149,8 @@ public class TripSharingService {
       ChronoUnit.DAYS.between(r.startDate(), r.endDate()) != days ||
       (r.lodging() != null && !r.lodging().isBlank()) ||
       !r.lodgingIds().isEmpty() ||
-      !r.favoriteIds().isEmpty()
+      !r.favoriteIds().isEmpty() ||
+      !r.favoriteLodgingIds().isEmpty()
     ) throw DomainException.bad(
       "공유 일정의 지역과 여행 일수를 유지해 주세요. 숙소는 가져온 뒤 따로 선택할 수 있어요."
     );

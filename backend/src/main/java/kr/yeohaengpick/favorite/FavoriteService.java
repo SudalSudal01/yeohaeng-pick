@@ -93,10 +93,32 @@ public class FavoriteService {
     List<String> ids,
     List<String> regions
   ) {
+    return resolve(member, ids, regions, false);
+  }
+
+  /** 숙소도 보관한 좌표/금액을 그대로 쓰지 않습니다. 본인 찜과 현재 숙소 분류를 확인한 장소만 동선에 사용합니다. */
+  public List<Place> resolveLodgings(
+    String member,
+    List<String> ids,
+    List<String> regions
+  ) {
+    var result = resolve(member, ids, regions, true);
+    if (
+      result.stream().map(Place::region).distinct().count() != result.size()
+    ) throw DomainException.bad("찜한 숙소는 지역별 한 곳만 선택해 주세요.");
+    return result;
+  }
+
+  private List<Place> resolve(
+    String member,
+    List<String> ids,
+    List<String> regions,
+    boolean lodging
+  ) {
     if (
       ids.size() > 5 || new HashSet<>(ids).size() != ids.size()
     ) throw DomainException.bad(
-      "찜한 방문 장소는 중복 없이 최대 5곳을 선택해 주세요."
+      "찜한 장소는 중복 없이 최대 5곳을 선택해 주세요."
     );
     List<Place> result = new ArrayList<>();
     for (String id : ids) {
@@ -107,14 +129,19 @@ public class FavoriteService {
       );
       Place saved = view(row).place();
       if (
-        !regions.contains(saved.region()) || saved.category().equals("숙소")
+        !regions.contains(saved.region()) ||
+        saved.category().equals("숙소") != lodging
       ) throw DomainException.bad(
-        "이번 여행 지역의 방문 장소만 선택해 주세요. 숙소는 숙소 선택 단계에서 정해요."
+        lodging
+          ? "이번 여행 지역에서 찜한 숙소만 선택해 주세요."
+          : "이번 여행 지역의 방문 장소만 선택해 주세요. 숙소는 숙소 선택 단계에서 정해요."
       );
       Place current = catalog
         .search(saved.region(), saved.name())
         .stream()
-        .filter(p -> p.id().equals(id) && !p.category().equals("숙소"))
+        .filter(
+          p -> p.id().equals(id) && p.category().equals("숙소") == lodging
+        )
         .findFirst()
         .orElseThrow(() ->
           new DomainException(

@@ -66,10 +66,22 @@ public class TripService {
 
   /** 찜의 소유권을 먼저 검사하고 재조회한 현재 장소만 합칩니다. 임의 ID로 AI 후보를 추가할 수 없습니다. */
   private List<Place> candidates(TripRequest r, String member) {
+    if (
+      !r.lodgingIds().containsAll(r.favoriteLodgingIds())
+    ) throw DomainException.bad(
+      "찜한 숙소와 이번 여행의 숙소 선택이 달라요. 숙소를 다시 선택해 주세요."
+    );
     var selected = favorites.resolve(member, r.favoriteIds(), r.regions());
+    var selectedLodgings = favorites.resolveLodgings(
+      member,
+      r.favoriteLodgingIds(),
+      r.regions()
+    );
     Map<String, Place> all = new LinkedHashMap<>();
     catalog.candidates(r.regions()).forEach(p -> all.put(p.id(), p));
     selected.forEach(p -> all.put(p.id(), p));
+    // 일반 숙소 검색의 첫 결과에 없어도, 본인 찜에서 재조회한 숙소는 생성/저장 모두 같은 경로로 검증합니다.
+    selectedLodgings.forEach(p -> all.put(p.id(), p));
     return List.copyOf(all.values());
   }
 
