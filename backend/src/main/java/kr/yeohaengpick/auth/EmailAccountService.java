@@ -22,6 +22,7 @@ public class EmailAccountService {
   private final JavaMailSender mail;
   private final AuthService auth;
   private final org.springframework.security.crypto.password.PasswordEncoder encoder;
+  private final AccountLifecycle lifecycle;
 
   @Value("${app.mail-enabled:false}")
   private boolean enabled;
@@ -39,21 +40,30 @@ public class EmailAccountService {
     MemberMapper m,
     JavaMailSender s,
     AuthService a,
-    org.springframework.security.crypto.password.PasswordEncoder e
+    org.springframework.security.crypto.password.PasswordEncoder e,
+    AccountLifecycle lifecycle
   ) {
     members = m;
     mail = s;
     auth = a;
     encoder = e;
+    this.lifecycle = lifecycle;
   }
 
   public void send(String email, String purpose) {
+    lifecycle.reading(() -> {
+      sendActive(email, purpose);
+      return null;
+    });
+  }
+
+  private void sendActive(String email, String purpose) {
     if (!enabled || from.isBlank()) throw new DomainException(
       503,
       "메일 서비스가 아직 연결되지 않았어요. 운영자에게 문의해 주세요."
     );
     var member = members.byEmail(email.trim().toLowerCase(Locale.ROOT));
-    if (member == null) return;
+    if (!MemberMapper.active(member)) return;
     if (
       purpose.equals("VERIFY") && Boolean.TRUE.equals(member.get("verified"))
     ) return;
@@ -98,6 +108,13 @@ public class EmailAccountService {
 
   @Transactional
   public void consume(String token, String purpose, String password) {
+    lifecycle.reading(() -> {
+      consumeActive(token, purpose, password);
+      return null;
+    });
+  }
+
+  private void consumeActive(String token, String purpose, String password) {
     if (
       token == null || !token.matches("[0-9a-f]{64}")
     ) throw DomainException.bad("유효하지 않은 링크예요.");
@@ -107,6 +124,9 @@ public class EmailAccountService {
       stored == null || !purpose.equals(stored.get("purpose"))
     ) throw DomainException.bad("만료되었거나 이미 사용한 링크예요.");
     String id = (String) stored.get("memberId");
+    if (!MemberMapper.active(members.byId(id))) throw DomainException.bad(
+      "만료되었거나 이미 사용한 링크예요."
+    );
     if (purpose.equals("RESET")) auth.validatePassword(password);
     // DELETE의 영향받은 행 수를 확인해 동시 요청에서도 한 번만 사용되도록 합니다.
     if (members.consumeToken(hashed) != 1) throw DomainException.bad(

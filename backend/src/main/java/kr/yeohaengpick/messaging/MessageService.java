@@ -70,7 +70,7 @@ public class MessageService {
         : email != null
           ? members.byEmail(email.trim().toLowerCase(Locale.ROOT))
           : null;
-    if (recipient == null) throw DomainException.bad(
+    if (!MemberMapper.active(recipient)) throw DomainException.bad(
       "연락할 수 있는 회원을 찾지 못했어요."
     );
     String other = (String) recipient.get("id");
@@ -136,7 +136,7 @@ public class MessageService {
 
   public Object block(String other, boolean enable, String member) {
     if (
-      other.equals(member) || members.byId(other) == null
+      other.equals(member) || !MemberMapper.active(members.byId(other))
     ) throw DomainException.bad("회원을 확인해 주세요.");
     if (enable) {
       if (

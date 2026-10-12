@@ -51,7 +51,12 @@ export async function api<T>(
     if (response.status === 403) csrf = undefined;
     throw new ApiError(response.status, error.message);
   }
-  if (path === "/auth/logout" || path === "/auth/login") csrf = undefined;
+  if (
+    path === "/auth/logout" ||
+    path === "/auth/login" ||
+    path === "/auth/account"
+  )
+    csrf = undefined;
   if (response.status === 204 || response.headers.get("content-length") === "0")
     return undefined as T;
   const text = await response.text();

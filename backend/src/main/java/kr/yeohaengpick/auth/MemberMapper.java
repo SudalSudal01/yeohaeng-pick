@@ -6,6 +6,11 @@ import org.apache.ibatis.annotations.*;
 /** 인증 정보는 이 매퍼에서만 읽습니다. 사용자에게 반환할 때 passwordHash를 제거합니다. */
 @Mapper
 public interface MemberMapper {
+  /** 공동 기록 연결용 탈퇴 행과 실제 활동 가능한 계정을 구분합니다. */
+  static boolean active(Map<String, Object> member) {
+    return member != null && member.get("deletedAt") == null;
+  }
+
   @Select("SELECT * FROM members WHERE email=#{email}")
   Map<String, Object> byEmail(String email);
 

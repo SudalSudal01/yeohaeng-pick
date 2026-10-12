@@ -75,7 +75,7 @@ public class AuthService {
   ) {
     var member = members.byEmail(email.trim().toLowerCase(Locale.ROOT));
     if (
-      member == null ||
+      !MemberMapper.active(member) ||
       !encoder.matches(password, (String) member.get("passwordHash"))
     ) throw new DomainException(401, "이메일 또는 비밀번호를 확인해 주세요.");
     if (req.getSession(false) != null) req.changeSessionId();
@@ -100,6 +100,7 @@ public class AuthService {
     var result = new HashMap<>(source);
     result.remove("passwordHash");
     result.remove("credentialVersion");
+    result.remove("deletedAt");
     result.put("preferences", json.strings((String) source.get("preferences")));
     return result;
   }

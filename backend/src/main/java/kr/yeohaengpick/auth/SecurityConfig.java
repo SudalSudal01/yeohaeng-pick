@@ -34,11 +34,14 @@ public class SecurityConfig {
   }
 
   @Bean
-  SecurityFilterChain filterChain(HttpSecurity http, MemberMapper members)
-    throws Exception {
+  SecurityFilterChain filterChain(
+    HttpSecurity http,
+    MemberMapper members,
+    AccountLifecycle lifecycle
+  ) throws Exception {
     return http
       .addFilterAfter(
-        new CredentialVersionFilter(members),
+        new CredentialVersionFilter(members, lifecycle),
         org.springframework.security.web.context.SecurityContextHolderFilter.class
       )
       .csrf(c ->

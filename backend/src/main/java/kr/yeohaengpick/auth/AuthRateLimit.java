@@ -24,8 +24,9 @@ public class AuthRateLimit extends OncePerRequestFilter {
   ) throws ServletException, IOException {
     String path = req.getRequestURI();
     if (
-      req.getMethod().equals("POST") &&
-      (path.equals("/api/auth/login") ||
+      (req.getMethod().equals("POST") || req.getMethod().equals("DELETE")) &&
+      (path.equals("/api/auth/account") ||
+        path.equals("/api/auth/login") ||
         path.equals("/api/auth/register") ||
         path.endsWith("/send"))
     ) {
@@ -35,12 +36,14 @@ public class AuthRateLimit extends OncePerRequestFilter {
       Window window = attempts.compute(key, (k, w) ->
         w == null ? new Window(now, 1) : new Window(w.start, w.count + 1)
       );
-      // 발송은 분당 3번, 로그인은 분당 30번. 회원가입은 개발/통합 테스트를 고려해 분당 20번입니다.
-      int limit = path.endsWith("/send")
-        ? 3
-        : path.endsWith("/register")
-          ? 20
-          : 30;
+      // 발송은 분당 3번, 탈퇴 비밀번호 시도는 10번, 로그인은 30번입니다. 회원가입은 개발/통합 테스트를 고려해 20번입니다.
+      int limit = path.equals("/api/auth/account")
+        ? 10
+        : path.endsWith("/send")
+          ? 3
+          : path.endsWith("/register")
+            ? 20
+            : 30;
       if (window.count > limit) {
         res.setStatus(429);
         res.setHeader("Retry-After", "60");

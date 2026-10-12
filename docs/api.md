@@ -9,6 +9,7 @@
 | 공개 설정 | GET /config | 지도 공개 키와 실제 연결 상태. 서버 비밀 키 제외 |
 | 인증 | POST /auth/register, /login, /logout | 가입·로그인·로그아웃 |
 | 계정 | GET /auth/me, PUT /auth/profile | 기본 취향과 수신 범위 |
+| 회원 탈퇴 | GET /auth/withdrawal, DELETE /auth/account | 사전 소유 여행 확인, `{password,confirmed:true}`·204. 소유 여행 409·현재 비밀번호·세션/참여 종료. [삭제·보존 계약](account-withdrawal.md) |
 | 메일 | POST /auth/verify/send, /verify, /reset/send, /reset | 발송·일회용 인증·비밀번호 재설정 |
 | 장소 | GET /catalog/places?region=&query=&category= | 서버에서 여행 업종·실제 주소·분류 필터 적용 |
 | 관광정보 | GET /catalog/tourism/search?region=&query=&page=, GET /catalog/tourism/{id} | 공개 관광공사 원문·제공 여부·출처·조회 시각. 일정 비변경 |

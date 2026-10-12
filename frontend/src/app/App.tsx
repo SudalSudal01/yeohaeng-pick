@@ -165,6 +165,17 @@ export default function App() {
           />
           <Route path="/account/reset" element={<AccountPage mode="reset" />} />
           <Route
+            path="/account/withdrawn"
+            element={
+              <Empty
+                title="회원 탈퇴가 완료됐어요"
+                text="계정 정보와 공개 작성물을 정리했어요. 함께 남긴 여행과 대화는 탈퇴한 회원으로 표시돼요. 다시 가입해도 이전 기록은 복원되지 않아요."
+                action="홈으로 돌아가기"
+                to="/"
+              />
+            }
+          />
+          <Route
             path="/plan"
             element={
               <RequireAuth>

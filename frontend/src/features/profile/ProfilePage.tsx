@@ -5,6 +5,7 @@ import { Check, Settings2, ShieldBan, ArrowRight } from "lucide-react";
 import { useAuth, useToast, useConfig } from "../../shared/providers";
 import { api } from "../../shared/api";
 import type { Member } from "../../shared/types";
+import WithdrawalPanel from "./WithdrawalPanel";
 
 /** 기본 취향과 개인 수신 설정을 관리합니다. 이 값을 바꿔도 이미 생성한 여행 조건을 자동 변경하지 않습니다. */
 export default function ProfilePage() {
@@ -187,6 +188,7 @@ export default function ProfilePage() {
             ))
           )}
         </section>
+        <WithdrawalPanel />
       </div>
     </div>
   );

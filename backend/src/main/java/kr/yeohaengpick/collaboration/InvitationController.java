@@ -59,7 +59,7 @@ public class InvitationController {
       "여행 소유자만 초대할 수 있어요."
     );
     var recipient = members.byEmail(i.email.trim().toLowerCase(Locale.ROOT));
-    if (recipient == null) throw DomainException.bad(
+    if (!MemberMapper.active(recipient)) throw DomainException.bad(
       "초대할 수 있는 회원을 찾지 못했어요."
     );
     String other = (String) recipient.get("id");

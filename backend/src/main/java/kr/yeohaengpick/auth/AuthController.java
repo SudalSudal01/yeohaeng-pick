@@ -18,17 +18,20 @@ public class AuthController {
   private final MemberMapper members;
   private final JsonCodec json;
   private final EmailAccountService email;
+  private final AccountLifecycle lifecycle;
 
   public AuthController(
     AuthService a,
     MemberMapper m,
     JsonCodec j,
-    EmailAccountService e
+    EmailAccountService e,
+    AccountLifecycle lifecycle
   ) {
     auth = a;
     members = m;
     json = j;
     email = e;
+    this.lifecycle = lifecycle;
   }
 
   public record Email(
@@ -87,7 +90,9 @@ public class AuthController {
 
   @PostMapping("/register")
   public Object register(@Valid @RequestBody Registration r) {
-    return auth.register(r.email, r.password, r.nickname);
+    return lifecycle.reading(() ->
+      auth.register(r.email, r.password, r.nickname)
+    );
   }
 
   @PostMapping("/login")
@@ -96,7 +101,7 @@ public class AuthController {
     HttpServletRequest req,
     HttpServletResponse res
   ) {
-    return auth.login(c.email, c.password, req, res);
+    return lifecycle.reading(() -> auth.login(c.email, c.password, req, res));
   }
 
   @GetMapping("/me")

@@ -2671,6 +2671,95 @@ textarea {
 .blocked-panel {
   grid-column: 2;
 }
+/* 탈퇴는 설정 저장과 다른 카드에 둡니다. 긴 정책도 작은 화면에서 글자를 줄이지 않고 읽게 합니다. */
+.withdrawal-panel {
+  grid-column: 2;
+  min-width: 0;
+}
+.withdrawal-panel-actions {
+  margin-top: 24px;
+}
+.withdrawal-modal p {
+  font-size: 15px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.withdrawal-modal h3 {
+  font-size: 17px;
+  line-height: 1.6;
+}
+.withdrawal-intro {
+  margin-bottom: 24px;
+}
+.withdrawal-ready,
+.withdrawal-blockers {
+  padding: 20px;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  border-radius: 14px;
+  margin-bottom: 24px;
+}
+.withdrawal-blockers p {
+  margin-top: 12px;
+}
+.withdrawal-blockers ul {
+  list-style: none;
+  padding: 0;
+  margin: 24px 0 0;
+  display: grid;
+  gap: 20px;
+}
+.withdrawal-blockers li {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.withdrawal-blockers strong {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.withdrawal-blockers li > span {
+  font-size: 14px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.withdrawal-blockers .button {
+  margin-top: 24px;
+  min-height: 48px;
+  white-space: normal;
+}
+.withdrawal-policy {
+  display: grid;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+.withdrawal-policy p {
+  margin-top: 10px;
+  color: var(--muted);
+}
+.withdrawal-confirm {
+  margin-top: 24px;
+}
+.withdrawal-modal .notice {
+  margin-top: 24px;
+}
+@media (max-width: 760px) {
+  .withdrawal-panel {
+    grid-column: 1;
+  }
+  .withdrawal-panel-actions .button,
+  .withdrawal-blockers .button {
+    width: 100%;
+  }
+  .withdrawal-modal {
+    padding: 20px;
+  }
+  .withdrawal-ready,
+  .withdrawal-blockers {
+    padding: 16px;
+  }
+}
 .integration-status {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

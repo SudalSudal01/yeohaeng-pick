@@ -172,7 +172,9 @@ export default function MessagesPage() {
                   <span>
                     {r.status === "PENDING"
                       ? "대화 요청 · 수락 대기"
-                      : "일반 대화"}
+                      : r.status === "CLOSED"
+                        ? "탈퇴한 회원 · 대화 종료"
+                        : "일반 대화"}
                   </span>
                 </div>
               </button>
@@ -218,7 +220,7 @@ export default function MessagesPage() {
                   <strong>
                     {current.tripId ? "여행 단체 대화" : "우리의 여행 이야기"}
                   </strong>
-                  {!current.tripId && (
+                  {!current.tripId && current.status !== "CLOSED" && (
                     <button
                       className="text-button danger-text"
                       onClick={async () => {
@@ -243,6 +245,14 @@ export default function MessagesPage() {
                     </button>
                   )}
                 </div>
+                {current.status === "CLOSED" && (
+                  <div className="request-notice" role="status">
+                    <p>
+                      상대방이 탈퇴해 대화가 종료됐어요. 기존 메시지는 확인할 수
+                      있고, 새 메시지는 보낼 수 없어요.
+                    </p>
+                  </div>
+                )}
                 {current.status === "PENDING" && (
                   <div className="request-notice">
                     <p>
@@ -319,7 +329,9 @@ export default function MessagesPage() {
                     placeholder={
                       current.status === "ACTIVE"
                         ? "여행 이야기를 나눠보세요"
-                        : "수락 후 메시지를 보낼 수 있어요"
+                        : current.status === "CLOSED"
+                          ? "종료된 대화예요"
+                          : "수락 후 메시지를 보낼 수 있어요"
                     }
                     disabled={current.status !== "ACTIVE"}
                     maxLength={2000}

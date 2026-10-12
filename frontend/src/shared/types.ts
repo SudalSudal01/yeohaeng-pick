@@ -237,7 +237,7 @@ export type Room = {
   recipientId: string;
   requesterName: string;
   recipientName: string;
-  status: string;
+  status: "PENDING" | "ACTIVE" | "DECLINED" | "CLOSED";
   tripId?: string;
   messages?: {
     id: string;
