@@ -4704,7 +4704,7 @@ textarea {
   line-height: 1.7;
 }
 .route-timing-saved .text-button {
-  margin-top: 8px;
+  margin-top: 24px;
 }
 /* 데스크톱은 두 안을 나란히 비교하고 모바일에서는 카드 순서대로 읽습니다. */
 .route-timing-modal {
@@ -4731,5 +4731,109 @@ textarea {
   }
   .modal input[type="datetime-local"] {
     padding-inline: 8px;
+  }
+}
+
+/* 숙소 연결은 설명→입력→실행 순서로 읽습니다. 좁은 화면에서는 글씨 대신 열 수를 줄입니다. */
+.overnight-panel {
+  padding: 24px;
+  margin: 24px 0;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: #f8fbf8;
+  min-width: 0;
+}
+.overnight-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+.overnight-panel p,
+.overnight-modal p {
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.overnight-controls,
+.overnight-settings,
+.overnight-route-choices {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.overnight-controls label,
+.overnight-settings label,
+.overnight-route-choice label {
+  margin: 0;
+  min-width: 0;
+}
+.overnight-controls select,
+.overnight-settings input,
+.overnight-route-choice select {
+  min-width: 0;
+  margin-bottom: 0;
+}
+.overnight-panel .overnight-action-note,
+.overnight-modal .overnight-action-note {
+  margin: 16px 0 24px;
+}
+.overnight-empty > p {
+  margin: 0 0 24px;
+}
+.overnight-route-choice {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  min-width: 0;
+}
+.overnight-route-choice p {
+  margin: 12px 0 0;
+}
+.overnight-route-choice > a {
+  margin-top: 24px;
+}
+.overnight-comparison-note {
+  margin: 24px 0;
+}
+.overnight-stay-times {
+  padding: 16px;
+  border-radius: 12px;
+  background: white;
+  margin-top: 16px;
+}
+.overnight-stay-times p {
+  margin: 8px 0 0;
+}
+.overnight-stay-times b {
+  display: block;
+  font-size: var(--text-body);
+}
+.saved-overnight {
+  margin-top: 12px;
+}
+@media (max-width: 760px) {
+  .overnight-controls,
+  .overnight-settings,
+  .overnight-route-choices {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .overnight-panel {
+    padding: 18px;
+  }
+  .overnight-panel .button,
+  .overnight-modal form > .button {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+  }
+}
+@media (max-width: 400px) {
+  .overnight-panel {
+    padding: 14px;
+  }
+  .overnight-route-choice,
+  .overnight-stay-times {
+    padding: 12px;
   }
 }

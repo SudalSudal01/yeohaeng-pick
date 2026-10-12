@@ -20,6 +20,7 @@ import {
   Undo2,
   Wallet,
   Mail,
+  BedDouble,
 } from "lucide-react";
 import {
   api,
@@ -36,10 +37,12 @@ import LodgingPanel from "./LodgingPanel";
 import TransportPanel from "./TransportPanel";
 import { scheduleTime } from "./bookingScheduleTime";
 import AppliedRouteTimings from "./AppliedRouteTimings";
+import OvernightPanel from "./OvernightPanel";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
 import { lodgingEstimate } from "./tripBudget";
+import { overnightConnection } from "./transportSchedule";
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
 export default function TripPage() {
@@ -273,6 +276,15 @@ export default function TripPage() {
               <TrainFront size={16} />
               이동 경로 비교
             </a>
+            {overnightConnection(trip, day) && (
+              <a
+                className="text-button transport-jump"
+                href="#overnight-routes"
+              >
+                <BedDouble size={16} />
+                숙소·휴식 비교
+              </a>
+            )}
             {days.map((d) => (
               <button
                 className={day === d ? "active" : ""}
@@ -333,10 +345,17 @@ export default function TripPage() {
                             className="small route-timing-applied"
                             key={t.toItemId}
                           >
-                            {t.fromKind === "LODGING"
-                              ? `숙소 ${t.originDeparture} 출발`
-                              : `${scheduleTime(t.originDeparture!)} 이동 출발`}{" "}
-                            · 조회 {t.minutes}분 + 여유 {t.bufferMinutes}분 반영
+                            {t.overnight ? (
+                              `${t.overnight.lodgingName} · ${scheduleTime(t.overnight.departure)} 출발 · 조회 ${t.overnight.outbound.minutes}분 + 여유 ${t.bufferMinutes}분 반영`
+                            ) : (
+                              <>
+                                {t.fromKind === "LODGING"
+                                  ? `숙소 ${t.originDeparture} 출발`
+                                  : `${scheduleTime(t.originDeparture!)} 이동 출발`}{" "}
+                                · 조회 {t.minutes}분 + 여유 {t.bufferMinutes}분
+                                반영
+                              </>
+                            )}
                           </p>
                         ))}
                       <p>
@@ -395,6 +414,13 @@ export default function TripPage() {
                 출발지 왕복 교통비는 활동비 합계에 포함되지 않아요.
               </div>
               <AppliedRouteTimings trip={trip} day={day} refresh={refresh} />
+              <OvernightPanel
+                key={`overnight:${trip.id}:${day}:${trip.version}`}
+                trip={trip}
+                day={day}
+                refresh={refresh}
+                onDayChange={setDay}
+              />
               <TransportPanel
                 key={`${trip.id}:${day}:${trip.version}`}
                 trip={trip}

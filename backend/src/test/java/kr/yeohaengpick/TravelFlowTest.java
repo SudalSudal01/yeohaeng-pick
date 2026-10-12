@@ -6,6 +6,8 @@ import java.net.*;
 import java.net.http.*;
 import java.util.*;
 import kr.yeohaengpick.common.JsonCodec;
+import kr.yeohaengpick.transport.TransportRoutes;
+import kr.yeohaengpick.transport.TransportService;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -139,6 +141,321 @@ class TravelFlowTest {
 
   @Autowired
   kr.yeohaengpick.transport.TransportQuotes transportQuotes;
+
+  /** 외부 API 대신 검증용 두 구간 영수증을 발급합니다. 적용·권한·트랜잭션은 실제 HTTP로 검사합니다. */
+  Map<String, Object> overnightRequest(Browser user, Map<String, Object> trip)
+    throws Exception {
+    var from = items(trip)
+      .stream()
+      .filter(i -> ((Number) i.get("dayIndex")).intValue() == 0)
+      .toList()
+      .getLast();
+    var to = items(trip)
+      .stream()
+      .filter(i -> ((Number) i.get("dayIndex")).intValue() == 1)
+      .findFirst()
+      .orElseThrow();
+    var hotel = json.mapper().valueToTree(trip).path("lodgings").get(0);
+    var member = user.call("GET", "/auth/me", null).get("id").toString();
+    var hotelPoint = new TransportRoutes.Point(
+      hotel.path("placeId").asText(),
+      hotel.path("name").asText(),
+      hotel.path("latitude").asDouble(),
+      hotel.path("longitude").asDouble()
+    );
+    String[] tokens = new String[2];
+    for (int n = 0; n < 2; n++) {
+      var visit = n == 0 ? from : to;
+      var visitPoint = new TransportRoutes.Point(
+        visit.get("id").toString(),
+        visit.get("placeName").toString(),
+        ((Number) visit.get("latitude")).doubleValue(),
+        ((Number) visit.get("longitude")).doubleValue()
+      );
+      var itemRef = new TransportService.Ref(
+        "ITEM",
+        visit.get("id").toString()
+      );
+      var hotelRef = new TransportService.Ref(
+        "LODGING",
+        hotel.path("placeId").asText()
+      );
+      tokens[n] = transportQuotes.issue(
+        trip.get("id").toString(),
+        member,
+        ((Number) trip.get("version")).intValue(),
+        new TransportService.Request(
+          n == 0 ? itemRef : hotelRef,
+          n == 0 ? hotelRef : itemRef,
+          "TRANSIT"
+        ),
+        n == 0 ? visitPoint : hotelPoint,
+        n == 0 ? hotelPoint : visitPoint,
+        "2026-10-12T01:00:00Z",
+        "KAKAO_MAP",
+        List.of(
+          new TransportRoutes.Option(
+            "overnight-leg",
+            "TRANSIT",
+            1000,
+            n == 0 ? 30 : 20,
+            0,
+            1500,
+            null,
+            3,
+            List.of(),
+            List.of()
+          )
+        )
+      );
+    }
+    return new HashMap<>(
+      Map.of(
+        "inboundToken",
+        tokens[0],
+        "outboundToken",
+        tokens[1],
+        "inboundOption",
+        "overnight-leg",
+        "outboundOption",
+        "overnight-leg",
+        "version",
+        trip.get("version"),
+        "bufferMinutes",
+        10,
+        "minimumStayMinutes",
+        480,
+        "notBefore",
+        "12:00",
+        "strategy",
+        "DEPARTURE"
+      )
+    );
+  }
+
+  Map<String, Object> hotelConditions() {
+    var c = new HashMap<>(conditions);
+    c.put("endDate", "2026-11-02");
+    c.put("lodgingIds", List.of("sample-11"));
+    return c;
+  }
+
+  @Test
+  void overnightApplyPersistsBothLegsWithoutCountingStayAsTravelOrSharingIt()
+    throws Exception {
+    var user = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = user.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    var request = overnightRequest(user, trip);
+    var preview = user.request(
+      "POST",
+      base + "/transport/overnight/preview",
+      request,
+      true
+    );
+    assertThat(preview.statusCode()).as(preview.body()).isEqualTo(200);
+    var plans = json.mapper().readTree(preview.body());
+    assertThat(plans.get(0).path("canApply").asBoolean()).isTrue();
+    assertThat(plans.get(1).path("canApply").asBoolean()).isFalse();
+    assertThat(user.call("GET", base, null).get("items")).isEqualTo(
+      trip.get("items")
+    );
+    request.put("minutes", 1);
+    request.put("overnight", Map.of("minimumStayMinutes", 0));
+    assertThat(
+      user
+        .request("POST", base + "/transport/overnight/apply", request, false)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      outsider
+        .request("POST", base + "/transport/overnight/preview", request, true)
+        .statusCode()
+    ).isEqualTo(403);
+    var saved = user.call("POST", base + "/transport/overnight/apply", request);
+    var timing = json.mapper().valueToTree(saved).path("routeTimings").get(0);
+    assertThat(saved.get("version")).isEqualTo(1);
+    assertThat(timing.path("minutes").asInt()).isEqualTo(50);
+    assertThat(
+      timing.path("overnight").path("minimumStayMinutes").asInt()
+    ).isEqualTo(480);
+    assertThat(
+      timing.path("overnight").path("inbound").path("minutes").asInt()
+    ).isEqualTo(30);
+    assertThat(
+      timing.path("overnight").path("outbound").path("minutes").asInt()
+    ).isEqualTo(20);
+    assertThat(timing.path("overnight").path("departure").asText()).isEqualTo(
+      "2026-11-02T12:00"
+    );
+    assertThat(user.call("GET", base, null).get("routeTimings")).isEqualTo(
+      saved.get("routeTimings")
+    );
+    assertThat(
+      items(saved)
+        .stream()
+        .mapToInt(i -> ((Number) i.get("cost")).intValue())
+        .sum()
+    ).isEqualTo(
+      items(trip)
+        .stream()
+        .mapToInt(i -> ((Number) i.get("cost")).intValue())
+        .sum()
+    );
+    assertThat(
+      user
+        .request("POST", base + "/transport/overnight/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    var history = json
+      .mapper()
+      .valueToTree(saved)
+      .path("history")
+      .get(0)
+      .path("id")
+      .asText();
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/undo",
+          Map.of("historyId", history, "version", 1),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    String token = user
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token")
+      .toString();
+    var shared = outsider.call("GET", "/share/" + token, null);
+    assertThat(shared).doesNotContainKeys("routeTimings", "lodgings");
+    var removed = user.call(
+      "POST",
+      base + "/transport/timing/remove",
+      Map.of("itemId", timing.path("toItemId").asText(), "version", 1)
+    );
+    assertThat(removed.get("routeTimings")).asList().isEmpty();
+    assertThat(removed.get("items")).isEqualTo(saved.get("items"));
+  }
+
+  @Test
+  void overnightRejectsInvalidConditionsAndMixedReceiptsAndBookingOverlap()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    var request = overnightRequest(user, trip);
+    for (var bad : List.of(
+      Map.of("bufferMinutes", -1),
+      Map.of("bufferMinutes", 121),
+      Map.of("minimumStayMinutes", 0),
+      Map.of("minimumStayMinutes", 61),
+      Map.of("minimumStayMinutes", 961),
+      Map.of("notBefore", "05:59"),
+      Map.of("notBefore", "22:00"),
+      Map.of("inboundOption", "forged"),
+      Map.of("inboundToken", request.get("outboundToken"))
+    )) {
+      var invalid = new HashMap<>(request);
+      invalid.putAll(bad);
+      assertThat(
+        user
+          .request("POST", base + "/transport/overnight/preview", invalid, true)
+          .statusCode()
+      )
+        .as(bad.toString())
+        .isEqualTo(400);
+    }
+    var reserved = user.call(
+      "POST",
+      base + "/external-bookings",
+      Map.ofEntries(
+        Map.entry("label", "가상 야간 예약"),
+        Map.entry("category", "TRAIN"),
+        Map.entry("departure", "2026-11-02T03:00"),
+        Map.entry("arrival", "2026-11-02T04:00"),
+        Map.entry("beforeMinutes", 0),
+        Map.entry("afterMinutes", 0),
+        Map.entry("scheduleLinked", true),
+        Map.entry("status", "USER_CONFIRMED"),
+        Map.entry("reason", "테스트 가상 예약"),
+        Map.entry("version", 0)
+      )
+    );
+    assertThat(
+      user
+        .request("POST", base + "/transport/overnight/preview", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    request = overnightRequest(user, reserved);
+    request.put("notBefore", "08:00");
+    var plans = json
+      .mapper()
+      .readTree(
+        user
+          .request("POST", base + "/transport/overnight/preview", request, true)
+          .body()
+      );
+    assertThat(plans.get(0).path("canApply").asBoolean()).isFalse();
+    assertThat(plans.get(1).path("canApply").asBoolean()).isFalse();
+    assertThat(
+      user
+        .request("POST", base + "/transport/overnight/apply", request, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(user.call("GET", base, null).get("version")).isEqualTo(1);
+  }
+
+  @Test
+  void overnightCompanionMustUseTwoOwnReceiptsAndCannotOverwriteNewVersion()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip(hotelConditions());
+    String base = "/trips/" + trip.get("id");
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip.get("id"), "email", companion.email)
+    );
+    var invitation = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body())
+      .get(0)
+      .path("id")
+      .asText();
+    companion.call(
+      "POST",
+      "/invitations/" + invitation + "/respond",
+      Map.of("accept", true)
+    );
+    // 초대 수락도 공동 취향과 여행 버전을 바꾸므로 최신 여행에서 두 영수증을 발급합니다.
+    trip = owner.call("GET", base, null);
+    var own = overnightRequest(companion, trip);
+    var other = overnightRequest(owner, trip);
+    var mixed = new HashMap<>(own);
+    mixed.put("outboundToken", other.get("outboundToken"));
+    assertThat(
+      companion
+        .request("POST", base + "/transport/overnight/preview", mixed, true)
+        .statusCode()
+    ).isEqualTo(409);
+    var saved = companion.call(
+      "POST",
+      base + "/transport/overnight/apply",
+      own
+    );
+    assertThat(saved.get("version")).isEqualTo(
+      ((Number) trip.get("version")).intValue() + 1
+    );
+    assertThat(
+      owner
+        .request("POST", base + "/transport/overnight/apply", other, true)
+        .statusCode()
+    ).isEqualTo(409);
+  }
 
   /** 외부 호출 없이 공급자 조회 직후와 같은 서버 영수증을 발급합니다. 실제 HTTP 필터와 저장은 우회하지 않습니다. */
   Map<String, Object> routeRequest(

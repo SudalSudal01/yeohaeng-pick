@@ -50,7 +50,7 @@ public class RouteSchedule {
     );
   }
 
-  private Plan plan(
+  Plan plan(
     LocalDate date,
     List<Map<String, Object>> original,
     List<Map<String, Object>> reserved,

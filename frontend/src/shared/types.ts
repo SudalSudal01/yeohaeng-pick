@@ -261,6 +261,23 @@ export type RouteTiming = {
   source: string;
   /** 숙소 출발은 HH:mm, 전날→다음 날 구간은 한국 현지 yyyy-MM-ddTHH:mm입니다. 같은 날 방문 사이는 null입니다. */
   originDeparture: string | null;
+  /** 숙소를 경유한 경우에만 존재합니다. 이동 분과 숙소 체류를 분리하고 두 조회 출처를 보존합니다. */
+  overnight?: {
+    lodgingId: string;
+    lodgingName: string;
+    minimumStayMinutes: number;
+    notBefore: string;
+    arrival: string;
+    departure: string;
+    inbound: RouteLeg;
+    outbound: RouteLeg;
+  } | null;
+};
+export type RouteLeg = {
+  minutes: number;
+  distanceMeters: number;
+  queriedAt: string;
+  source: string;
 };
 export type RouteTimingPlan = {
   strategy: "DEPARTURE" | "ARRIVAL";

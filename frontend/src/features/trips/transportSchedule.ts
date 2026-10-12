@@ -1,5 +1,16 @@
 import type { ExternalBooking, Item, Trip } from "../../shared/types";
 
+/** 현재 날짜의 직전 경계를 우선하고 첫날은 다음 날을 연결합니다. 비어 있는 날짜는 건너뛰지 않습니다. */
+export function overnightConnection(trip: Trip, day: number) {
+  const current = trip.items.filter((i) => i.dayIndex === day);
+  const previous = trip.items.filter((i) => i.dayIndex === day - 1).at(-1);
+  const from = previous ?? current.at(-1);
+  const to = previous
+    ? current[0]
+    : trip.items.find((i) => i.dayIndex === day + 1);
+  return from && to && to.dayIndex === from.dayIndex + 1 ? { from, to } : null;
+}
+
 /** 한국 현지 달력 날짜를 UTC 달력 연산으로 더합니다. 브라우저 시간대·서머타임에 따라 날짜가 바뀌지 않습니다. */
 export function tripDayDate(start: string, day: number) {
   const date = new Date(start.slice(0, 10) + "T00:00:00Z");

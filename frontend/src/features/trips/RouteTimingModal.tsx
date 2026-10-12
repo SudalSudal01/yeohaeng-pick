@@ -195,6 +195,15 @@ export default function RouteTimingModal({
           주세요. 숙소·역 경유와 수면·휴식 시간은 따로 확인해야 해요.
         </p>
       )}
+      {trip.routeTimings?.some(
+        (t) => t.toItemId === route.result.to.id && t.overnight,
+      ) && (
+        <p className="notice route-cross-day-note">
+          이 안을 적용하면 같은 첫 방문에 저장한 숙소 경유·최소 체류 조건이 새
+          조회 경로로 대체돼요. 숙소 연결을 유지하려면 ‘숙소·휴식 비교’에서
+          조절해 주세요.
+        </p>
+      )}
       {dirty && (
         <p className="notice" role="status">
           설정을 바꿨어요. ‘시간 다시 비교’를 눌러 새 결과를 확인해 주세요.

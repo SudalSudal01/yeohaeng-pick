@@ -4,6 +4,7 @@ import {
   bookingConnections,
   bookingConnectionImpact,
   tripDayDate,
+  overnightConnection,
 } from "./transportSchedule";
 
 /** 한국 현지 날짜 경계와 예약의 탑승/하차 여유를 실제 이동 시간과 중복 없이 비교하는지 검증합니다. */
@@ -40,6 +41,19 @@ const trip = {
   ],
 } as Trip;
 describe("역·터미널 앞뒤 연결", () => {
+  it("첫날과 다음 날 모두 같은 숙소 연결 경계를 고른다", () => {
+    expect(overnightConnection(trip, 0)?.from.id).toBe("before");
+    expect(overnightConnection(trip, 1)?.to.id).toBe("after");
+    expect(
+      overnightConnection({ ...trip, items: [trip.items[0]] }, 0),
+    ).toBeNull();
+    expect(
+      overnightConnection(
+        { ...trip, items: [trip.items[0], { ...trip.items[1], dayIndex: 2 }] },
+        0,
+      ),
+    ).toBeNull();
+  });
   it("자정을 넘는 예약의 앞뒤 방문을 서로 다른 날짜에서 찾는다", () => {
     expect(bookingConnections(trip)).toEqual([
       {

@@ -25,8 +25,116 @@ public record RouteTiming(
   int distanceMeters,
   String queriedAt,
   String source,
-  String originDeparture
+  String originDeparture,
+  Overnight overnight
 ) {
+  /** 두 숙소 연결 구간의 조회 출처를 각각 보관합니다. 체류·대기 시간을 이동 분으로 합산하지 않습니다. */
+  public record Leg(
+    int minutes,
+    int distanceMeters,
+    String queriedAt,
+    String source
+  ) {}
+
+  public record Overnight(
+    String lodgingId,
+    String lodgingName,
+    double latitude,
+    double longitude,
+    int minimumStayMinutes,
+    String notBefore,
+    String arrival,
+    String departure,
+    Leg inbound,
+    Leg outbound
+  ) {
+    public Overnight at(String arrival, String departure) {
+      return new Overnight(
+        lodgingId,
+        lodgingName,
+        latitude,
+        longitude,
+        minimumStayMinutes,
+        notBefore,
+        arrival,
+        departure,
+        inbound,
+        outbound
+      );
+    }
+  }
+
+  /** 기존 단일 구간 생성 코드와 저장 JSON은 숙소 경유 값 없이 그대로 읽습니다. */
+  public RouteTiming(
+    String fromKind,
+    String fromId,
+    String fromPlaceId,
+    String toItemId,
+    String toPlaceId,
+    int dayIndex,
+    double fromLatitude,
+    double fromLongitude,
+    double toLatitude,
+    double toLongitude,
+    String mode,
+    int minutes,
+    int bufferMinutes,
+    int distanceMeters,
+    String queriedAt,
+    String source,
+    String originDeparture
+  ) {
+    this(
+      fromKind,
+      fromId,
+      fromPlaceId,
+      toItemId,
+      toPlaceId,
+      dayIndex,
+      fromLatitude,
+      fromLongitude,
+      toLatitude,
+      toLongitude,
+      mode,
+      minutes,
+      bufferMinutes,
+      distanceMeters,
+      queriedAt,
+      source,
+      originDeparture,
+      null
+    );
+  }
+
+  /** 비교용 전체 소요 시간과 저장용 실제 이동 분을 분리할 때 사용하는 불변 복사입니다. */
+  public RouteTiming withStay(
+    Overnight stay,
+    String departure,
+    int minutes,
+    int buffer
+  ) {
+    return new RouteTiming(
+      fromKind,
+      fromId,
+      fromPlaceId,
+      toItemId,
+      toPlaceId,
+      dayIndex,
+      fromLatitude,
+      fromLongitude,
+      toLatitude,
+      toLongitude,
+      mode,
+      minutes,
+      buffer,
+      distanceMeters,
+      queriedAt,
+      source,
+      departure,
+      stay
+    );
+  }
+
   public static int number(Map<String, Object> i, String key) {
     return ((Number) i.get(key)).intValue();
   }
@@ -48,6 +156,16 @@ public record RouteTiming(
     List<Map<String, Object>> items,
     List<Map<String, Object>> lodgings
   ) {
+    if (
+      overnight != null &&
+      !lodgings
+        .stream()
+        .anyMatch(
+          l ->
+            overnight.lodgingId().equals(l.get("placeId")) &&
+            coordinates(l, overnight.latitude(), overnight.longitude())
+        )
+    ) return false;
     var day = items
       .stream()
       .filter(i -> number(i, "dayIndex") == dayIndex)
@@ -72,7 +190,8 @@ public record RouteTiming(
           fromId.equals(from.get("id")) &&
           fromPlaceId.equals(from.get("placeId")) &&
           coordinates(from, fromLatitude, fromLongitude) &&
-          (n > 0 || originDeparture != null)
+          (n > 0 || originDeparture != null) &&
+          (overnight == null || n == 0)
         );
       }
       return (
@@ -189,7 +308,14 @@ public record RouteTiming(
         .findFirst()
         .orElseThrow();
       var a = t.departureAt(date, items);
-      var b = a.plusMinutes(t.minutes + t.bufferMinutes);
+      // 숙소 체류는 이동 합계에서는 빼되 보호할 시간 범위에는 포함합니다.
+      // 이후 다른 방문을 조정해도 숙소 출발과 다음 방문 사이의 실제 조회 분을 줄일 수 없습니다.
+      var b =
+        t.overnight == null
+          ? a.plusMinutes(t.minutes + t.bufferMinutes)
+          : LocalDateTime.parse(t.overnight.departure()).plusMinutes(
+              t.overnight.outbound().minutes() + t.bufferMinutes
+            );
       var arrivalBy = date
         .plusDays(t.dayIndex)
         .atStartOfDay()
@@ -217,7 +343,9 @@ public record RouteTiming(
           LocalDateTime.parse(w.leaveBy()).isBefore(b)
         ) conflicts.add(
           to.get("placeName") +
-            "까지의 이동·여유 시간이 " +
+            (t.overnight == null
+              ? "까지의 이동·여유 시간이 "
+              : "까지의 숙소 이동·체류 시간이 ") +
             w.label() +
             " 예약과 겹쳐요."
         );

@@ -49,10 +49,12 @@ export default function AppliedRouteTimings({
             {t.fromKind === "LODGING"
               ? trip.lodgings.find((l) => l.placeId === t.fromId)?.name
               : trip.items.find((i) => i.id === t.fromId)?.placeName}{" "}
-            → {trip.items.find((i) => i.id === t.toItemId)?.placeName}
+            → {t.overnight && `${t.overnight.lodgingName} → `}
+            {trip.items.find((i) => i.id === t.toItemId)?.placeName}
           </strong>
           <p>
-            {t.minutes}분 + 여유 {t.bufferMinutes}분 ·{" "}
+            {t.minutes}분 + {t.overnight ? "구간마다 " : ""}여유{" "}
+            {t.bufferMinutes}분 ·{" "}
             {t.mode === "CAR"
               ? "자동차"
               : t.mode === "WALK"
@@ -63,16 +65,40 @@ export default function AppliedRouteTimings({
                 ? ` · 숙소 ${t.originDeparture} 출발`
                 : ` · ${scheduleTime(t.originDeparture)} 이동 출발`)}
           </p>
-          <p className="small muted">
-            {new Date(t.queriedAt).toLocaleString("ko-KR")} ·{" "}
-            {t.source === "KAKAO_MOBILITY" ? "카카오모빌리티" : "카카오맵"}
-          </p>
+          {t.overnight && (
+            <div className="saved-overnight">
+              <p>
+                숙소 도착 {scheduleTime(t.overnight.arrival)}
+                <br />
+                숙소 출발 {scheduleTime(t.overnight.departure)}
+              </p>
+              <p className="small">
+                최소 체류 {t.overnight.minimumStayMinutes / 60}시간 · 다음 날{" "}
+                {t.overnight.notBefore} 이후 출발
+              </p>
+              {[t.overnight.inbound, t.overnight.outbound].map((leg, n) => (
+                <p className="small muted" key={n}>
+                  {n === 0 ? "숙소까지" : "첫 방문까지"} {leg.minutes}분 ·{" "}
+                  {new Date(leg.queriedAt).toLocaleString("ko-KR")} ·{" "}
+                  {leg.source === "KAKAO_MOBILITY"
+                    ? "카카오모빌리티"
+                    : "카카오맵"}
+                </p>
+              ))}
+            </div>
+          )}
+          {!t.overnight && (
+            <p className="small muted">
+              {new Date(t.queriedAt).toLocaleString("ko-KR")} ·{" "}
+              {t.source === "KAKAO_MOBILITY" ? "카카오모빌리티" : "카카오맵"}
+            </p>
+          )}
           <button
             className="text-button"
             disabled={busy}
             onClick={() => remove(t.toItemId)}
           >
-            시간 반영 해제
+            {t.overnight ? "숙소 연결 해제" : "시간 반영 해제"}
           </button>
         </article>
       ))}
