@@ -88,6 +88,7 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
   version: number;
   externalBookings: ExternalBooking[];
   schedule: BookingScheduleReport;
+  routeTimings: RouteTiming[];
   lodgings: {
     placeId: string;
     region: string;
@@ -240,8 +241,34 @@ export type TransportResult = {
   source: string;
   options: TransportOption[];
   externalUrl: string;
+  quoteToken: string;
 };
 export type SelectedRoute = {
   result: TransportResult;
   option: TransportOption;
+};
+
+/** 명시적으로 적용한 구간만 보존합니다. 다른 구간의 추정값이나 예약 확정과 구분합니다. */
+export type RouteTiming = {
+  fromKind: "ITEM" | "LODGING";
+  fromId: string;
+  toItemId: string;
+  dayIndex: number;
+  mode: Conditions["transport"];
+  minutes: number;
+  bufferMinutes: number;
+  queriedAt: string;
+  source: string;
+  originDeparture: string | null;
+};
+export type RouteTimingPlan = {
+  strategy: "DEPARTURE" | "ARRIVAL";
+  title: string;
+  canApply: boolean;
+  departure: string;
+  arrival: string;
+  changes: SchedulePlan["changes"];
+  conflicts: string[];
+  items: Item[];
+  timing: RouteTiming;
 };

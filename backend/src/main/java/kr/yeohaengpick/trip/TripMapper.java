@@ -7,6 +7,25 @@ import org.apache.ibatis.annotations.*;
 @Mapper
 public interface TripMapper {
   @Select(
+    "SELECT payload FROM trip_route_timings WHERE trip_id=#{id} ORDER BY to_item_id"
+  )
+  List<String> routeTimings(String id);
+
+  @Delete(
+    "DELETE FROM trip_route_timings WHERE trip_id=#{trip} AND to_item_id=#{item}"
+  )
+  void clearRouteTiming(@Param("trip") String trip, @Param("item") String item);
+
+  @Insert(
+    "INSERT INTO trip_route_timings(trip_id,to_item_id,payload) VALUES(#{trip},#{item},#{payload})"
+  )
+  void routeTiming(
+    @Param("trip") String trip,
+    @Param("item") String item,
+    @Param("payload") String payload
+  );
+
+  @Select(
     "SELECT * FROM external_bookings WHERE trip_id=#{trip} ORDER BY departure"
   )
   List<Map<String, Object>> externalBookings(String trip);

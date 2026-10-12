@@ -20,6 +20,7 @@ public class TransportService {
   private final TripService trips;
   private final TripMapper mapper;
   private final JsonCodec json;
+  private final TransportQuotes quotes;
 
   @Value("${app.kakao-rest-key:}")
   private String key;
@@ -52,11 +53,13 @@ public class TransportService {
   public TransportService(
     TripService trips,
     TripMapper mapper,
-    JsonCodec json
+    JsonCodec json,
+    TransportQuotes quotes
   ) {
     this.trips = trips;
     this.mapper = mapper;
     this.json = json;
+    this.quotes = quotes;
   }
 
   /** 서버 전체 100회/일, 회원당 30회/일의 보수적인 로컬 보호 한도입니다. 공급자 무료 잔량과는 별개이며 재시작 시 초기화됩니다. */
@@ -123,7 +126,7 @@ public class TransportService {
   }
 
   public Result routes(String trip, String member, Request request) {
-    trips.access(trip, member);
+    var currentTrip = trips.access(trip, member);
     if (
       request == null ||
       !List.of("CAR", "TRANSIT", "WALK").contains(
@@ -201,7 +204,18 @@ public class TransportService {
         "/" +
         linkPoint(from) +
         "/" +
-        linkPoint(to)
+        linkPoint(to),
+      quotes.issue(
+        trip,
+        member,
+        ((Number) currentTrip.get("version")).intValue(),
+        request,
+        from,
+        to,
+        cached.at().toString(),
+        mode.equals("CAR") ? "KAKAO_MOBILITY" : "KAKAO_MAP",
+        cached.options()
+      )
     );
   }
 

@@ -8,10 +8,12 @@ export function Modal({
   title,
   onClose,
   children,
+  className = "",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  className?: string;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -28,7 +30,7 @@ export function Modal({
     };
   }, [onClose]);
   return (
-    <dialog ref={ref} className="modal" aria-label={title}>
+    <dialog ref={ref} className={"modal " + className} aria-label={title}>
       <div className="modal-header">
         <h2>{title}</h2>
         <button className="icon-button" onClick={onClose} aria-label="닫기">

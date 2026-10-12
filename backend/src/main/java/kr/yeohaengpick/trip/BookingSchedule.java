@@ -4,7 +4,6 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import kr.yeohaengpick.catalog.Place;
 import org.springframework.stereotype.Component;
 
 /**
@@ -189,7 +188,18 @@ public class BookingSchedule {
     List<Map<String, Object>> bookings,
     String mode
   ) {
-    var report = inspect(date, original, bookings);
+    return alternatives(date, original, bookings, mode, List.of());
+  }
+
+  /** 적용한 조회 시간이 있으면 예약 조정에서도 보존합니다. 숙소 출발은 자동 변경하지 않습니다. */
+  public List<Plan> alternatives(
+    LocalDate date,
+    List<Map<String, Object>> original,
+    List<Map<String, Object>> bookings,
+    String mode,
+    List<RouteTiming> timings
+  ) {
+    var report = inspect(date, original, bookings, timings);
     if (report.issues.isEmpty()) return List.of(
       new Plan(
         "EARLIER",
@@ -211,9 +221,25 @@ public class BookingSchedule {
       )
     );
     return List.of(
-      plan(date, original, bookings, mode, report, "EARLIER"),
-      plan(date, original, bookings, mode, report, "LATER")
+      plan(date, original, bookings, mode, report, "EARLIER", timings),
+      plan(date, original, bookings, mode, report, "LATER", timings)
     );
+  }
+
+  /** 새 예약을 기록한 뒤에는 방문뿐 아니라 이미 적용한 이동 구간의 충돌도 화면에 알립니다. */
+  public Report inspect(
+    LocalDate date,
+    List<Map<String, Object>> items,
+    List<Map<String, Object>> bookings,
+    List<RouteTiming> timings
+  ) {
+    var report = inspect(date, items, bookings);
+    var issues = new ArrayList<>(report.issues());
+    RouteTiming.conflicts(date, items, timings, report.windows()).forEach(
+      message ->
+        issues.add(new Issue("ROUTE_OVERLAP", List.of(), List.of(), message))
+    );
+    return new Report(report.windows(), issues, report.unlinkedCount());
   }
 
   private Plan plan(
@@ -222,7 +248,8 @@ public class BookingSchedule {
     List<Map<String, Object>> bookings,
     String mode,
     Report report,
-    String strategy
+    String strategy,
+    List<RouteTiming> timings
   ) {
     boolean later = strategy.equals("LATER");
     List<Map<String, Object>> items = new ArrayList<>();
@@ -245,8 +272,9 @@ public class BookingSchedule {
         neighbor != null &&
         number(neighbor, "dayIndex") == number(i, "dayIndex")
       ) {
-        int gap =
-          20 + (later ? travel(neighbor, i, mode) : travel(i, neighbor, mode));
+        int gap = later
+          ? RouteTiming.gap(timings, neighbor, i, planner, mode)
+          : RouteTiming.gap(timings, i, neighbor, planner, mode);
         var bound = later
           ? start(date, neighbor).plusMinutes(
               number(neighbor, "duration") + gap
@@ -291,6 +319,9 @@ public class BookingSchedule {
     inspect(date, items, bookings).issues.forEach(i ->
       conflicts.add(i.message)
     );
+    conflicts.addAll(
+      RouteTiming.conflicts(date, items, timings, report.windows)
+    );
     List<Shift> changes = new ArrayList<>();
     int shift = 0;
     var oldById = new HashMap<Object, Map<String, Object>>();
@@ -323,30 +354,6 @@ public class BookingSchedule {
       shift,
       conflicts.stream().distinct().toList(),
       items
-    );
-  }
-
-  private int travel(
-    Map<String, Object> a,
-    Map<String, Object> b,
-    String mode
-  ) {
-    return planner.estimateMinutes(place(a), place(b), mode);
-  }
-
-  private Place place(Map<String, Object> i) {
-    return new Place(
-      text(i, "placeId"),
-      text(i, "placeName"),
-      text(i, "region"),
-      text(i, "category"),
-      ((Number) i.get("latitude")).doubleValue(),
-      ((Number) i.get("longitude")).doubleValue(),
-      number(i, "duration"),
-      number(i, "cost"),
-      Boolean.TRUE.equals(i.get("indoor")),
-      text(i, "source"),
-      text(i, "placeUrl")
     );
   }
 }

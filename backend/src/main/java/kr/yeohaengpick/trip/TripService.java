@@ -146,7 +146,11 @@ public class TripService {
   public Map<String, Object> detail(String id, String member) {
     var result = normalize(access(id, member));
     result.remove("shareToken");
-    result.put("items", trips.items(id));
+    var items = trips.items(id);
+    var lodgings = trips.lodgings(id);
+    var reserved = trips.externalBookings(id);
+    var timings = routeTimings(id, items, lodgings);
+    result.put("items", items);
     result.put(
       "members",
       trips
@@ -161,17 +165,67 @@ public class TripService {
     result.put("tasks", trips.tasks(id));
     result.put("expenses", trips.expenses(id));
     result.put("history", trips.historyList(id));
-    result.put("lodgings", trips.lodgings(id));
-    result.put("externalBookings", trips.externalBookings(id));
+    result.put("lodgings", lodgings);
+    result.put("routeTimings", timings);
+    result.put("externalBookings", reserved);
     result.put(
       "schedule",
       schedule.inspect(
         java.time.LocalDate.parse(result.get("startDate").toString()),
-        trips.items(id),
-        trips.externalBookings(id)
+        items,
+        reserved,
+        timings
       )
     );
     return result;
+  }
+
+  /** 서버가 생성한 JSON 기록 중 현재의 연속 구간에 일치하는 기록만 반환합니다. */
+  public List<RouteTiming> routeTimings(
+    String id,
+    List<Map<String, Object>> items,
+    List<Map<String, Object>> lodgings
+  ) {
+    return trips
+      .routeTimings(id)
+      .stream()
+      .map(s -> json.read(s, RouteTiming.class))
+      .filter(t -> t.applies(items, lodgings))
+      .toList();
+  }
+
+  @Transactional
+  public Object applyRouteTiming(
+    String id,
+    String member,
+    int version,
+    RouteSchedule.Plan plan
+  ) {
+    access(id, member);
+    revision(id, version, member, "조회 경로 반영 · " + plan.title());
+    replace(id, plan.items());
+    trips.clearRouteTiming(id, plan.timing().toItemId());
+    trips.routeTiming(id, plan.timing().toItemId(), json.write(plan.timing()));
+    return detail(id, member);
+  }
+
+  /** 조회값 반영을 해제해도 현재 방문 시각은 유지합니다. 복원 시에는 남은 조회값과 예약을 다시 검사합니다. */
+  @Transactional
+  public Object removeRouteTiming(
+    String id,
+    String member,
+    int version,
+    String itemId
+  ) {
+    access(id, member);
+    if (
+      routeTimings(id, trips.items(id), trips.lodgings(id))
+        .stream()
+        .noneMatch(t -> t.toItemId().equals(itemId))
+    ) throw new DomainException(404, "반영한 경로 기록을 찾을 수 없어요.");
+    revision(id, version, member, "조회 경로 시간 반영 해제");
+    trips.clearRouteTiming(id, itemId);
+    return detail(id, member);
   }
 
   private Map<String, Object> normalize(Map<String, Object> source) {
@@ -307,6 +361,7 @@ public class TripService {
     Map<String, Object> previous = null;
     List<String> conflicts = new ArrayList<>();
     var lodgings = trips.lodgings(id);
+    var timings = routeTimings(id, next, lodgings);
     for (var current : next) {
       if (((Number) current.get("dayIndex")).intValue() != day) continue;
       if (current.get("id").equals(change.itemId)) affected = true;
@@ -323,6 +378,18 @@ public class TripService {
               place(current),
               (String) trip.get("transport")
             );
+          var applied = timings
+            .stream()
+            .filter(
+              t ->
+                t.fromKind().equals("LODGING") &&
+                t.toItemId().equals(current.get("id"))
+            )
+            .findFirst();
+          if (applied.isPresent()) arrival =
+            RouteTiming.clock(applied.get().originDeparture()) +
+            applied.get().minutes() +
+            applied.get().bufferMinutes();
           current.put(
             "startTime",
             String.format("%02d:%02d", arrival / 60, arrival % 60)
@@ -334,10 +401,11 @@ public class TripService {
         int arrival =
           time(previous) +
           ((Number) previous.get("duration")).intValue() +
-          20 +
-          planner.estimateMinutes(
-            place(previous),
-            place(current),
+          RouteTiming.gap(
+            timings,
+            previous,
+            current,
+            planner,
             (String) trip.get("transport")
           );
         if ((Boolean) current.get("fixed")) {
@@ -355,6 +423,20 @@ public class TripService {
       previous = current;
     }
     int party = ((Number) trip.get("partySize")).intValue();
+    conflicts.addAll(
+      RouteTiming.conflicts(
+        java.time.LocalDate.parse(trip.get("startDate").toString()),
+        next,
+        timings,
+        schedule
+          .inspect(
+            java.time.LocalDate.parse(trip.get("startDate").toString()),
+            next,
+            trips.externalBookings(id)
+          )
+          .windows()
+      )
+    );
     schedule
       .inspect(
         java.time.LocalDate.parse(trip.get("startDate").toString()),
@@ -379,8 +461,13 @@ public class TripService {
       "costDelta",
       cost - before,
       "travelDelta",
-      travel(next, (String) trip.get("transport"), lodgings) -
-        travel(old, (String) trip.get("transport"), lodgings),
+      travel(next, (String) trip.get("transport"), lodgings, timings) -
+        travel(
+          old,
+          (String) trip.get("transport"),
+          lodgings,
+          routeTimings(id, old, lodgings)
+        ),
       "canApply",
       conflicts.isEmpty(),
       "conflicts",
@@ -414,7 +501,8 @@ public class TripService {
   private int travel(
     List<Map<String, Object>> items,
     String mode,
-    List<Map<String, Object>> lodgings
+    List<Map<String, Object>> lodgings,
+    List<RouteTiming> timings
   ) {
     int sum = 0;
     Set<Object> visitedDays = new HashSet<>();
@@ -423,7 +511,18 @@ public class TripService {
         .stream()
         .filter(p -> p.get("region").equals(item.get("region")))
         .mapToInt(p ->
-          planner.estimateMinutes(lodgingPlace(p), place(item), mode)
+          timings
+            .stream()
+            .filter(
+              t ->
+                t.fromKind().equals("LODGING") &&
+                t.toItemId().equals(item.get("id"))
+            )
+            .mapToInt(RouteTiming::minutes)
+            .findFirst()
+            .orElseGet(() ->
+              planner.estimateMinutes(lodgingPlace(p), place(item), mode)
+            )
         )
         .sum();
     for (int i = 1; i < items.size(); i++) if (
@@ -431,11 +530,21 @@ public class TripService {
         .get(i)
         .get("dayIndex")
         .equals(items.get(i - 1).get("dayIndex"))
-    ) sum += planner.estimateMinutes(
-      place(items.get(i - 1)),
-      place(items.get(i)),
-      mode
-    );
+    ) {
+      var from = items.get(i - 1);
+      var to = items.get(i);
+      sum += timings
+        .stream()
+        .filter(
+          t ->
+            t.fromKind().equals("ITEM") &&
+            t.fromId().equals(from.get("id")) &&
+            t.toItemId().equals(to.get("id"))
+        )
+        .mapToInt(RouteTiming::minutes)
+        .findFirst()
+        .orElseGet(() -> planner.estimateMinutes(place(from), place(to), mode));
+    }
     return sum;
   }
 
@@ -457,6 +566,15 @@ public class TripService {
   private void replace(String id, List<Map<String, Object>> items) {
     trips.clearItems(id);
     for (var i : items) trips.item(i);
+    // 장소 교체로 무효해진 구간을 삭제합니다. 나중에 이력을 복원해도 과거 경로가 부활하지 않습니다.
+    var lodgings = trips.lodgings(id);
+    for (var payload : trips.routeTimings(id)) {
+      var timing = json.read(payload, RouteTiming.class);
+      if (!timing.applies(items, lodgings)) trips.clearRouteTiming(
+        id,
+        timing.toItemId()
+      );
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -585,6 +703,23 @@ public class TripService {
       409,
       "현재 교통 예약의 이동·여유 시간과 겹치는 복원이어서 적용할 수 없어요."
     );
+    if (
+      !RouteTiming.conflicts(
+        java.time.LocalDate.parse(trip.get("startDate").toString()),
+        snapshot,
+        routeTimings(id, snapshot, trips.lodgings(id)),
+        schedule
+          .inspect(
+            java.time.LocalDate.parse(trip.get("startDate").toString()),
+            snapshot,
+            trips.externalBookings(id)
+          )
+          .windows()
+      ).isEmpty()
+    ) throw new DomainException(
+      409,
+      "적용한 경로의 이동 시간과 충돌하는 복원이어서 적용할 수 없어요."
+    );
     revision(id, version, member, "이전 일정 복원");
     replace(id, snapshot);
     return detail(id, member);
@@ -666,7 +801,8 @@ public class TripService {
       java.time.LocalDate.parse(trip.get("startDate").toString()),
       trips.items(id),
       trips.externalBookings(id),
-      (String) trip.get("transport")
+      (String) trip.get("transport"),
+      routeTimings(id, trips.items(id), trips.lodgings(id))
     );
   }
 

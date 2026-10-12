@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   TrainFront,
@@ -16,6 +16,8 @@ import type {
   TransportResult,
   Trip,
 } from "../../shared/types";
+import RouteTimingModal from "./RouteTimingModal";
+import { routeTimingEligibility } from "./routeTimingEligibility";
 
 /** 조회 버튼을 눌렀을 때만 공급자를 호출합니다. 경로 선택은 지도 표시만 바꾸며 예약/일정은 수정하지 않습니다. */
 export default function TransportPanel({
@@ -23,11 +25,13 @@ export default function TransportPanel({
   day,
   selected,
   onSelect,
+  refresh,
 }: {
   trip: Trip;
   day: number;
   selected: SelectedRoute | null;
   onSelect: (route: SelectedRoute | null) => void;
+  refresh: () => Promise<void>;
 }) {
   const dayItems = trip.items.filter((i) => i.dayIndex === day);
   const [from, setFrom] = useState(dayItems[0] ? "ITEM:" + dayItems[0].id : "");
@@ -35,6 +39,9 @@ export default function TransportPanel({
   const [mode, setMode] = useState<Conditions["transport"]>(trip.transport);
   const [originQuery, setOriginQuery] = useState(trip.origin);
   const [origins, setOrigins] = useState<TransportPoint[]>([]);
+  const [comparing, setComparing] = useState<SelectedRoute | null>(null);
+  const closeComparison = useCallback(() => setComparing(null), []);
+  const timingReason = routeTimingEligibility(trip, from, to);
   const base = "/trips/" + trip.id + "/transport";
   const reference = (value: string) => {
     const [kind, id] = value.split(":");
@@ -306,6 +313,14 @@ export default function TransportPanel({
                 >
                   {active ? "지도에 표시 중" : "이 경로 지도에서 보기"}
                 </button>
+                <button
+                  className="button primary"
+                  disabled={!!timingReason}
+                  onClick={() => setComparing({ result: data, option })}
+                >
+                  일정 영향 비교
+                </button>
+                {timingReason && <p className="small muted">{timingReason}</p>}
                 {!!option.steps.length && (
                   <details className="route-steps">
                     <summary>이동 순서 {option.steps.length}단계</summary>
@@ -386,6 +401,15 @@ export default function TransportPanel({
           예약 성공·매진·취소 결과는 ‘예약’ 탭에 직접 기록해 주세요.
         </p>
       </details>
+      {comparing && (
+        <RouteTimingModal
+          trip={trip}
+          route={comparing}
+          lodging={from.startsWith("LODGING:")}
+          close={closeComparison}
+          refresh={refresh}
+        />
+      )}
     </section>
   );
 }

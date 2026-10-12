@@ -45,7 +45,8 @@ public final class TransportRoutes {
     String queriedAt,
     String source,
     List<Option> options,
-    String externalUrl
+    String externalUrl,
+    String quoteToken
   ) {}
 
   public static List<Option> parse(String mode, JsonNode root) {

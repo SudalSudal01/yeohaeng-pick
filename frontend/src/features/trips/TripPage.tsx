@@ -34,6 +34,7 @@ import { Loading, ErrorState, Modal } from "../../shared/ui";
 import RouteMap from "./RouteMap";
 import LodgingPanel from "./LodgingPanel";
 import TransportPanel from "./TransportPanel";
+import AppliedRouteTimings from "./AppliedRouteTimings";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
@@ -322,6 +323,20 @@ export default function TripPage() {
                         )}
                       </div>
                       <h3>{item.placeName}</h3>
+                      {trip.routeTimings
+                        ?.filter(
+                          (t) =>
+                            t.toItemId === item.id && t.fromKind === "LODGING",
+                        )
+                        .map((t) => (
+                          <p
+                            className="small route-timing-applied"
+                            key={t.toItemId}
+                          >
+                            숙소 {t.originDeparture} 출발 · 조회 {t.minutes}분 +
+                            여유 {t.bufferMinutes}분 반영
+                          </p>
+                        ))}
                       <p>
                         <Clock size={14} />
                         {item.duration}분 머무르기<span>·</span>
@@ -354,7 +369,16 @@ export default function TripPage() {
                       <div className="travel-segment">
                         <TrainFront size={14} />
                         <span>
-                          다음 장소까지 이동 · 시간은 추정치로 비교해요
+                          {(() => {
+                            const timing = trip.routeTimings?.find(
+                              (t) =>
+                                t.toItemId === items[index + 1].id &&
+                                t.fromId === item.id,
+                            );
+                            return timing
+                              ? `조회 경로 ${timing.minutes}분 + 여유 ${timing.bufferMinutes}분 반영 · ${timing.mode === "CAR" ? "자동차" : timing.mode === "WALK" ? "도보" : "대중교통"}`
+                              : "다음 장소까지 이동 · 시간은 추정치로 비교해요";
+                          })()}
                         </span>
                       </div>
                     )}
@@ -368,12 +392,14 @@ export default function TripPage() {
                 운영시간·휴무·현재 요금은 장소 상세에서 확인해 주세요. 숙박비와
                 출발지 왕복 교통비는 활동비 합계에 포함되지 않아요.
               </div>
+              <AppliedRouteTimings trip={trip} day={day} refresh={refresh} />
               <TransportPanel
                 key={`${trip.id}:${day}:${trip.version}`}
                 trip={trip}
                 day={day}
                 selected={selectedRoute}
                 onSelect={setSelectedRoute}
+                refresh={refresh}
               />
               <LodgingPanel trip={trip} refresh={refresh} />
             </div>
@@ -600,6 +626,11 @@ export default function TripPage() {
           <h2>
             <History size={21} /> 함께 다듬은 기록
           </h2>
+          <p className="small muted">
+            방문 일정만 복원해요. 예약 기록과 반영한 경로 시간은 유지되며
+            충돌하면 복원을 막아요. 조회값을 해제하려면 일정 탭의 ‘반영한 이동
+            시간’을 확인해 주세요.
+          </p>
           {!trip.history.length ? (
             <p className="muted">
               앞으로 바꾸는 일정과 예약 상태가 여기에 기록돼요.
