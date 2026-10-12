@@ -17,6 +17,7 @@
 | 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId, placeId, version}` |
 | 예약 | PUT /trips/{id}/booking, /lodging-booking | `{itemId,status,reason,fixed,version}` |
 | 외부 예매 | POST /trips/{id}/external-bookings | 열차·버스·항공 등 결과 직접 기록 |
+| 예약 시간 조정 | POST /trips/{id}/schedule/preview, /schedule/apply | `{version, strategy?}`. 앞당기기·늦추기 비교 후 명시적 적용 |
 | 복원 | POST /trips/{id}/undo | `{historyId,version}`. 방문 일정만 복원 |
 | 공유 | POST /trips/{id}/share | 소유자만 생성/종료, `{enabled}` |
 | 공개 일정 | GET /share/{token} | 안전한 필드만 노출 |
@@ -31,7 +32,19 @@
 
 ## 예약 상태
 
-`NONE` 예약 전, `NEEDS_CONFIRMATION` 확인 필요, `USER_CONFIRMED` 직접 확인, `FAILED` 실패, `CANCELLED` 취소. `PARTNER_CONFIRMED`는 미래의 제휴 연동용 표시 계약이며 현재 사용자가 설정할 수 없습니다. 장소의 직접 확인 완료는 고정을 활성화합니다. 교통 기록의 출발 시간은 아직 방문 일정의 자동 고정 제약에 합쳐지지 않습니다.
+`NONE` 예약 전, `NEEDS_CONFIRMATION` 확인 필요, `USER_CONFIRMED` 직접 확인, `FAILED` 실패, `CANCELLED` 취소. `PARTNER_CONFIRMED`는 미래의 제휴 연동용 표시 계약이며 현재 사용자가 설정할 수 없습니다. 장소의 직접 확인 완료는 고정을 활성화합니다. 교통 기록은 직접 확인 완료이면서 `scheduleLinked: true`이고 출발·도착 시각이 입력된 경우에만 시간 제약에 포함합니다.
+
+## 교통 예약과 방문 시간 연결
+
+외부 예매 저장에는 기존 필드 외에 `arrival`(선택, 연결된 직접 확인 예약은 필수), `departurePlace/arrivalPlace`(각 최대 100자), `beforeMinutes/afterMinutes`(각 0~360), `scheduleLinked`를 받습니다. 모든 일시는 한국 현지 시각 `yyyy-MM-ddTHH:mm`이며 여행 기간 안에서 도착이 출발 이후여야 합니다. 자정 이후 도착은 날짜까지 입력합니다. 여유 시간은 역까지 이동·탑승 및 도착 후 이동을 사용자가 확인한 값이며, 기본 30분은 초기 입력값입니다. 렌터카 대여 기간은 실제 이동 전체를 의미하지 않으므로 새 렌터카 기록의 화면 기본 연결은 꺼져 있습니다.
+
+V4 마이그레이션은 기존 예약에 `arrival=null`, `scheduleLinked=false`를 적용합니다. 이전 요청의 생략 필드도 수용하며 기존 기록을 임의로 고정하지 않습니다. 실패·취소·확인 중 기록은 연결 표시가 있어도 방문 시간을 막지 않습니다. 예약의 실제 상황은 충돌하더라도 저장할 수 있고, 상세 응답의 `schedule`에서 충돌을 확인합니다.
+
+`schedule.windows`에는 예약 시각과 `leaveBy`(출발 전 여유 시작), `resumeAt`(도착 후 여유 종료)가 포함됩니다. 방문의 [시작, 체류 종료)와 [leaveBy, resumeAt)가 겹치면 `VISIT_OVERLAP`, 두 예약의 이동·여유 시간이 겹치면 `BOOKING_OVERLAP`입니다. `issues`는 관련 예약/방문 ID와 설명을 제공합니다. `unlinkedCount`는 시간 제약에 포함되지 않은 직접 확인 예약 수입니다. 공개 공유 API는 예약·역 이름·시간 제약 정보를 노출하지 않습니다.
+
+`schedule/preview`에 `{version}`을 보내면 `EARLIER`, `LATER` 두 조정안을 반환합니다. 각 안은 `canApply`, 변경 전후 `changes`, 합산 변경 분 `totalShiftMinutes`, `conflicts`, 전체 방문 `items`를 포함합니다. 방문일·순서·장소·체류 시간·비용·예약 상태를 유지하고, 고정 방문은 이동하지 않으며 06:00~22:00 범위를 지킵니다. 방문 사이 이동은 기존 거리 기반 추정 + 20분 간격입니다. 한 방향으로만 조정하는 방식이므로 두 안 실패가 모든 조합의 불가능을 뜻하지 않습니다. 영업시간/여행일 운행/좌석/실제 탑승 가능성을 보장하지 않습니다.
+
+`schedule/apply`는 `{version,strategy:"EARLIER"|"LATER"}`만 받고 서버가 최신 저장 데이터로 다시 계산합니다. 임의 변경 시각을 저장하지 않습니다. 접근 권한·CSRF·낙관적 버전 비교 후 같은 트랜잭션에서 방문 일정과 이력을 저장합니다. 예약 데이터는 그대로 유지합니다. 장소 변경 비교/적용과 이전 방문 일정 복원에도 현재 교통 예약의 시간 충돌 검사를 적용합니다. 예약 수정·취소는 별도 기록 저장으로만 수행합니다.
 
 ## 데이터 저장
 

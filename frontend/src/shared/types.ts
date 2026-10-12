@@ -87,6 +87,7 @@ export type Trip = Omit<Conditions, "lodgingIds"> & {
   ownerId: string;
   version: number;
   externalBookings: ExternalBooking[];
+  schedule: BookingScheduleReport;
   lodgings: {
     placeId: string;
     region: string;
@@ -160,9 +161,51 @@ export type ExternalBooking = {
   label: string;
   category: string;
   departure: string;
+  arrival: string | null;
+  departurePlace: string;
+  arrivalPlace: string;
+  beforeMinutes: number;
+  afterMinutes: number;
+  scheduleLinked: boolean;
   amount: number | null;
   status: string;
   reason: string;
+};
+
+/** 예약 시각은 한국 현지 시각입니다. 서버가 확인한 기록과 입력한 여유 시간으로 계산한 결과만 표시합니다. */
+export type BookingScheduleReport = {
+  windows: {
+    bookingId: string;
+    label: string;
+    departure: string;
+    arrival: string;
+    leaveBy: string;
+    resumeAt: string;
+    departurePlace: string;
+    arrivalPlace: string;
+  }[];
+  issues: {
+    kind: string;
+    bookingIds: string[];
+    itemIds: string[];
+    message: string;
+  }[];
+  unlinkedCount: number;
+};
+export type SchedulePlan = {
+  strategy: "EARLIER" | "LATER";
+  title: string;
+  canApply: boolean;
+  changes: {
+    itemId: string;
+    name: string;
+    dayIndex: number;
+    before: string;
+    after: string;
+  }[];
+  totalShiftMinutes: number;
+  conflicts: string[];
+  items: Item[];
 };
 
 /** 경로 조회값은 일정의 추정 시간/활동비와 분리합니다. null 요금은 미제공이며 무료를 뜻하지 않습니다. */

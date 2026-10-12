@@ -16,19 +16,22 @@ public class TripService {
   private final Planner planner;
   private final JsonCodec json;
   private final AiRankingService ai;
+  private final BookingSchedule schedule;
 
   public TripService(
     TripMapper t,
     CatalogService c,
     Planner p,
     JsonCodec j,
-    AiRankingService a
+    AiRankingService a,
+    BookingSchedule schedule
   ) {
     trips = t;
     catalog = c;
     planner = p;
     json = j;
     ai = a;
+    this.schedule = schedule;
   }
 
   public Map<String, Object> access(String id, String member) {
@@ -160,6 +163,14 @@ public class TripService {
     result.put("history", trips.historyList(id));
     result.put("lodgings", trips.lodgings(id));
     result.put("externalBookings", trips.externalBookings(id));
+    result.put(
+      "schedule",
+      schedule.inspect(
+        java.time.LocalDate.parse(result.get("startDate").toString()),
+        trips.items(id),
+        trips.externalBookings(id)
+      )
+    );
     return result;
   }
 
@@ -344,6 +355,14 @@ public class TripService {
       previous = current;
     }
     int party = ((Number) trip.get("partySize")).intValue();
+    schedule
+      .inspect(
+        java.time.LocalDate.parse(trip.get("startDate").toString()),
+        next,
+        trips.externalBookings(id)
+      )
+      .issues()
+      .forEach(issue -> conflicts.add(issue.message()));
     int cost = next
       .stream()
       .mapToInt(m -> ((Number) m.get("cost")).intValue() * party)
@@ -524,7 +543,7 @@ public class TripService {
   @SuppressWarnings("unchecked")
   @Transactional
   public Object undo(String id, String history, int version, String member) {
-    access(id, member);
+    var trip = access(id, member);
     var h = trips.historyById(history);
     if (h == null || !h.get("tripId").equals(id)) throw new DomainException(
       404,
@@ -553,6 +572,19 @@ public class TripService {
           "현재 고정된 예약이 바뀌는 복원이어서 적용할 수 없어요."
         );
       }
+    if (
+      !schedule
+        .inspect(
+          java.time.LocalDate.parse(trip.get("startDate").toString()),
+          snapshot,
+          trips.externalBookings(id)
+        )
+        .issues()
+        .isEmpty()
+    ) throw new DomainException(
+      409,
+      "현재 교통 예약의 이동·여유 시간과 겹치는 복원이어서 적용할 수 없어요."
+    );
     revision(id, version, member, "이전 일정 복원");
     replace(id, snapshot);
     return detail(id, member);
@@ -615,6 +647,50 @@ public class TripService {
       403,
       "여행 소유자만 관리할 수 있어요."
     );
+  }
+
+  /** 최신 예약 기록을 기준으로 매번 다시 계산합니다. 클라이언트가 전달한 변경 시각은 저장하지 않습니다. */
+  public List<BookingSchedule.Plan> schedulePreview(
+    String id,
+    int version,
+    String member
+  ) {
+    var trip = access(id, member);
+    if (
+      ((Number) trip.get("version")).intValue() != version
+    ) throw new DomainException(
+      409,
+      "동행이 여행을 변경했어요. 최신 여행에서 다시 비교해 주세요."
+    );
+    return schedule.alternatives(
+      java.time.LocalDate.parse(trip.get("startDate").toString()),
+      trips.items(id),
+      trips.externalBookings(id),
+      (String) trip.get("transport")
+    );
+  }
+
+  @Transactional
+  public Object scheduleApply(
+    String id,
+    int version,
+    String strategy,
+    String member
+  ) {
+    var plan = schedulePreview(id, version, member)
+      .stream()
+      .filter(p -> p.strategy().equals(strategy))
+      .findFirst()
+      .orElseThrow(() ->
+        DomainException.bad("일정 조정 방법을 확인해 주세요.")
+      );
+    if (!plan.canApply()) throw new DomainException(
+      409,
+      "고정 시간과 하루 범위를 지키는 조정이 어려워요. 예약 시간이나 방문 계획을 먼저 확인해 주세요."
+    );
+    revision(id, version, member, "교통 예약에 맞춰 " + plan.title());
+    replace(id, plan.items());
+    return detail(id, member);
   }
 
   @Transactional

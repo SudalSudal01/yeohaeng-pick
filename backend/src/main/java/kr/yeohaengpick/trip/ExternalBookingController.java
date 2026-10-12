@@ -30,6 +30,12 @@ public class ExternalBookingController {
     @NotBlank @Size(max = 100) String label,
     @NotNull @Pattern(regexp = "TRAIN|BUS|FLIGHT|CAR|OTHER") String category,
     @NotBlank @Size(max = 16) String departure,
+    @Size(max = 16) String arrival,
+    @Size(max = 100) String departurePlace,
+    @Size(max = 100) String arrivalPlace,
+    @Min(0) @Max(360) Integer beforeMinutes,
+    @Min(0) @Max(360) Integer afterMinutes,
+    Boolean scheduleLinked,
     @Min(0) @Max(100000000) Integer amount,
     @NotNull
     @Pattern(regexp = "NONE|NEEDS_CONFIRMATION|USER_CONFIRMED|FAILED|CANCELLED")
@@ -48,10 +54,13 @@ public class ExternalBookingController {
     String member = auth.id(a);
     var t = trips.access(trip, member);
     LocalDateTime departure;
+    LocalDateTime arrival = null;
     try {
       departure = LocalDateTime.parse(b.departure);
+      if (b.arrival != null && !b.arrival.isBlank()) arrival =
+        LocalDateTime.parse(b.arrival);
     } catch (java.time.DateTimeException e) {
-      throw DomainException.bad("출발 일시를 확인해 주세요.");
+      throw DomainException.bad("출발·도착 일시를 확인해 주세요.");
     }
     var start = java.time.LocalDate.parse(t.get("startDate").toString());
     var end = java.time.LocalDate.parse(t.get("endDate").toString());
@@ -59,6 +68,20 @@ public class ExternalBookingController {
       departure.toLocalDate().isBefore(start) ||
       departure.toLocalDate().isAfter(end)
     ) throw DomainException.bad("출발 일시는 여행 기간 안에서 선택해 주세요.");
+    // 저장한 일시는 한국 현지 시각입니다. 자정을 넘는 이동은 날짜까지 입력해야 합니다.
+    if (
+      arrival != null &&
+      (!arrival.isAfter(departure) || arrival.toLocalDate().isAfter(end))
+    ) throw DomainException.bad(
+      "도착은 출발 이후이며 여행 기간 안이어야 해요. 자정을 넘으면 도착 날짜도 바꿔 주세요."
+    );
+    if (
+      Boolean.TRUE.equals(b.scheduleLinked) &&
+      b.status.equals("USER_CONFIRMED") &&
+      arrival == null
+    ) throw DomainException.bad(
+      "일정에 연결할 예약 완료 교통편은 도착 일시도 입력해 주세요."
+    );
     String id = b.id == null ? UUID.randomUUID().toString() : b.id;
     if (
       b.id != null &&

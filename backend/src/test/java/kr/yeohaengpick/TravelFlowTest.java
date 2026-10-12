@@ -31,6 +31,44 @@ class TravelFlowTest {
   @LocalServerPort
   int port;
 
+  @Autowired
+  kr.yeohaengpick.auth.AuthRateLimit authRateLimit;
+
+  @BeforeEach
+  void isolateAuthenticationBudget() {
+    // 모든 HTTP 테스트가 같은 루프백 IP를 사용합니다. 다른 시나리오의 가입 횟수가
+    // 다음 테스트를 막지 않도록 테스트 서버의 메모리만 비웁니다. 요청 필터 자체는 계속 실행합니다.
+    (
+      (Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(
+        authRateLimit,
+        "attempts"
+      )
+    ).clear();
+  }
+
+  @Test
+  void authenticationLimitStillAppliesWithinOneScenario() throws Exception {
+    var visitor = new Browser();
+    for (int i = 0; i < 30; i++) assertThat(
+      visitor
+        .request(
+          "POST",
+          "/auth/login",
+          Map.of("email", visitor.email, "password", "Not-a-real-Password12!"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(401);
+    var blocked = visitor.request(
+      "POST",
+      "/auth/login",
+      Map.of("email", visitor.email, "password", "Not-a-real-Password12!"),
+      true
+    );
+    assertThat(blocked.statusCode()).isEqualTo(429);
+    assertThat(blocked.headers().firstValue("Retry-After")).contains("60");
+  }
+
   @Test
   void transportChecksMembershipAndSavedEndpointsBeforeExternalCalls()
     throws Exception {
@@ -237,6 +275,364 @@ class TravelFlowTest {
     assertThat(
       new Browser().call("GET", "/share/" + token, null)
     ).doesNotContainKeys("lodgings", "externalBookings");
+  }
+
+  /** 시간은 테스트 여행의 첫 방문에서 파생하므로 추천 정렬이 개선되어도 예약 충돌 상황은 유지됩니다. */
+  Map<String, Object> connectedBooking(Map<String, Object> trip, int version) {
+    var time = java.time.LocalTime.parse(
+      items(trip).getFirst().get("startTime").toString()
+    );
+    var b = new HashMap<String, Object>();
+    b.putAll(
+      Map.of(
+        "label",
+        "예약 시간 검증 KTX",
+        "category",
+        "TRAIN",
+        "departure",
+        "2026-11-01T" + time.plusMinutes(30),
+        "arrival",
+        "2026-11-01T" + time.plusMinutes(90),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "직접 확인",
+        "version",
+        version,
+        "scheduleLinked",
+        true
+      )
+    );
+    b.putAll(
+      Map.of(
+        "departurePlace",
+        "비공개 출발역",
+        "arrivalPlace",
+        "비공개 도착역",
+        "beforeMinutes",
+        30,
+        "afterMinutes",
+        30
+      )
+    );
+    return b;
+  }
+
+  @Test
+  void transportScheduleCanCompareApplyAndProtectRestoreAndConcurrentChanges()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    var saved = user.call(
+      "POST",
+      base + "/external-bookings",
+      connectedBooking(trip, 0)
+    );
+    assertThat(
+      json.mapper().valueToTree(saved).path("schedule").path("issues").size()
+    ).isPositive();
+    var preview = user.request(
+      "POST",
+      base + "/schedule/preview",
+      Map.of("version", 1),
+      true
+    );
+    assertThat(preview.statusCode()).as(preview.body()).isEqualTo(200);
+    var plans = json.mapper().readTree(preview.body());
+    var possible = java.util.stream.StreamSupport.stream(
+      plans.spliterator(),
+      false
+    )
+      .filter(p -> p.path("canApply").asBoolean())
+      .findFirst()
+      .orElseThrow();
+    // 비교만으로 DB와 version이 달라지지 않아야 합니다.
+    assertThat(user.call("GET", base, null).get("version")).isEqualTo(1);
+    var applied = user.call(
+      "POST",
+      base + "/schedule/apply",
+      Map.of("version", 1, "strategy", possible.path("strategy").asText())
+    );
+    var tree = json.mapper().valueToTree(applied);
+    assertThat(tree.path("schedule").path("issues").size()).isZero();
+    assertThat(tree.path("externalBookings")).isEqualTo(
+      json.mapper().valueToTree(saved).path("externalBookings")
+    );
+    assertThat(items(applied))
+      .extracting(i -> i.get("placeId"))
+      .containsExactlyElementsOf(
+        items(trip)
+          .stream()
+          .map(i -> i.get("placeId"))
+          .toList()
+      );
+    String history = tree.path("history").get(0).path("id").asText();
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/undo",
+          Map.of("version", 2, "historyId", history),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/schedule/apply",
+          Map.of("version", 1, "strategy", "LATER"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    var cancel = connectedBooking(trip, 2);
+    cancel.put("id", tree.path("externalBookings").get(0).path("id").asText());
+    cancel.put("status", "CANCELLED");
+    user.call("POST", base + "/external-bookings", cancel);
+    var restored = user.call(
+      "POST",
+      base + "/undo",
+      Map.of("version", 3, "historyId", history)
+    );
+    assertThat(items(restored).getFirst().get("startTime")).isEqualTo(
+      items(trip).getFirst().get("startTime")
+    );
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(restored)
+        .path("externalBookings")
+        .get(0)
+        .path("status")
+        .asText()
+    ).isEqualTo("CANCELLED");
+  }
+
+  @Test
+  void fixedVisitAndBookingOverlapCannotBeSilentlyReplannedOrShared()
+    throws Exception {
+    var user = new Browser().signup();
+    var outsider = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id");
+    user.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        items(trip).getFirst().get("id"),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "확정 전시",
+        "fixed",
+        true,
+        "version",
+        0
+      )
+    );
+    var saved = user.call(
+      "POST",
+      base + "/external-bookings",
+      connectedBooking(trip, 1)
+    );
+    String mutableItem = items(trip).get(1).get("id").toString();
+    var placeOptions = json
+      .mapper()
+      .readTree(
+        user
+          .request("GET", base + "/alternatives/" + mutableItem, null, false)
+          .body()
+      );
+    var placeChange = Map.of(
+      "itemId",
+      mutableItem,
+      "placeId",
+      placeOptions.get(0).path("id").asText(),
+      "version",
+      2
+    );
+    assertThat(
+      user.call("POST", base + "/preview", placeChange).get("canApply")
+    ).isEqualTo(false);
+    assertThat(
+      user.request("POST", base + "/apply", placeChange, true).statusCode()
+    ).isEqualTo(409);
+    var plans = json
+      .mapper()
+      .readTree(
+        user
+          .request(
+            "POST",
+            base + "/schedule/preview",
+            Map.of("version", 2),
+            true
+          )
+          .body()
+      );
+    assertThat(
+      java.util.stream.StreamSupport.stream(plans.spliterator(), false)
+    ).noneMatch(p -> p.path("canApply").asBoolean());
+    assertThat(
+      user
+        .request(
+          "POST",
+          base + "/schedule/apply",
+          Map.of("version", 2, "strategy", "EARLIER"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      outsider
+        .request("POST", base + "/schedule/preview", Map.of("version", 2), true)
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      outsider
+        .request(
+          "POST",
+          base + "/schedule/apply",
+          Map.of("version", 2, "strategy", "LATER"),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    assertThat(
+      outsider
+        .request(
+          "POST",
+          base + "/external-bookings",
+          connectedBooking(trip, 2),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(403);
+    var stale = connectedBooking(trip, 1);
+    stale.put(
+      "id",
+      json
+        .mapper()
+        .valueToTree(saved)
+        .path("externalBookings")
+        .get(0)
+        .path("id")
+        .asText()
+    );
+    stale.put("arrival", "2026-11-01T19:00");
+    assertThat(
+      user
+        .request("POST", base + "/external-bookings", stale, true)
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(user.call("GET", base, null).get("externalBookings")).isEqualTo(
+      saved.get("externalBookings")
+    );
+    String token = (String) user
+      .call("POST", base + "/share", Map.of("enabled", true))
+      .get("token");
+    assertThat(
+      new Browser().call("GET", "/share/" + token, null)
+    ).doesNotContainKeys("schedule", "externalBookings");
+  }
+
+  @Test
+  void transportArrivalAndMarginsAreValidatedAndOldUnlinkedRecordsStayUsable()
+    throws Exception {
+    var user = new Browser().signup();
+    var trip = user.trip();
+    String base = "/trips/" + trip.get("id") + "/external-bookings";
+    var b = connectedBooking(trip, 0);
+    b.remove("arrival");
+    assertThat(user.request("POST", base, b, true).statusCode()).isEqualTo(400);
+    b.put("arrival", b.get("departure"));
+    assertThat(user.request("POST", base, b, true).statusCode()).isEqualTo(400);
+    b.put("arrival", "2026-11-02T08:00");
+    assertThat(user.request("POST", base, b, true).statusCode()).isEqualTo(400);
+    b = connectedBooking(trip, 0);
+    b.put("beforeMinutes", 361);
+    assertThat(user.request("POST", base, b, true).statusCode()).isEqualTo(400);
+    b = connectedBooking(trip, 0);
+    b.put("status", "PARTNER_CONFIRMED");
+    assertThat(user.request("POST", base, b, true).statusCode()).isEqualTo(400);
+    b = connectedBooking(trip, 0);
+    b.remove("arrival");
+    b.put("scheduleLinked", false);
+    assertThat(user.request("POST", base, b, false).statusCode()).isEqualTo(
+      403
+    );
+    var saved = user.call("POST", base, b);
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(saved)
+        .path("schedule")
+        .path("unlinkedCount")
+        .asInt()
+    ).isEqualTo(1);
+    assertThat(saved.get("version")).isEqualTo(1);
+  }
+
+  @Test
+  void acceptedCompanionCanConnectTransportButCannotOverwriteAnotherEdit()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id");
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of("tripId", trip.get("id"), "email", companion.email)
+    );
+    var invitation = json
+      .mapper()
+      .readTree(companion.request("GET", "/invitations", null, false).body())
+      .get(0)
+      .path("id")
+      .asText();
+    companion.call(
+      "POST",
+      "/invitations/" + invitation + "/respond",
+      Map.of("accept", true)
+    );
+    int version = (
+      (Number) owner.call("GET", base, null).get("version")
+    ).intValue();
+    var saved = companion.call(
+      "POST",
+      base + "/external-bookings",
+      connectedBooking(trip, version)
+    );
+    assertThat(
+      json.mapper().valueToTree(saved).path("schedule").path("windows").size()
+    ).isEqualTo(1);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/schedule/preview",
+          Map.of("version", version),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/external-bookings",
+          connectedBooking(trip, version),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(409);
+    assertThat(owner.call("GET", base, null).get("externalBookings")).isEqualTo(
+      saved.get("externalBookings")
+    );
   }
 
   final Map<String, Object> conditions = Map.of(

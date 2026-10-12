@@ -12,7 +12,7 @@ public interface TripMapper {
   List<Map<String, Object>> externalBookings(String trip);
 
   @Insert(
-    "INSERT INTO external_bookings(id,trip_id,label,category,departure,amount,status,reason,updated_by) VALUES(#{id},#{trip},#{b.label},#{b.category},#{b.departure},#{b.amount},#{b.status},#{b.reason},#{member})"
+    "INSERT INTO external_bookings(id,trip_id,label,category,departure,arrival,departure_place,arrival_place,before_minutes,after_minutes,schedule_linked,amount,status,reason,updated_by) VALUES(#{id},#{trip},#{b.label},#{b.category},#{b.departure},NULLIF(#{b.arrival},''),COALESCE(#{b.departurePlace},''),COALESCE(#{b.arrivalPlace},''),COALESCE(#{b.beforeMinutes},30),COALESCE(#{b.afterMinutes},30),COALESCE(#{b.scheduleLinked},FALSE),#{b.amount},#{b.status},#{b.reason},#{member})"
   )
   void addExternalBooking(
     @Param("id") String id,
@@ -22,7 +22,7 @@ public interface TripMapper {
   );
 
   @Update(
-    "UPDATE external_bookings SET label=#{b.label},category=#{b.category},departure=#{b.departure},amount=#{b.amount},status=#{b.status},reason=#{b.reason},updated_by=#{member} WHERE id=#{id} AND trip_id=#{trip}"
+    "UPDATE external_bookings SET label=#{b.label},category=#{b.category},departure=#{b.departure},arrival=NULLIF(#{b.arrival},''),departure_place=COALESCE(#{b.departurePlace},''),arrival_place=COALESCE(#{b.arrivalPlace},''),before_minutes=COALESCE(#{b.beforeMinutes},30),after_minutes=COALESCE(#{b.afterMinutes},30),schedule_linked=COALESCE(#{b.scheduleLinked},FALSE),amount=#{b.amount},status=#{b.status},reason=#{b.reason},updated_by=#{member} WHERE id=#{id} AND trip_id=#{trip}"
   )
   void updateExternalBooking(
     @Param("id") String id,

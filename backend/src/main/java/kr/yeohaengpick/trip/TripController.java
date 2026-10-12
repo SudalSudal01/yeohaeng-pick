@@ -67,6 +67,30 @@ public class TripController {
     return trips.apply(id, c, auth.id(a));
   }
 
+  public record ScheduleChange(
+    @jakarta.validation.constraints.Min(0) int version,
+    @jakarta.validation.constraints.Pattern(regexp = "EARLIER|LATER")
+    String strategy
+  ) {}
+
+  @PostMapping("/trips/{id}/schedule/preview")
+  Object schedulePreview(
+    @PathVariable String id,
+    @Valid @RequestBody ScheduleChange c,
+    Authentication a
+  ) {
+    return trips.schedulePreview(id, c.version, auth.id(a));
+  }
+
+  @PostMapping("/trips/{id}/schedule/apply")
+  Object scheduleApply(
+    @PathVariable String id,
+    @Valid @RequestBody ScheduleChange c,
+    Authentication a
+  ) {
+    return trips.scheduleApply(id, c.version, c.strategy, auth.id(a));
+  }
+
   @PutMapping("/trips/{id}/booking")
   Object booking(
     @PathVariable String id,

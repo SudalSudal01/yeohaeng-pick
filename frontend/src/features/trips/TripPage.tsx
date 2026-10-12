@@ -35,6 +35,7 @@ import RouteMap from "./RouteMap";
 import LodgingPanel from "./LodgingPanel";
 import TransportPanel from "./TransportPanel";
 import ExternalBookings from "./ExternalBookings";
+import BookingSchedulePanel from "./BookingSchedulePanel";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
 import { lodgingEstimate } from "./tripBudget";
 
@@ -256,6 +257,13 @@ export default function TripPage() {
           </button>
         ))}
       </div>
+      {(tab === "일정" || tab === "예약") && (
+        <BookingSchedulePanel
+          trip={trip}
+          refresh={refresh}
+          onBookings={() => setTab("예약")}
+        />
+      )}
       {tab === "일정" ? (
         <>
           <div className="day-tabs">
