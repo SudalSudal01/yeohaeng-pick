@@ -1,4 +1,11 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  Component,
+  lazy,
+  Suspense,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Routes,
   Route,
@@ -20,21 +27,65 @@ import {
   LogOut,
 } from "lucide-react";
 import { useAuth, useToast } from "../shared/providers";
-import { RequireAuth, Empty, Loading } from "../shared/ui";
+import { RequireAuth, Empty, ErrorState, Loading } from "../shared/ui";
 import HomePage from "../features/home/HomePage";
 import AuthPage from "../features/auth/AuthPage";
 import AccountPage from "../features/auth/AccountPage";
-import ExplorePage from "../features/catalog/ExplorePage";
-import PlanPage from "../features/planner/PlanPage";
-import TripsPage from "../features/trips/TripsPage";
-import TripPage from "../features/trips/TripPage";
-import SharedTripPage from "../features/trips/SharedTripPage";
 import CommunityRoute from "../features/community/CommunityRoute";
-import MessagesPage from "../features/messaging/MessagesPage";
-import ProfilePage from "../features/profile/ProfilePage";
-import AdminPage from "../features/admin/AdminPage";
-// 개인 찜 목록은 진입할 때 불러와 첫 화면에서 사용하지 않는 페이지 코드의 전송을 줄입니다.
+
+// 홈과 로그인·계정 복구는 직접 주소로 자주 진입하므로 즉시 제공합니다. 아래 기능 화면은 해당 경로를 열 때만 받아 모바일 첫 다운로드를 줄입니다.
+const ExplorePage = lazy(() => import("../features/catalog/ExplorePage"));
+const PlanPage = lazy(() => import("../features/planner/PlanPage"));
+const TripsPage = lazy(() => import("../features/trips/TripsPage"));
+const TripPage = lazy(() => import("../features/trips/TripPage"));
+const SharedTripPage = lazy(() => import("../features/trips/SharedTripPage"));
+const MessagesPage = lazy(() => import("../features/messaging/MessagesPage"));
+const ProfilePage = lazy(() => import("../features/profile/ProfilePage"));
+const AdminPage = lazy(() => import("../features/admin/AdminPage"));
 const FavoritesPage = lazy(() => import("../features/favorites/FavoritesPage"));
+
+/** 지연 화면을 표시하는 중 문제가 생겨도 공통 내비게이션을 유지하고 다시 시작할 방법을 제공합니다. */
+class AsyncRouteBoundary extends Component<
+  { children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  render() {
+    return this.state.failed ? (
+      <ErrorState
+        error={
+          new Error(
+            "화면을 표시하는 중 문제가 생겼어요. 연결을 확인한 뒤 다시 시도해 주세요.",
+          )
+        }
+        retry={() => window.location.reload()}
+      />
+    ) : (
+      this.props.children
+    );
+  }
+}
+
+/** 헤더와 하단 메뉴는 그대로 둔 채 현재 기능 화면의 로딩·실패 상태만 본문에 표시합니다. */
+function AsyncRoute({
+  children,
+  text = "화면을 불러오고 있어요",
+}: {
+  children: ReactNode;
+  text?: string;
+}) {
+  const location = useLocation();
+  return (
+    <AsyncRouteBoundary key={location.pathname}>
+      <Suspense fallback={<Loading text={text} />}>{children}</Suspense>
+    </AsyncRouteBoundary>
+  );
+}
 
 /** 공통 내비게이션. 현재 위치를 강조하고 모바일에서는 엄지로 접근하기 쉬운 하단 메뉴를 제공합니다. */
 export default function App() {
@@ -155,14 +206,21 @@ export default function App() {
       >
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/explore" element={<ExplorePage />} />
+          <Route
+            path="/explore"
+            element={
+              <AsyncRoute text="여행지 탐색을 불러오고 있어요">
+                <ExplorePage />
+              </AsyncRoute>
+            }
+          />
           <Route
             path="/favorites"
             element={
               <RequireAuth>
-                <Suspense fallback={<Loading />}>
+                <AsyncRoute text="내 찜 장소를 불러오고 있어요">
                   <FavoritesPage />
-                </Suspense>
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -192,7 +250,9 @@ export default function App() {
             path="/plan"
             element={
               <RequireAuth>
-                <PlanPage />
+                <AsyncRoute text="여행 계획 화면을 불러오고 있어요">
+                  <PlanPage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -200,7 +260,9 @@ export default function App() {
             path="/trips"
             element={
               <RequireAuth>
-                <TripsPage />
+                <AsyncRoute text="내 여행을 불러오고 있어요">
+                  <TripsPage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -208,7 +270,9 @@ export default function App() {
             path="/trips/:id"
             element={
               <RequireAuth>
-                <TripPage />
+                <AsyncRoute text="여행 일정을 불러오고 있어요">
+                  <TripPage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -218,7 +282,9 @@ export default function App() {
             path="/messages"
             element={
               <RequireAuth>
-                <MessagesPage />
+                <AsyncRoute text="메시지를 불러오고 있어요">
+                  <MessagesPage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -226,7 +292,9 @@ export default function App() {
             path="/profile"
             element={
               <RequireAuth>
-                <ProfilePage />
+                <AsyncRoute text="마이페이지를 불러오고 있어요">
+                  <ProfilePage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
@@ -234,11 +302,20 @@ export default function App() {
             path="/admin"
             element={
               <RequireAuth>
-                <AdminPage />
+                <AsyncRoute text="관리자 화면을 불러오고 있어요">
+                  <AdminPage />
+                </AsyncRoute>
               </RequireAuth>
             }
           />
-          <Route path="/share/:token" element={<SharedTripPage />} />
+          <Route
+            path="/share/:token"
+            element={
+              <AsyncRoute text="공유 여행을 불러오고 있어요">
+                <SharedTripPage />
+              </AsyncRoute>
+            }
+          />
           <Route
             path="*"
             element={
