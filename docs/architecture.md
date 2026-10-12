@@ -1,5 +1,9 @@
 # 구조와 주요 결정
 
+## 커뮤니티 전체 검색
+
+커뮤니티 공개 목록은 `CommunitySearchService`와 `CommunitySearchMapper/Sql`로 검색·건수·페이지를 분리합니다. SQL 조건을 재사용하고 공개 필드만 제한 조회하며, 화면은 URL 조건과 상세 복귀 주소를 함께 관리합니다. 기존 DB 구조와 한국어 코멘트를 유지합니다. [검색 계약과 동시 변경·성능 한계](community-search.md)
+
 ## Oracle 저장소
 
 실제 DB는 Oracle 19c 전용 스키마를 사용합니다. `oracle` 프로필은 전용 Flyway 위치와 JDBC 연결을 선택하고, MyBatis는 명시적인 Oracle BOOLEAN SQL 및 Map의 열 이름/숫자/CLOB/날짜 변환으로 기존 API 계약을 유지합니다. 자동 테스트의 기본 H2 이력은 그대로 보존합니다. 실제 전체 HTTP 시나리오는 별도 Oracle QA 스키마에서도 실행하며 이전은 앱 시작과 분리한 도구에서 FK 순서·단일 커밋·전체 값 해시 검증을 거칩니다. [접속·이전·복구 상세](oracle-setup.md)

@@ -233,9 +233,9 @@ class CommunityFlowTest extends HttpFlowDatabase {
     assertThat(
       visitor.request("GET", base, null, false).statusCode()
     ).isEqualTo(404);
-    assertThat(json.write(visitor.callList("/community/posts"))).doesNotContain(
-      id
-    );
+    assertThat(
+      json.write(visitor.call("GET", "/community/posts", null))
+    ).doesNotContain(id);
     assertThat(
       reader
         .request(

@@ -226,6 +226,27 @@ export type Post = {
   updatedAt?: string | null;
   comments?: CommunityComment[];
 };
+/** 공개 목록은 본문 전체와 관리 정보를 포함하지 않습니다. 본문은 상세 API에서 조회합니다. */
+export type PostSummary = Pick<
+  Post,
+  | "id"
+  | "nickname"
+  | "category"
+  | "region"
+  | "title"
+  | "createdAt"
+  | "recruitmentDate"
+  | "capacity"
+  | "status"
+> & { excerpt: string };
+/** 공개 검색의 페이지 번호는 1부터입니다. 결과가 없으면 totalPages=0, page=1입니다. */
+export type CommunityPostPage = {
+  items: PostSummary[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+};
 /** 휴지통에는 작성자 본인의 제목·삭제 시각만 제공합니다. 본문·댓글은 복원 후 다시 조회합니다. */
 export type DeletedPost = Pick<
   Post,

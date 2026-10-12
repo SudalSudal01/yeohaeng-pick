@@ -17,15 +17,18 @@ public class CommunityController {
   private final AuthService auth;
   private final CommunityPostService posts;
   private final CommunityCommentService comments;
+  private final CommunitySearchService search;
 
   public CommunityController(
     AuthService a,
     CommunityPostService posts,
-    CommunityCommentService comments
+    CommunityCommentService comments,
+    CommunitySearchService search
   ) {
     auth = a;
     this.posts = posts;
     this.comments = comments;
+    this.search = search;
   }
 
   public record Post(
@@ -38,8 +41,10 @@ public class CommunityController {
   ) {}
 
   @GetMapping("/community/posts")
-  Object posts() {
-    return posts.list();
+  CommunitySearchService.Page posts(
+    @Valid @ModelAttribute CommunitySearchService.Query query
+  ) {
+    return search.search(query);
   }
 
   @GetMapping("/community/posts/{id}")

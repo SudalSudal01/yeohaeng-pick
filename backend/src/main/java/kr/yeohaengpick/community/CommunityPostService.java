@@ -15,10 +15,6 @@ public class CommunityPostService {
     this.posts = posts;
   }
 
-  public Object list() {
-    return posts.posts().stream().map(this::normalize).toList();
-  }
-
   public Object trash(String member) {
     return posts.trash(member);
   }

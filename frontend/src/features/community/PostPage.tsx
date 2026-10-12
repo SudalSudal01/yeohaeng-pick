@@ -1,6 +1,11 @@
 import { useCallback, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -15,12 +20,15 @@ import { useAuth, useToast } from "../../shared/providers";
 import { ErrorState, Loading, Modal } from "../../shared/ui";
 import PostManagement from "./PostManagement";
 import PostComments from "./PostComments";
+import { communityReturnTo } from "./communitySearch";
 
 /** 공개 상세는 삭제/숨김을 주기적으로 다시 확인합니다. 개인 대화 요청과 여행 초대는 별도 권한입니다. */
 export default function PostPage() {
   const { id = "" } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const returnTo = communityReturnTo(params);
   const toast = useToast();
   const [comment, setComment] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
@@ -75,7 +83,7 @@ export default function PostPage() {
           작성자가 삭제했거나 공개되지 않은 글이에요. 내가 삭제한 글은
           커뮤니티의 내 글 휴지통에서 찾을 수 있어요.
         </p>
-        <Link className="button primary" to="/community">
+        <Link className="button primary" to={returnTo}>
           커뮤니티로 돌아가기
         </Link>
       </div>
@@ -88,7 +96,7 @@ export default function PostPage() {
       {query.error && (
         <ErrorState error={query.error} retry={() => query.refetch()} />
       )}
-      <Link className="back-link" to="/community">
+      <Link className="back-link" to={returnTo}>
         <ArrowLeft size={16} />
         커뮤니티
       </Link>
@@ -153,7 +161,7 @@ export default function PostPage() {
           <PostManagement
             post={p}
             refresh={refresh}
-            removed={() => navigate("/community", { replace: true })}
+            removed={() => navigate(returnTo, { replace: true })}
           />
         )}
       </article>
@@ -182,7 +190,15 @@ export default function PostPage() {
             </button>
           </form>
         ) : (
-          <Link className="text-button" to={"/login?next=/community/" + id}>
+          <Link
+            className="text-button"
+            to={
+              "/login?next=" +
+              encodeURIComponent(
+                "/community/" + id + "?" + new URLSearchParams({ returnTo }),
+              )
+            }
+          >
             로그인하고 이야기 나누기
             <ArrowRight size={16} />
           </Link>

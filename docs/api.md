@@ -29,7 +29,7 @@
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |
 | 소유권 이전 | POST /trips/{id}/ownership/transfer | `{version,memberId}`·현재 소유자/대상 참여 검사·대기 초대 종료·별도 변경 기록. [권한과 계약](trip-ownership.md) |
-| 커뮤니티 | GET/POST /community/posts, GET /community/posts/{id} | 목록·작성·상세 |
+| 커뮤니티 | GET/POST /community/posts, GET /community/posts/{id} | 검색·페이지 객체 목록·작성·상세. [검색 계약](community-search.md) |
 | 내 글 관리 | PUT/DELETE /community/posts/{id}, GET /community/trash, POST /community/posts/{id}/restore | 작성자·버전·휴지통·복원. [계약과 보존 정책](community-management.md) |
 | 댓글/모집 | POST /community/posts/{id}/comments, PUT /community/posts/{id}/status | 댓글과 작성자의 모집 상태. 상태 변경에 `{version,status}` 필요 |
 | 내 댓글 관리 | PUT/DELETE /community/posts/{id}/comments/{commentId} | 댓글 작성자·소속·독립 버전 검사. 수정 `{version,body}`, 삭제 `{version}`. 삭제 댓글은 상세/개수에서 제외하며 복원 불가 |

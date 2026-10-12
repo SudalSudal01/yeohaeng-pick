@@ -6,16 +6,6 @@ import org.apache.ibatis.annotations.*;
 /** 공개 커뮤니티 쿼리는 이메일·개인 취향·예약 정보에 접근하지 않습니다. */
 @Mapper
 public interface CommunityMapper {
-  // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
-  @Select(
-    value = "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.hidden=0 AND p.deleted_at IS NULL ORDER BY p.created_at DESC FETCH FIRST 100 ROWS ONLY",
-    databaseId = "oracle"
-  )
-  @Select(
-    "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.hidden=FALSE AND p.deleted_at IS NULL ORDER BY p.created_at DESC FETCH FIRST 100 ROWS ONLY"
-  )
-  List<Map<String, Object>> posts();
-
   @Select(
     "SELECT p.*,m.nickname FROM posts p JOIN members m ON p.author_id=m.id WHERE p.id=#{id}"
   )
