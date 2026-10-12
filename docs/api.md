@@ -9,6 +9,7 @@
 | 계정 | GET /auth/me, PUT /auth/profile | 기본 취향과 수신 범위 |
 | 메일 | POST /auth/verify/send, /verify, /reset/send, /reset | 발송·일회용 인증·비밀번호 재설정 |
 | 장소 | GET /catalog/places?region=&query=&category= | 서버에서 여행 업종·실제 주소·분류 필터 적용 |
+| 관광정보 | GET /catalog/tourism/search?region=&query=&page=, GET /catalog/tourism/{id} | 공개 관광공사 원문·제공 여부·출처·조회 시각. 일정 비변경 |
 | 출발지 검색 | POST /trips/{id}/transport/origins | `{query}` → 회원별 30분 검색 결과 토큰 |
 | 실제 경로 | POST /trips/{id}/transport/routes | 저장 일정·숙소·출발지 토큰 → 경로/요금/좌표 |
 | 추천 | POST /recommendations | 여행 조건 → 세 코스, 엔진/경고/숙소 추정 포함 |
@@ -29,6 +30,14 @@
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | 요청·조회·수락 후 추가 발송 |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |
 | 차단 | GET /messages/blocks, PUT /messages/blocks/{member} | 사용자 차단/해제 |
+
+## 관광공사 이용정보
+
+공개 GET 조회이며 `Config.tourismConfigured`는 서버 키 설정 유무다. 검색은 region(서울/부산/제주/강릉), query(공백 제외 1~80자, 제어문자 불가), page(1~50, 기본 1)를 받는다. 응답은 `{items,totalCount,page,pageSize:20,queriedAt}`이며 items에는 id/typeId/category/title/address/telephone/providerUpdatedAt이 있다. totalCount는 공급자의 전체 검색 수, items는 해당 페이지에서 지원 유형·지역 주소가 확인된 결과다.
+
+상세는 숫자 contentId 1~15자리만 받고 공통 응답에서 typeId를 얻어 소개/반복 응답의 ID·종류를 대조한다. 응답은 `{content,overview,homepageUrl,hours,restDays,fees,additional,queriedAt,source,sourceUrl}`이다. hours/restDays/fees/additional의 항목은 `{label,text,status:PROVIDED|NOT_PROVIDED}`이며 원문 텍스트다. 요금 숫자나 영업 가능 판정 필드는 없다. queriedAt은 묶음 내 가장 오래된 서버 조회 시각이며 공급자 수정 표기와 구분한다. 홈페이지는 http(s) 링크만 제공하고 외부 HTML을 반환하지 않는다.
+
+잘못된 입력은 400, 없는 contentId는 404, 앱/공급자 한도·동시 요청 초과는 429, 키 미설정·XML/비정상 응답·일부 상세 조회 실패/다른 장소 응답은 503이다. 오류 원문/서비스키는 반환하지 않는다. 정상 미제공과 오류는 별개다. 조회로 방문·숙소·예약·경비·version을 바꾸지 않으며 공급자 키가 없을 때 예시로 대체하지 않는다. [설정과 호출 범위](tourism-setup.md)
 
 ## 예약 상태
 

@@ -33,6 +33,8 @@ app:
   # 키는 서버 환경변수로만 주입합니다. 브라우저용 지도 키와 서버용 REST 키를 분리합니다.
   kakao-rest-key: ${KAKAO_REST_KEY:}
   kakao-js-key: ${KAKAO_JS_KEY:}
+  tour-api-key: ${TOUR_API_KEY:}
+  tour-api-daily-limit: ${TOUR_API_DAILY_LIMIT:300}
   gemini-key: ${GEMINI_API_KEY:}
   gemini-model: ${GEMINI_MODEL:gemini-3.5-flash-lite}
   ai-daily-limit: ${AI_DAILY_LIMIT:20}

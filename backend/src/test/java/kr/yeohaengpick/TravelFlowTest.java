@@ -26,6 +26,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
     "app.kakao-rest-key=",
     "app.gemini-key=",
     "app.mail-enabled=false",
+    "app.tour-api-key=",
   }
 )
 class TravelFlowTest {
@@ -2429,6 +2430,48 @@ class TravelFlowTest {
         .statusCode()
     ).isEqualTo(409);
     assertThat(owner.call("GET", base, null)).isEqualTo(fixed);
+  }
+
+  @Test
+  void publicTourismReadsValidateInputsAndMissingKeyWithoutChangingTrips()
+    throws Exception {
+    var visitor = new Browser();
+    var config = visitor.call("GET", "/config", null);
+    assertThat(config.get("tourismConfigured")).isEqualTo(false);
+    assertThat(config).doesNotContainKeys(
+      "tourApiKey",
+      "tour-api-key",
+      "serviceKey"
+    );
+    for (var path : List.of(
+      "/catalog/tourism/search?region=invalid&query=palace",
+      "/catalog/tourism/search?region=invalid&query=palace&page=51",
+      "/catalog/tourism/not-a-content-id"
+    ))
+      assertThat(
+        visitor.request("GET", path, null, false).statusCode()
+      ).isEqualTo(400);
+    var unavailable = visitor.request(
+      "GET",
+      "/catalog/tourism/search?region=" +
+        java.net.URLEncoder.encode(
+          "서울",
+          java.nio.charset.StandardCharsets.UTF_8
+        ) +
+        "&query=palace",
+      null,
+      false
+    );
+    assertThat(unavailable.statusCode()).isEqualTo(503);
+    assertThat(unavailable.body()).contains("연결을 준비 중");
+    var owner = new Browser().signup();
+    var trip = owner.trip();
+    assertThat(
+      owner.request("GET", "/catalog/tourism/123", null, false).statusCode()
+    ).isEqualTo(503);
+    assertThat(owner.call("GET", "/trips/" + trip.get("id"), null)).isEqualTo(
+      trip
+    );
   }
 
   final Map<String, Object> conditions = Map.of(

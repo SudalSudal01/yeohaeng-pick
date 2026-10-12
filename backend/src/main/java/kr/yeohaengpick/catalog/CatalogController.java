@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 public class CatalogController {
 
   private final CatalogService catalog;
+  private final TourApiClient tourism;
 
   @Value("${app.kakao-js-key:}")
   private String mapKey;
@@ -19,8 +20,9 @@ public class CatalogController {
   @Value("${app.mail-enabled:false}")
   private boolean mail;
 
-  public CatalogController(CatalogService c) {
+  public CatalogController(CatalogService c, TourApiClient tourism) {
     catalog = c;
+    this.tourism = tourism;
   }
 
   @GetMapping("/api/config")
@@ -35,7 +37,9 @@ public class CatalogController {
       "emailConfigured",
       mail,
       "socialLoginConfigured",
-      false
+      false,
+      "tourismConfigured",
+      tourism.configured()
     );
   }
 

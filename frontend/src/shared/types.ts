@@ -14,6 +14,7 @@ export type Config = {
   sampleData: boolean;
   emailConfigured: boolean;
   socialLoginConfigured: boolean;
+  tourismConfigured: boolean;
 };
 export type Place = {
   id: string;
@@ -27,6 +28,40 @@ export type Place = {
   indoor: boolean;
   source: string;
   url: string;
+};
+/** 관광공사 안내는 원문·출처·시각을 유지합니다. 금액/영업 가능 판정으로 자동 환산하지 않습니다. */
+export type TourismContent = {
+  id: string;
+  typeId: string;
+  category: string;
+  title: string;
+  address: string;
+  telephone: string;
+  providerUpdatedAt: string;
+};
+export type TourismField = {
+  label: string;
+  text: string;
+  status: "PROVIDED" | "NOT_PROVIDED";
+};
+export type TourismDetail = {
+  content: TourismContent;
+  overview: string;
+  homepageUrl: string;
+  hours: TourismField;
+  restDays: TourismField;
+  fees: TourismField;
+  additional: TourismField[];
+  queriedAt: string;
+  source: string;
+  sourceUrl: string;
+};
+export type TourismSearch = {
+  items: TourismContent[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  queriedAt: string;
 };
 export type Conditions = {
   title: string;

@@ -12,6 +12,7 @@ import { api, money } from "../../shared/api";
 import type { Place } from "../../shared/types";
 import { useConfig } from "../../shared/providers";
 import { Loading, ErrorState, Empty } from "../../shared/ui";
+import TourismInfoButton from "./TourismInfoButton";
 
 /** URL에 검색 조건을 보존해 새로고침·뒤로 가기·공유 시 사용자가 보던 검색을 유지합니다. */
 export default function ExplorePage() {
@@ -153,6 +154,11 @@ export default function ExplorePage() {
                   >
                     <ArrowUpRight size={20} />
                   </a>
+                </div>
+                <div className="tourism-entry-action">
+                  <TourismInfoButton
+                    target={{ name: p.name, region: p.region, url: p.url }}
+                  />
                 </div>
                 <Link
                   className="text-button"

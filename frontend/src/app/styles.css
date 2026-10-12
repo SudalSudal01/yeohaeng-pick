@@ -4949,6 +4949,252 @@ textarea {
   }
 }
 
+/* 관광정보는 장소 선택과 이용 안내를 구분합니다. HTML 대신 줄바꿈이 있는 텍스트를 표시하고
+   원문이 길어져도 글자를 줄이지 않습니다. 설명과 다음 실행 사이에는 24px을 유지합니다. */
+.tourism-entry-action {
+  margin-top: 24px;
+}
+.tourism-open-button {
+  white-space: normal;
+  text-align: left;
+}
+.tourism-modal {
+  width: min(960px, calc(100% - 24px));
+  max-width: 960px;
+}
+.tourism-modal :is(h3, h4, p, span, strong, a) {
+  overflow-wrap: anywhere;
+}
+.tourism-target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  margin: 20px 0 24px;
+  background: #edf4eb;
+  border-radius: 14px;
+}
+.tourism-target > strong {
+  font-size: 20px;
+  line-height: 1.6;
+}
+.tourism-target > a {
+  align-self: flex-start;
+  margin-top: 16px;
+}
+.tourism-search-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px 24px;
+  align-items: end;
+  margin: 24px 0;
+}
+.tourism-search-form label {
+  margin: 0;
+  min-width: 0;
+}
+.tourism-search-form input {
+  min-width: 0;
+  margin: 8px 0 0;
+  font-size: 16px;
+  min-height: 50px;
+}
+.tourism-search-form > button {
+  min-height: 50px;
+}
+/* 이 폼은 grid gap으로 24px을 확보하므로 공통 모달의 추가 margin을 중복하지 않습니다. */
+.tourism-modal > .tourism-search-form > .button:last-child {
+  margin-top: 0;
+}
+.tourism-results,
+.tourism-detail {
+  margin-top: 32px;
+  scroll-margin-top: 20px;
+}
+.tourism-results h3,
+.tourism-detail h3 {
+  margin: 0 0 12px;
+  font-size: 19px;
+}
+.tourism-candidates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.tourism-candidate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: 18px;
+  gap: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: white;
+  text-align: left;
+  color: var(--text);
+}
+.tourism-candidate.selected {
+  border-color: var(--green);
+  background: #f1f7ee;
+  box-shadow: inset 0 0 0 1px var(--green);
+}
+.tourism-candidate > strong {
+  font-size: 17px;
+  line-height: 1.7;
+}
+.tourism-address {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  font-size: var(--text-support);
+  line-height: 1.8;
+}
+.tourism-address svg {
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.tourism-candidate-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--green);
+  font-size: var(--text-support);
+  font-weight: 600;
+  margin-top: 14px;
+}
+.tourism-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.tourism-pagination span {
+  font-size: var(--text-support);
+}
+.tourism-return {
+  margin: 12px 0 24px;
+}
+.tourism-selected {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 16px;
+  background: #f8fbf8;
+}
+.tourism-selected h4 {
+  font-size: 22px;
+  margin: 12px 0 8px;
+  line-height: 1.6;
+}
+.tourism-selected p {
+  margin: 0;
+  color: var(--muted);
+}
+.tourism-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.tourism-fact {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+}
+.tourism-fact:first-child {
+  grid-column: 1 / -1;
+}
+.tourism-fact > div {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.tourism-fact h4 {
+  font-size: 17px;
+  margin: 0;
+}
+.tourism-fact p,
+.tourism-additional p {
+  white-space: pre-line;
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+.tourism-additional {
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  margin: 12px 0;
+}
+.tourism-additional summary {
+  min-height: 44px;
+  padding: 12px 0;
+  font-size: var(--text-support);
+  font-weight: 600;
+  cursor: pointer;
+}
+.tourism-additional > div {
+  margin: 16px 0;
+}
+.tourism-additional > div strong {
+  font-size: var(--text-support);
+}
+.tourism-source {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 24px;
+  font-size: var(--text-caption);
+  color: var(--muted);
+}
+.tourism-source > strong {
+  font-size: var(--text-support);
+  color: var(--text);
+}
+.tourism-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 24px;
+}
+@media (max-width: 760px) {
+  .tourism-candidates,
+  .tourism-facts,
+  .tourism-search-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tourism-search-form {
+    gap: 24px;
+  }
+  .tourism-search-form > button,
+  .tourism-detail-actions .button {
+    width: 100%;
+    justify-content: center;
+    white-space: normal;
+  }
+  .tourism-candidate,
+  .tourism-fact {
+    padding: 16px;
+  }
+}
+@media (max-width: 400px) {
+  .tourism-modal {
+    width: calc(100% - 16px);
+  }
+  .tourism-target,
+  .tourism-selected,
+  .tourism-candidate,
+  .tourism-fact {
+    padding: 14px;
+  }
+}
+
 /* 숙소 연결은 설명→입력→실행 순서로 읽습니다. 좁은 화면에서는 글씨 대신 열 수를 줄입니다. */
 .overnight-panel {
   padding: 24px;

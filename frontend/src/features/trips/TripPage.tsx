@@ -41,6 +41,7 @@ import OvernightPanel from "./OvernightPanel";
 import ExternalBookings from "./ExternalBookings";
 import BookingSchedulePanel from "./BookingSchedulePanel";
 import WholeSchedulePanel from "./WholeSchedulePanel";
+import TourismInfoButton from "../catalog/TourismInfoButton";
 import { ComparisonModal, BookingModal } from "./TripDialogs";
 import { lodgingBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
@@ -397,6 +398,15 @@ export default function TripPage() {
                           <GitCompareArrows size={15} />
                           다른 후보 비교
                         </button>
+                      </div>
+                      <div className="tourism-entry-action">
+                        <TourismInfoButton
+                          target={{
+                            name: item.placeName,
+                            region: item.region,
+                            url: item.placeUrl,
+                          }}
+                        />
                       </div>
                     </article>
                     {index < items.length - 1 && (
