@@ -6770,6 +6770,22 @@ textarea {
 .course-lodging-names strong {
   color: var(--green);
 }
+/* 찾는 방식은 설명 다음 독립된 실행 영역에 두고, 좁은 화면에서는 버튼을 자연스럽게 줄바꿈합니다. */
+.lodging-choice-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+.lodging-choice-sources .button {
+  white-space: normal;
+  min-height: 44px;
+}
+.lodging-choice-favorite-region {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 24px;
+}
 @media (max-width: 640px) {
   .favorite-lodging-list {
     grid-template-columns: minmax(0, 1fr);

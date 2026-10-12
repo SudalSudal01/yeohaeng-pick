@@ -17,19 +17,22 @@ public class LodgingChoiceService {
   private final CatalogService catalog;
   private final Planner planner;
   private final JsonCodec json;
+  private final kr.yeohaengpick.favorite.FavoriteService favorites;
 
   public LodgingChoiceService(
     TripService trips,
     TripMapper mapper,
     CatalogService catalog,
     Planner planner,
-    JsonCodec json
+    JsonCodec json,
+    kr.yeohaengpick.favorite.FavoriteService favorites
   ) {
     this.trips = trips;
     this.mapper = mapper;
     this.catalog = catalog;
     this.planner = planner;
     this.json = json;
+    this.favorites = favorites;
   }
 
   public record Change(
@@ -42,8 +45,19 @@ public class LodgingChoiceService {
     @jakarta.validation.constraints.NotNull
     @jakarta.validation.constraints.Size(max = 100)
     String query,
-    @jakarta.validation.constraints.Min(0) int version
-  ) {}
+    @jakarta.validation.constraints.Min(0) int version,
+    Boolean favorite
+  ) {
+    /** 기존 일반 숙소 후보 비교 입력은 favorite 생략/false로 같은 동작을 유지합니다. */
+    public Change(String region, String placeId, String query, int version) {
+      this(region, placeId, query, version, false);
+    }
+
+    /** 이전 앱이 필드를 보내지 않으면 null이므로 명시적으로 true인 요청만 개인 찜으로 처리합니다. */
+    public boolean usesFavorite() {
+      return Boolean.TRUE.equals(favorite);
+    }
+  }
 
   /** 같은 숙박일의 마지막 방문→숙소, 숙소→다음 날 첫 방문만 비교합니다. 방문 간 이동은 합산하지 않습니다. */
   public record Leg(
@@ -145,7 +159,20 @@ public class LodgingChoiceService {
     var items = mapper.items(id);
     validateRegion(trip, items, change.region(), change.query());
     // 화면에서 넘어온 이름·좌표·가격은 받지 않고 같은 검색 조건의 서버 후보와 ID를 대조합니다.
-    var candidate = candidates(id, member, change.region(), change.query())
+    // 개인 찜은 본인의 목록에서 현재 장소를 확인합니다. 일반 검색 첫 결과에 없더라도 임의 ID를 허용하지 않습니다.
+    if (
+      change.usesFavorite() && !change.query().isBlank()
+    ) throw DomainException.bad(
+      "찜한 숙소는 저장한 장소 정보로 다시 확인해 주세요."
+    );
+    var choices = change.usesFavorite()
+      ? favorites.resolveLodgings(
+          member,
+          List.of(change.placeId()),
+          List.of(change.region())
+        )
+      : candidates(id, member, change.region(), change.query());
+    var candidate = choices
       .stream()
       .filter(p -> p.id().equals(change.placeId()))
       .findFirst()
@@ -159,6 +186,11 @@ public class LodgingChoiceService {
       .stream()
       .filter(h -> change.region().equals(h.get("region")))
       .findFirst();
+    if (
+      current.isPresent() && candidate.id().equals(current.get().get("placeId"))
+    ) throw DomainException.bad(
+      "이미 이 여행의 기준 숙소예요. 다른 후보를 골라 주세요."
+    );
     var before = current.map(this::hotelPlace).orElse(null);
     List<Leg> legs = new ArrayList<>();
     for (int day : nights(trip, items, change.region())) {

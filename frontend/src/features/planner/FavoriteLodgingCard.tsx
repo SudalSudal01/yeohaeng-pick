@@ -10,11 +10,15 @@ export default function FavoriteLodgingCard({
   saved,
   selected,
   suggested,
+  disabled = false,
+  purpose = "PLAN",
   onChoose,
 }: {
   saved: Favorite;
   selected: boolean;
   suggested: boolean;
+  disabled?: boolean;
+  purpose?: "PLAN" | "COMPARE";
   onChoose: (place: Place) => void;
 }) {
   const { user } = useAuth();
@@ -35,6 +39,10 @@ export default function FavoriteLodgingCard({
   });
   // 재조회에 실패했을 때 직전 성공 데이터를 최신 결과처럼 표시하거나 선택에 사용하지 않습니다.
   const checked = query.error ? undefined : query.data;
+  const selectLabel =
+    purpose === "COMPARE" ? "이 숙소 비교하기" : "동선 기준으로 선택";
+  const clearLabel =
+    purpose === "COMPARE" ? "비교 후보에서 해제" : "숙소 선택 해제";
   return (
     <article
       className={"favorite-lodging-card " + (selected ? "selected" : "")}
@@ -53,7 +61,10 @@ export default function FavoriteLodgingCard({
       </p>
       {selected && (
         <p className="favorite-lodging-selected">
-          <Check size={16} />이 여행의 동선 기준으로 선택됨
+          <Check size={16} />
+          {purpose === "COMPARE"
+            ? "비교할 숙소로 선택됨 · 아직 적용 전"
+            : "이 여행의 동선 기준으로 선택됨"}
         </p>
       )}
       {checked && (
@@ -89,7 +100,7 @@ export default function FavoriteLodgingCard({
         <button
           type="button"
           className="button secondary"
-          disabled={query.isFetching}
+          disabled={disabled || query.isFetching}
           onClick={() => query.refetch()}
           aria-label={saved.place.name + " 현재 정보 확인"}
         >
@@ -104,15 +115,14 @@ export default function FavoriteLodgingCard({
           <button
             type="button"
             className={"button " + (selected ? "secondary" : "primary")}
-            disabled={query.isFetching || (!checked && !selected)}
+            disabled={disabled || query.isFetching || (!checked && !selected)}
             onClick={() => onChoose(checked?.place || saved.place)}
             aria-label={
-              saved.place.name +
-              (selected ? " 숙소 선택 해제" : " 동선 기준으로 선택")
+              saved.place.name + " " + (selected ? clearLabel : selectLabel)
             }
           >
             <Check size={16} />
-            {selected ? "숙소 선택 해제" : "동선 기준으로 선택"}
+            {selected ? clearLabel : selectLabel}
           </button>
         )}
       </div>

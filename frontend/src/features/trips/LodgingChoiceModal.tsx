@@ -7,6 +7,8 @@ import { ErrorState, Loading, Modal } from "../../shared/ui";
 import { useToast } from "../../shared/providers";
 import { lodgingChoiceBudget, lodgingRegions } from "./lodgingChoice";
 import { lodgingBudget } from "./tripBudget";
+import { useFavorites } from "../favorites/useFavorites";
+import FavoriteLodgingCard from "../planner/FavoriteLodgingCard";
 
 /** 열린 여행의 version을 고정합니다. 동행이 편집하면 오래된 비교를 저장하지 않고 창을 다시 열도록 안내합니다. */
 export default function LodgingChoiceModal({
@@ -25,6 +27,10 @@ export default function LodgingChoiceModal({
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [chosen, setChosen] = useState("");
+  const [fromFavorite, setFromFavorite] = useState(false);
+  const [source, setSource] = useState<"SEARCH" | "FAVORITES">("SEARCH");
+  const [showSaved, setShowSaved] = useState(false);
+  const favorites = useFavorites();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const toast = useToast();
@@ -32,12 +38,20 @@ export default function LodgingChoiceModal({
     if (!busy) close();
   }, [busy, close]);
   const current = trip.lodgings.find((h) => h.region === region);
+  const savedHotels =
+    favorites.data?.filter(
+      (f) =>
+        f.place.region === region &&
+        f.place.category === "숙소" &&
+        f.place.id !== current?.placeId,
+    ) || [];
   const base = `/trips/${trip.id}/lodgings`;
   const body = {
     region,
     placeId: chosen,
     query: search,
     version: trip.version,
+    favorite: fromFavorite,
   };
   const candidates = useQuery({
     queryKey: ["lodging-candidates", trip.id, trip.version, region, search],
@@ -45,17 +59,25 @@ export default function LodgingChoiceModal({
       api<Place[]>(
         `${base}/candidates?region=${encodeURIComponent(region)}&query=${encodeURIComponent(search)}`,
       ),
-    enabled: !!region,
+    enabled: !!region && source === "SEARCH",
     retry: false,
   });
   const comparison = useQuery({
-    queryKey: ["lodging-choice", trip.id, trip.version, region, search, chosen],
+    queryKey: [
+      "lodging-choice",
+      trip.id,
+      trip.version,
+      region,
+      search,
+      chosen,
+      fromFavorite,
+    ],
     queryFn: () =>
       api<LodgingChoicePreview>(base + "/preview", { method: "POST", body }),
     enabled: !!chosen,
     retry: false,
   });
-  const result = comparison.data;
+  const result = comparison.error ? undefined : comparison.data;
   const beforeBudget = lodgingBudget(trip);
   const afterBudget = result
     ? lodgingChoiceBudget(trip, result.candidate)
@@ -89,26 +111,41 @@ export default function LodgingChoiceModal({
         숙박할 지역의 후보를 고르고 일정 앞뒤 이동을 비교해요. 객실
         재고·가격·예약 가능 여부는 예약처에서 확인해 주세요.
       </p>
-      <form
-        className="lodging-choice-search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setChosen("");
-          setError(null);
-          setSearch(query.trim());
-          if (query.trim() === search) void candidates.refetch();
-        }}
+      <div
+        className="lodging-choice-sources"
+        role="group"
+        aria-label="숙소 후보 찾는 방법"
       >
-        <label>
+        {(["SEARCH", "FAVORITES"] as const).map((value) => (
+          <button
+            type="button"
+            className={"button " + (source === value ? "primary" : "secondary")}
+            key={value}
+            aria-pressed={source === value}
+            disabled={busy}
+            onClick={() => {
+              setSource(value);
+              setChosen("");
+              setFromFavorite(false);
+              setError(null);
+              setQuery("");
+              setSearch("");
+            }}
+          >
+            {value === "SEARCH" ? "일반 후보 검색" : "내 찜 숙소"}
+          </button>
+        ))}
+      </div>
+      {source === "FAVORITES" && (
+        <label className="lodging-choice-favorite-region">
           숙박할 지역
           <select
             value={region}
             disabled={busy}
             onChange={(e) => {
               setRegion(e.target.value);
-              setQuery("");
-              setSearch("");
               setChosen("");
+              setFromFavorite(false);
               setError(null);
             }}
           >
@@ -117,82 +154,183 @@ export default function LodgingChoiceModal({
             ))}
           </select>
         </label>
-        <label>
-          숙소 이름·지역 내 검색어
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            disabled={busy}
-            maxLength={100}
-            placeholder="예: 광화문 호텔"
-          />
-        </label>
-        <button
-          className="button secondary"
-          disabled={busy || candidates.isFetching}
+      )}
+      {source === "SEARCH" && (
+        <form
+          className="lodging-choice-search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            setChosen("");
+            setFromFavorite(false);
+            setError(null);
+            setSearch(query.trim());
+            if (query.trim() === search) void candidates.refetch();
+          }}
         >
-          <Search size={17} /> 후보 검색
-        </button>
-      </form>
+          <label>
+            숙박할 지역
+            <select
+              value={region}
+              disabled={busy}
+              onChange={(e) => {
+                setRegion(e.target.value);
+                setQuery("");
+                setSearch("");
+                setChosen("");
+                setFromFavorite(false);
+                setError(null);
+              }}
+            >
+              {regions.map((r) => (
+                <option key={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            숙소 이름·지역 내 검색어
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              disabled={busy}
+              maxLength={100}
+              placeholder="예: 광화문 호텔"
+            />
+          </label>
+          <button
+            className="button secondary"
+            disabled={busy || candidates.isFetching}
+          >
+            <Search size={17} /> 후보 검색
+          </button>
+        </form>
+      )}
       <div className="lodging-choice-current">
         <span className="small muted">현재 {region} 숙소</span>
         <strong>{current?.name ?? "아직 정하지 않았어요"}</strong>
       </div>
-      <p className="small muted">
-        일정상 숙박일의 마지막 방문과 다음 날 첫 방문까지의 추정 이동이 짧은
-        순서예요. 현재 숙소는 후보에서 제외해요.
-      </p>
-      {dirty && (
-        <p className="notice">
-          검색어가 바뀌었어요. ‘후보 검색’을 눌러 새 결과를 확인해 주세요.
-        </p>
-      )}
-      {candidates.isFetching ? (
-        <Loading text="숙소 후보를 검색하고 있어요" />
-      ) : candidates.error ? (
-        <ErrorState
-          error={candidates.error}
-          retry={() => void candidates.refetch()}
-        />
-      ) : !candidates.data?.length ? (
-        <p className="notice">
-          다른 후보가 없어요. 숙소 이름이나 지역 내 검색어를 바꿔 다시 검색해
-          주세요.
-        </p>
-      ) : (
-        <div
-          className="lodging-choice-candidates"
-          role="group"
-          aria-label="비교할 숙소 후보"
+      {source === "FAVORITES" && (
+        <section
+          className="favorite-lodging-section"
+          aria-label="내 찜 숙소 비교"
         >
-          {candidates.data.map((p) => (
+          <h3>내 찜에서 숙소 비교하기</h3>
+          <p>
+            찜한 숙소의 현재 정보를 확인하고 선택하면 앞뒤 이동과 참고 예산을
+            비교해요. 내 찜 목록은 동행에게 공개하지 않으며, 적용한 숙소는 공동
+            일정에 보여요.
+          </p>
+          {favorites.isPending ? (
+            <Loading text="내 찜 숙소를 불러와요" />
+          ) : favorites.error ? (
+            <ErrorState
+              error={favorites.error}
+              retry={() => favorites.refetch()}
+            />
+          ) : (
+            <div className="favorite-lodging-list">
+              {savedHotels
+                .filter((f, i) => showSaved || i < 4 || chosen === f.place.id)
+                .map((f) => (
+                  <FavoriteLodgingCard
+                    key={f.place.id}
+                    saved={f}
+                    selected={fromFavorite && chosen === f.place.id}
+                    suggested={false}
+                    purpose="COMPARE"
+                    disabled={busy}
+                    onChoose={(p) => {
+                      // 조회한 개인 숙소를 비교 대상으로만 지정합니다. 아래 영향 비교에서 별도로 적용해야 여행이 바뀝니다.
+                      setChosen(fromFavorite && chosen === p.id ? "" : p.id);
+                      setFromFavorite(true);
+                      setSearch("");
+                      setQuery("");
+                      setError(null);
+                    }}
+                  />
+                ))}
+            </div>
+          )}
+          {savedHotels.length > 4 && (
             <button
               type="button"
-              className={
-                "lodging-choice-candidate " +
-                (chosen === p.id ? "selected" : "")
-              }
-              key={p.id}
-              aria-pressed={chosen === p.id}
-              disabled={busy || dirty}
-              onClick={() => {
-                setChosen(p.id);
-                setError(null);
-              }}
+              className="text-button lodging-show-more"
+              disabled={busy}
+              onClick={() => setShowSaved((v) => !v)}
             >
-              <Hotel size={19} />
-              <span>
-                <strong>{p.name}</strong>
-                <span>
-                  {p.source === "SAMPLE"
-                    ? `${money(p.cost)} / 1객실 1박 · 예시`
-                    : "객실 가격·재고 확인 필요"}
-                </span>
-              </span>
-              {chosen === p.id && <Check size={19} />}
+              {showSaved
+                ? "찜 숙소 접기"
+                : `찜 숙소 ${savedHotels.length}곳 모두 보기`}
             </button>
-          ))}
-        </div>
+          )}
+          {favorites.data && !savedHotels.length && (
+            <p>
+              이번 지역에 비교할 다른 찜 숙소가 없어요. ‘일반 후보 검색’으로
+              찾아보세요.
+            </p>
+          )}
+        </section>
+      )}
+      {source === "SEARCH" && (
+        <>
+          <h3>일반 숙소 후보</h3>
+          <p className="small muted">
+            일정상 숙박일의 마지막 방문과 다음 날 첫 방문까지의 추정 이동이 짧은
+            순서예요. 현재 숙소는 후보에서 제외해요.
+          </p>
+          {dirty && (
+            <p className="notice">
+              검색어가 바뀌었어요. ‘후보 검색’을 눌러 새 결과를 확인해 주세요.
+            </p>
+          )}
+          {candidates.isFetching ? (
+            <Loading text="숙소 후보를 검색하고 있어요" />
+          ) : candidates.error ? (
+            <ErrorState
+              error={candidates.error}
+              retry={() => void candidates.refetch()}
+            />
+          ) : !candidates.data?.length ? (
+            <p className="notice">
+              다른 후보가 없어요. 숙소 이름이나 지역 내 검색어를 바꿔 다시
+              검색해 주세요.
+            </p>
+          ) : (
+            <div
+              className="lodging-choice-candidates"
+              role="group"
+              aria-label="비교할 숙소 후보"
+            >
+              {candidates.data.map((p) => (
+                <button
+                  type="button"
+                  className={
+                    "lodging-choice-candidate " +
+                    (chosen === p.id ? "selected" : "")
+                  }
+                  key={p.id}
+                  aria-pressed={chosen === p.id}
+                  disabled={busy || dirty}
+                  onClick={() => {
+                    setChosen(p.id);
+                    setFromFavorite(false);
+                    setError(null);
+                  }}
+                >
+                  <Hotel size={19} />
+                  <span>
+                    <strong>{p.name}</strong>
+                    <span>
+                      {p.source === "SAMPLE"
+                        ? `${money(p.cost)} / 1객실 1박 · 예시`
+                        : "객실 가격·재고 확인 필요"}
+                    </span>
+                  </span>
+                  {chosen === p.id && <Check size={19} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
       {comparison.isFetching ? (
         <Loading text="숙소 변경의 영향을 비교하고 있어요" />

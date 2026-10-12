@@ -434,6 +434,213 @@ class FavoriteLodgingFlowTest extends HttpFlowDatabase {
     ).isEqualTo(before);
   }
 
+  Map<String, Object> savedTrip(Browser owner, List<String> lodgingIds)
+    throws Exception {
+    var c = conditions(lodgingIds, List.of());
+    return owner.call(
+      "POST",
+      "/trips",
+      Map.of("conditions", c, "items", courseItems(owner, c))
+    );
+  }
+
+  Map<String, Object> choice(Place p, Object version) {
+    return new HashMap<>(
+      Map.of(
+        "region",
+        p.region(),
+        "placeId",
+        p.id(),
+        "query",
+        "",
+        "version",
+        version,
+        "favorite",
+        true
+      )
+    );
+  }
+
+  @Test
+  void savedTripUsesFreshOwnFavoriteOutsideGeneralSearchWithoutChangingVisits()
+    throws Exception {
+    var owner = new Browser().signup();
+    var p = hotel();
+    favorite(owner, p);
+    var trip = savedTrip(owner, List.of());
+    String base = "/trips/" + trip.get("id");
+    // 일반 숙소 검색 결과 밖이어도 본인 찜을 동일 ID로 재조회한 경우에만 비교/저장을 허용합니다.
+    doReturn(List.of()).when(catalog).search("서울", "", "숙소");
+    var request = choice(p, trip.get("version"));
+    var preview = owner.call("POST", base + "/lodgings/preview", request);
+    assertThat(preview.get("canApply")).isEqualTo(true);
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(preview.get("candidate"))
+        .get("latitude")
+        .asDouble()
+    ).isEqualTo(p.latitude());
+    assertThat(owner.call("GET", base, null).get("lodgings")).isEqualTo(
+      List.of()
+    );
+    var changed = owner.call("POST", base + "/lodgings/apply", request);
+    assertThat(changed.get("items")).isEqualTo(trip.get("items"));
+    var tree = json.mapper().valueToTree(changed);
+    assertThat(tree.get("version").asInt()).isEqualTo(1);
+    assertThat(tree.get("lodgings").get(0).get("placeId").asText()).isEqualTo(
+      p.id()
+    );
+    assertThat(
+      tree.get("lodgings").get(0).get("bookingStatus").asText()
+    ).isEqualTo("NONE");
+    assertThat(changed).doesNotContainKeys("favorite", "favoriteLodgingIds");
+    status(owner, base + "/lodgings/apply", request, 409);
+    request.put("version", 1);
+    status(owner, base + "/lodgings/preview", request, 400);
+  }
+
+  @Test
+  void savedTripFavoriteChoiceRejectsOutsiderMissingCsrfWrongCategoryAndRemovedFavorite()
+    throws Exception {
+    var owner = new Browser().signup();
+    var other = new Browser().signup();
+    var p = hotel();
+    favorite(owner, p);
+    var trip = savedTrip(owner, List.of());
+    String base = "/trips/" + trip.get("id");
+    var request = choice(p, 0);
+    for (String action : List.of("preview", "apply")) {
+      status(other, base + "/lodgings/" + action, request, 403);
+      assertThat(
+        owner
+          .send("POST", base + "/lodgings/" + action, request, false)
+          .statusCode()
+      ).isEqualTo(403);
+    }
+    var visit = catalog
+      .search("서울", "")
+      .stream()
+      .filter(x -> !x.category().equals("숙소"))
+      .findFirst()
+      .orElseThrow();
+    favorite(owner, visit);
+    status(owner, base + "/lodgings/apply", choice(visit, 0), 400);
+    request.put("query", "다른 검색어");
+    status(owner, base + "/lodgings/preview", request, 400);
+    request.put("query", "");
+    owner.call("POST", base + "/lodgings/preview", request);
+    owner.call("DELETE", "/favorites/" + p.id(), null);
+    status(owner, base + "/lodgings/apply", request, 409);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(0);
+    assertThat(owner.call("GET", base, null).get("lodgings")).isEqualTo(
+      List.of()
+    );
+  }
+
+  @Test
+  void savedTripFavoriteRespectsConfirmedLodgingAndProviderFailure()
+    throws Exception {
+    var owner = new Browser().signup();
+    var current = hotel();
+    var next = catalog.search("서울", "", "숙소").get(1);
+    favorite(owner, next);
+    var trip = savedTrip(owner, List.of(current.id()));
+    String base = "/trips/" + trip.get("id");
+    owner.call(
+      "PUT",
+      base + "/lodging-booking",
+      Map.of(
+        "itemId",
+        current.id(),
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "합성 예약 기록 검증",
+        "fixed",
+        false,
+        "version",
+        0
+      )
+    );
+    var request = choice(next, 1);
+    var preview = owner.call("POST", base + "/lodgings/preview", request);
+    assertThat(preview.get("canApply")).isEqualTo(false);
+    assertThat(preview.get("conflicts").toString()).contains("예약 완료");
+    status(owner, base + "/lodgings/apply", request, 409);
+    owner.call(
+      "PUT",
+      base + "/lodging-booking",
+      Map.of(
+        "itemId",
+        current.id(),
+        "status",
+        "CANCELLED",
+        "reason",
+        "외부 예약 없는 합성 기록",
+        "fixed",
+        false,
+        "version",
+        1
+      )
+    );
+    status(owner, base + "/lodgings/apply", request, 409);
+    request.put("version", 2);
+    owner.call("POST", base + "/lodgings/preview", request);
+    doThrow(new DomainException(503, "합성 공급자 장애"))
+      .when(catalog)
+      .search(next.region(), next.name());
+    status(owner, base + "/lodgings/apply", request, 503);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(2);
+    assertThat(
+      json
+        .mapper()
+        .valueToTree(owner.call("GET", base, null))
+        .get("lodgings")
+        .get(0)
+        .get("placeId")
+        .asText()
+    ).isEqualTo(current.id());
+  }
+
+  @Test
+  void acceptedCompanionUsesOwnFavoriteWithoutSharingListOrOverwritingNewerVersion()
+    throws Exception {
+    var owner = new Browser().signup();
+    var companion = new Browser().signup();
+    var p = hotel();
+    favorite(companion, p);
+    var trip = savedTrip(owner, List.of());
+    String base = "/trips/" + trip.get("id");
+    owner.call(
+      "POST",
+      "/invitations",
+      Map.of(
+        "tripId",
+        trip.get("id"),
+        "email",
+        companion.call("GET", "/auth/me", null).get("email")
+      )
+    );
+    var request = choice(p, trip.get("version"));
+    status(companion, base + "/lodgings/preview", request, 403);
+    var invite = companion.array("/invitations").getFirst();
+    companion.call(
+      "POST",
+      "/invitations/" + invite.get("id") + "/respond",
+      Map.of("accept", true)
+    );
+    request.put("version", owner.call("GET", base, null).get("version"));
+    status(owner, base + "/lodgings/preview", request, 409);
+    companion.call("POST", base + "/lodgings/preview", request);
+    var changed = companion.call("POST", base + "/lodgings/apply", request);
+    assertThat(owner.call("GET", base, null).get("lodgings")).isEqualTo(
+      changed.get("lodgings")
+    );
+    assertThat(owner.array("/favorites")).isEmpty();
+    status(owner, base + "/lodgings/apply", request, 409);
+  }
+
   class Browser {
 
     final HttpClient client = HttpClient.newBuilder()
