@@ -19,5 +19,5 @@ export function routeTimingEligibility(trip: Trip, from: string, to: string) {
     )
   )
     return "";
-  return "같은 날 연속 방문 사이 또는 같은 지역 숙소에서 첫 방문까지 선택하면 일정에 반영할 수 있어요.";
+  return "같은 날 연속 방문 사이 또는 같은 지역 숙소에서 첫 방문까지 선택해 주세요. 경로 조회 후 일정 영향을 비교할 수 있어요.";
 }

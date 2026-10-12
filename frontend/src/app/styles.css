@@ -3957,9 +3957,30 @@ textarea {
   font-weight: 700;
 }
 .transport-query,
-.transport-option > .button {
+.transport-option-actions > .button {
   width: 100%;
   justify-content: center;
+}
+/* 두 동작은 같은 한 열의 격자에 놓습니다. 100% 폭에 개별 왼쪽 여백이 더해지는 것을 막습니다. */
+.transport-option-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+.transport-option-actions > .button {
+  min-width: 0;
+  margin: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.transport-timing-hint {
+  margin: 0;
+  line-height: 1.8;
+}
+.transport-timing-hint strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink);
 }
 .origin-search,
 .transport-booking,
@@ -4412,9 +4433,6 @@ textarea {
   color: var(--green);
   line-height: 1.7;
 }
-.transport-option > .button + .button {
-  margin-left: 8px;
-}
 @media (max-width: 600px) {
   .route-timing-summary {
     padding: 16px;
@@ -4422,9 +4440,6 @@ textarea {
   .route-timing-settings > .button {
     width: 100%;
     justify-content: center;
-  }
-  .transport-option > .button + .button {
-    margin: 10px 0 0;
   }
 }
 .route-timing-saved {

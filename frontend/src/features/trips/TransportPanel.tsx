@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   TrainFront,
@@ -42,6 +42,7 @@ export default function TransportPanel({
   const [comparing, setComparing] = useState<SelectedRoute | null>(null);
   const closeComparison = useCallback(() => setComparing(null), []);
   const timingReason = routeTimingEligibility(trip, from, to);
+  const timingHintId = useId();
   const base = "/trips/" + trip.id + "/transport";
   const reference = (value: string) => {
     const [kind, id] = value.split(":");
@@ -192,6 +193,12 @@ export default function TransportPanel({
           <Search size={17} />
           {route.isPending ? "경로를 찾고 있어요…" : "실제 경로 조회하기"}
         </button>
+        {/* 가능 조건은 조회 전부터 한 번만 안내하고, 비활성 버튼의 설명에도 연결합니다. */}
+        <p id={timingHintId} className="transport-timing-hint small muted">
+          <strong>일정 영향 비교 이용 안내</strong>
+          {timingReason ||
+            "같은 날 연속 방문 사이 또는 같은 지역 숙소에서 첫 방문까지 경로를 조회하면 사용할 수 있어요. 비교 후 원하는 안을 직접 적용해요."}
+        </p>
         <details className="origin-search">
           <summary>역·터미널 등 다른 출발지 찾기</summary>
           <p className="small muted">
@@ -301,26 +308,32 @@ export default function TransportPanel({
                         : "통행료 " + money(option.toll)
                       : "도보 경로"}
                 </p>
-                <button
-                  className="button secondary"
-                  aria-pressed={active}
-                  onClick={() => {
-                    onSelect({ result: data, option });
-                    document
-                      .getElementById("trip-route-map")
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
-                >
-                  {active ? "지도에 표시 중" : "이 경로 지도에서 보기"}
-                </button>
-                <button
-                  className="button primary"
-                  disabled={!!timingReason}
-                  onClick={() => setComparing({ result: data, option })}
-                >
-                  일정 영향 비교
-                </button>
-                {timingReason && <p className="small muted">{timingReason}</p>}
+                {/* 버튼별 여백 대신 공통 격자로 폭·간격을 맞춰 모바일에서도 어긋나지 않게 합니다. */}
+                <div className="transport-option-actions">
+                  <button
+                    className="button secondary"
+                    aria-pressed={active}
+                    onClick={() => {
+                      onSelect({ result: data, option });
+                      document
+                        .getElementById("trip-route-map")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                    }}
+                  >
+                    {active ? "지도에 표시 중" : "이 경로 지도에서 보기"}
+                  </button>
+                  <button
+                    className="button primary"
+                    disabled={!!timingReason}
+                    aria-describedby={timingHintId}
+                    onClick={() => setComparing({ result: data, option })}
+                  >
+                    일정 영향 비교
+                  </button>
+                </div>
                 {!!option.steps.length && (
                   <details className="route-steps">
                     <summary>이동 순서 {option.steps.length}단계</summary>
