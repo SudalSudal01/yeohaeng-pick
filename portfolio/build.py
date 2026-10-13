@@ -15,6 +15,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.utils import ImageReader
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "portfolio"
@@ -122,7 +123,15 @@ def case(item, y, include_limit=True):
 
 # 1. 지원자가 누구인지와 세 프로젝트의 우선순위를 먼저 보여 줍니다.
 page("BACKEND DEVELOPER / SELECTED WORKS")
-y = title("기능의 뒤에서,\n데이터의 신뢰를\n만듭니다.", 100, 36)
+# 원본 사진의 비율을 그대로 사용합니다. 제목은 사진 왼쪽에 배치해 서로 겹치지 않게 합니다.
+portrait = ImageReader(str(SITE / profile["photo"].removeprefix("./")))
+photo_width = 108
+image_width, image_height = portrait.getSize()
+photo_height = photo_width * image_height / image_width
+c.drawImage(portrait, W-M-photo_width, H-100-photo_height,
+            width=photo_width, height=photo_height, mask="auto")
+y = text("기능의 뒤에서,\n데이터의 신뢰를\n만듭니다.", M, 100, 36,
+         bold=True, width=CW-photo_width-24, leading=36*1.35) + 20
 y = text(profile["intro"], M, y+7, 12, MUTED, width=470) + 28
 y = text("김명현", M, y, 23, bold=True) + 5
 y = text("백엔드 개발자", M, y, 11, MUTED) + 37
@@ -132,6 +141,7 @@ for project in projects:
     y = text(f'{project["number"]}   {project["name"]}', M, y, 17, bold=True) + 4
     y = text(project["role"], M, y, 9.5, MUTED) + 22
 y = linked_text(profile["phone"], "tel:"+profile["phone"].replace("-", ""), M, y+8, 12, ACCENT) + 4
+y = linked_text(profile["email"], "mailto:"+profile["email"], M, y, 10.5, ACCENT) + 4
 linked_text(profile["github"], profile["github"], M, y, 9.5, MUTED)
 
 # 2-4. 주력 팀 프로젝트에서 본인이 담당한 세 영역을 각각 설명합니다.
@@ -187,15 +197,22 @@ for item in profile["strengths"]:
     y = section(item["title"], item["text"], y, 11)
 line(y)
 y += 22
-source_y = y + 24
-y = section("코드와 확인 근거", "제때약: github.com/jws909/Jette-Yak\n여행픽: github.com/SudalSudal01/yeohaeng-pick (비공개)\n5ASIS: github.com/PSK6262/Team_5asis\n팀 담당 기능: 본인 확인 및 팀 결과보고서\n검증 단위·시점: 각 프로젝트 설명과 저장소 기록에 구분", y, 9.5)
-for index, project in enumerate(projects):
-    if not project.get("private"):
-        link_y = H - source_y - index * 9.5 * 1.65
-        c.linkURL(project["repo"], (M, link_y-16, W-M, link_y+2), relative=0)
+y = text("코드와 확인 근거", M, y, 9.5, ACCENT, True) + 8
+# 각 링크의 실제 문단 높이로 클릭 영역을 계산합니다. 개인 포크와 팀 원본을 함께 명시합니다.
+for project in projects:
+    label = f'{project["name"]}: {project["repo"].removeprefix("https://")}'
+    if project.get("private"):
+        y = text(label+" (비공개)", M, y, 9.5)
+    else:
+        y = linked_text(label, project["repo"], M, y, 9.5, MUTED)
+    if project.get("upstream"):
+        y = linked_text("팀 원본: "+project["upstream"].removeprefix("https://"),
+                        project["upstream"], M, y, 9, MUTED)
+y = text("팀 담당 기능: 본인 확인 및 팀 결과보고서 / 검증 단위·시점은 각 설명에 구분", M, y, 9) + 22
 y = section("표기 원칙", "팀 전체 기능을 개인 기여로 표현하지 않았습니다. 과거 팀 검증 기록과 이번에 재실행한 검사를 구분했습니다. 경력·학력·성과 수치는 확인되지 않은 내용을 추가하지 않았습니다.", y, 9.5)
 y = text("김명현  /  백엔드 개발자", M, y+4, 19, bold=True) + 13
 y = linked_text(profile["phone"], "tel:"+profile["phone"].replace("-", ""), M, y, 15, ACCENT) + 9
+y = linked_text(profile["email"], "mailto:"+profile["email"], M, y, 10.5, ACCENT) + 4
 linked_text(profile["github"], profile["github"], M, y, 10, MUTED)
 
 c.save()

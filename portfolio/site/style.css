@@ -7,3 +7,13 @@
 @media(max-width:900px){.hero{grid-template-columns:1fr;gap:40px}.hero-visual{max-width:540px;width:100%;margin:auto}.project-overview{grid-template-columns:1fr;gap:22px}.section-title{align-items:start;flex-direction:column}.principles{grid-template-columns:1fr}.desktop-break{display:none}}
 @media(max-width:600px){.header{padding:16px 20px;align-items:flex-start;flex-direction:column;gap:6px}.brand{font-size:23px}nav{gap:24px}main{padding:0 20px}.hero{padding:44px 0 52px;gap:36px}.hero h1{font-size:36px}.intro{font-size:15px}.hero-visual{min-height:430px;padding:25px 22px;border-radius:85px 85px 14px 14px}.visual-label{font-size:12px;letter-spacing:.08em;margin:24px 0 34px}.diagram-line{left:56px;top:128px;bottom:115px}.hero-visual>p{margin-left:72px}.actions{flex-direction:column}.actions .button{width:100%}.section-title h2,.approach h2,.contact h2{font-size:29px}.section-title{padding-top:40px}.project{padding:24px 18px;margin-bottom:24px}.project-header{grid-template-columns:32px 1fr;gap:12px}.project-number{font-size:30px}.project h3{font-size:30px}.project-meta{font-size:13px}.subtitle{font-size:15px}.repo-link{grid-column:2;justify-self:start}.flow{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.flow li{padding:14px 10px;font-size:14px}.case-content{grid-template-columns:1fr;padding-left:0;gap:20px}summary{font-size:16px;align-items:flex-start;gap:10px}summary b{padding:0 2px}.validation{padding:18px 16px}.project blockquote{font-size:15px;padding-left:16px}.contact{padding:28px 22px}.contact-bottom{flex-direction:column;align-items:flex-start;gap:24px}.contact-bottom a{font-size:17px}.notes{padding:18px}.kicker{letter-spacing:.12em}.identity{flex-wrap:wrap}footer{padding:12px 20px 28px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
+
+/* 사진은 원본 비율로 표시하고, 연락처는 좁은 화면에서도 줄바꿈합니다.
+   팀 원본 링크는 별도 줄과 44px 클릭 영역을 제공해 출처를 쉽게 확인하도록 합니다. */
+.profile-photo{width:88px;height:auto;flex:0 0 88px;border-radius:8px;border:1px solid var(--line)}
+.identity-copy{min-width:0;display:flex;flex:1;flex-direction:column;align-items:flex-start;gap:3px}
+.identity-copy a{font-size:14px;min-height:44px;display:flex;align-items:center;overflow-wrap:anywhere;word-break:break-word}
+.upstream-note{margin-top:24px;color:var(--muted);font-size:14px}
+.upstream-note a{display:inline-flex;min-height:44px;align-items:center;color:var(--accent);text-decoration:underline;text-underline-offset:4px}
+.contact-bottom a{max-width:100%;overflow-wrap:anywhere}
+@media(max-width:600px){.identity{flex-wrap:nowrap}.contact-bottom a{gap:10px}}

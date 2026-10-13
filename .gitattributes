@@ -1,8 +1,4 @@
-* text=auto eol=lf
-mvnw text eol=lf
-*.sh text eol=lf
-*.cmd text eol=crlf
-*.ps1 text eol=crlf
-*.java text eol=lf
-*.tsx text eol=lf
-*.ts text eol=lf
+# 생성한 문서와 사진은 바이너리로 취급하여 줄바꿈 변환과 텍스트 diff를 방지합니다.
+*.pdf binary
+*.png binary
+*.zip binary
