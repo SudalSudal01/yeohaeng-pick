@@ -35,13 +35,13 @@ python portfolio/build.py
 
 2026.10.13 배포 완료: **https://sudalsudal01.github.io/backend-portfolio/**
 
-공개 저장소는 https://github.com/SudalSudal01/backend-portfolio 이며 `main` 루트를 GitHub Pages로 배포합니다. 여행픽 비공개 저장소의 이력은 복제하지 않고 `site/`의 공개용 파일만 게시했습니다. 사진·연락처·PDF·JSON의 공개 접속을 확인했습니다. PC나 로컬 서버를 꺼도 GitHub Pages에서 제공됩니다.
+공개 저장소는 https://github.com/SudalSudal01/backend-portfolio 이며 `main` 루트를 GitHub Pages로 배포합니다. 여행픽 저장소의 이력은 복제하지 않고 `site/`의 공개용 파일만 게시했습니다. 사진·연락처·PDF·JSON의 공개 접속을 확인했습니다. PC나 로컬 서버를 꺼도 GitHub Pages에서 제공됩니다. 여행픽 소스 저장소도 사용자 요청으로 공개 전환했으며 포트폴리오와 PDF의 코드 링크에서 로그인 없이 확인할 수 있습니다.
 
 수정할 때는 이 프로젝트에서 콘텐츠와 PDF를 검증한 뒤, 공개 저장소의 정적 파일을 갱신하고 커밋·푸시합니다. 두 저장소 간 동기화는 현재 수동이며, 여행픽 저장소의 푸시만으로 공개 페이지가 갱신되지는 않습니다.
 
 Git은 코드 관리이고 호스팅은 웹 주소를 제공하는 서비스입니다. 정적 포트폴리오를 배포하는 데 여행픽 API·Oracle 서버를 계속 켜 둘 필요가 없습니다. 현재 `5200` 주소는 이 PC에서만 보는 로컬 미리보기이며 공개 주소가 아닙니다.
 
-가장 단순한 무료 방식은 **포트폴리오 전용 공개 저장소 + GitHub Pages**입니다. 여행픽 저장소는 비공개로 유지하고 `site/`의 공개용 파일만 새 저장소의 루트로 복사합니다. 새 저장소에서 `Settings → Pages → Deploy from a branch → main / root`를 선택하면 `https://SudalSudal01.github.io/저장소이름/` 형태의 주소가 제공됩니다. `SudalSudal01.github.io` 이름의 사용자 사이트 저장소라면 기본 주소는 `https://SudalSudal01.github.io/`입니다. 실제로 저장소와 Pages를 만들기 전에는 이 주소가 존재한다고 안내하지 않습니다.
+현재 방식은 **포트폴리오 전용 공개 저장소 + GitHub Pages**입니다. 여행픽 소스와 포트폴리오 배포 파일을 별도 저장소로 관리하며 `site/`의 공개용 파일만 포트폴리오 저장소 루트로 복사합니다. `Settings → Pages → Deploy from a branch → main / root`로 배포합니다.
 
 GitHub Free의 Pages는 공개 저장소를 기준으로 제공되며 비공개 저장소의 Pages는 유료 플랜 범위입니다. 웹 소스까지 비공개로 유지하고 싶다면 개인 비공개 저장소를 Vercel 또는 Cloudflare Pages에 연결하는 방법을 검토할 수 있습니다. Vercel Hobby에는 개인/조직 저장소와 커밋 작성자 관련 제한이 있으므로 계정·저장소 형태를 확인합니다.
 

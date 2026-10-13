@@ -38,7 +38,7 @@
       "overview": "세 가지 여행 코스를 비교하고 저장한 뒤, 장소·숙소·이동 시간을 조정하는 반응형 웹 서비스입니다. 추천뿐 아니라 변경 이후의 일정과 공동 편집의 일관성을 함께 다룹니다.",
       "role": "기획 · 프론트/백엔드 연결 · DB · 테스트 · Git 관리 / AI 개발 도구 활용",
       "stack": ["Java 21", "Spring Boot 4", "Spring Security", "MyBatis", "Oracle 19c", "Flyway", "React 19", "TypeScript"],
-      "repo": "https://github.com/SudalSudal01/yeohaeng-pick", "private": true,
+      "repo": "https://github.com/SudalSudal01/yeohaeng-pick", "private": false,
       "flow": ["지역·취향 입력", "조회 후보·AI 평가", "3코스 비교", "저장·변경 검증"],
       "cases": [
         {"title": "예약을 보존하는 일정 변경", "problem": "장소 하나를 바꾸면 뒤 일정이나 직접 확인한 교통 예약과 충돌할 수 있습니다.", "action": "비교는 읽기 전용으로 계산하고, 적용 시 서버가 현재 권한과 version을 다시 검사합니다. 고정 방문·교통 예약·반영한 경로 시간을 보호하고, 일정·이력을 같은 트랜잭션에서 저장합니다.", "evidence": "BookingSchedule · RouteSchedule · WholeSchedule · TripService", "limit": "미조회 구간은 추정입니다. 외부 예약 성공·실시간 좌석·객실 재고를 자동으로 확인하지 않습니다."},
