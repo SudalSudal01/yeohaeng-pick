@@ -23,7 +23,7 @@ SELECT COUNT(*) AS trip_count FROM trips;
 
 ## DB 설명과 스키마 업데이트
 
-V12/V13부터 실제 DB 사전에 한국어 코멘트를 저장합니다. V16 여행 공동 투표까지 실제 Oracle의 도메인 테이블 **25개·컬럼 199개**를 확인했습니다. `trip_polls`, `trip_poll_options`, `trip_poll_votes` 3개 테이블과 18개 컬럼에는 역할, KST 시간 기준, 상태 값, NULL 의미와 개별 선택 비공개 범위를 `COMMENT ON TABLE/COLUMN`으로 작성했고 누락은 0건입니다. SQL Developer에서 테이블을 펼친 뒤 **열(Columns)의 Comments** 또는 테이블 설명을 확인할 수 있습니다.
+V12/V13부터 실제 DB 사전에 한국어 코멘트를 저장합니다. V18 앱 안 알림까지 실제 Oracle의 도메인 테이블 **26개·컬럼 207개**를 확인했습니다. 투표 3개 테이블·18개 컬럼과 `member_notifications`의 8개 컬럼에는 역할, KST 시간 기준, 상태 값, NULL 의미, 개별 선택·내부 회원 ID의 비공개 범위와 삭제 조건을 `COMMENT ON TABLE/COLUMN`으로 작성했습니다. SQL Developer에서 테이블을 펼친 뒤 **열(Columns)의 Comments** 또는 테이블 설명을 확인할 수 있습니다.
 
 ```sql
 SELECT table_name, comments FROM user_tab_comments
@@ -32,7 +32,7 @@ SELECT column_name, comments FROM user_col_comments
  WHERE table_name='REPORTS' ORDER BY column_name;
 ```
 
-이 설명은 SQL 파일 안의 `--`와 별도로 저장되는 [Oracle COMMENT 메타데이터](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/COMMENT.html)입니다. 적용한 이전 Flyway 파일은 수정하지 않고 V16 새 파일로 투표 구조와 설명을 추가했으며, V17은 투표 복합 외래키 인덱스만 보강합니다. 신고 증거를 추가한 V13도 신규 컬럼 설명을 함께 제공합니다.
+이 설명은 SQL 파일 안의 `--`와 별도로 저장되는 [Oracle COMMENT 메타데이터](https://docs.oracle.com/en/database/oracle/oracle-database/19/sqlrf/COMMENT.html)입니다. 적용한 이전 Flyway 파일은 수정하지 않고 V16으로 투표 구조와 설명을 추가했고 V17로 투표 복합 외래키 인덱스를 보강했습니다. V18은 앱 안 알림 구조·설명·조회 및 외래키 인덱스를 새 이력으로 추가합니다. 신고 증거를 추가한 V13도 신규 컬럼 설명을 함께 제공합니다.
 
 ## 현재 Oracle 데이터 백업
 
@@ -58,6 +58,8 @@ V16 적용 전 `yeohaeng-pick-20261013-033541-693.dmp`를 새로 Export한 뒤 �
 
 V17 적용 전에는 `yeohaeng-pick-20261013-041035-467.dmp`를 추가 Export했습니다. 격리 Oracle QA 전체 186개를 먼저 통과한 뒤 실제 스키마를 V16→V17로 올렸고, `IDX_POLL_VOTES_OPTION`의 열 순서가 `POLL_ID` 1번·`OPTION_ID` 2번인지 확인했습니다. 도메인 테이블 25개·컬럼 199개와 빈 투표 3개 테이블의 행 수는 그대로이며 재기동한 웹 5173·API 18081은 200을 반환했습니다.
 
+V18 적용 전에는 `yeohaeng-pick-20261013-050024-799.dmp`를 추가 Export했습니다. H2·격리 Oracle QA 전체 195개를 통과한 뒤 실제 스키마를 V17→V18로 올렸습니다. 도메인 테이블 26개·컬럼 207개, 알림 테이블·8개 컬럼 설명, 목록·미확인·행동자·여행·투표용 5개 명시 인덱스와 새 알림 0건을 확인했습니다. 재기동한 웹 5173·API 18081은 200이고 API 오류 로그는 비어 있습니다.
+
 ```sql
 SELECT COUNT(*) AS domain_table_count FROM user_tables
  WHERE table_name <> 'flyway_schema_history';
@@ -65,13 +67,15 @@ SELECT COUNT(*) AS domain_column_count FROM user_tab_columns
  WHERE table_name IN (SELECT table_name FROM user_tables)
    AND table_name <> 'flyway_schema_history';
 SELECT table_name, comments FROM user_tab_comments
- WHERE table_name IN ('TRIP_POLLS','TRIP_POLL_OPTIONS','TRIP_POLL_VOTES')
+ WHERE table_name IN ('TRIP_POLLS','TRIP_POLL_OPTIONS','TRIP_POLL_VOTES','MEMBER_NOTIFICATIONS')
  ORDER BY table_name;
 SELECT index_name, column_name, column_position FROM user_ind_columns
- WHERE index_name='IDX_POLL_VOTES_OPTION' ORDER BY column_position;
+ WHERE index_name IN ('IDX_POLL_VOTES_OPTION','IDX_MEMBER_NOTI_LIST','IDX_MEMBER_NOTI_UNREAD',
+                      'IDX_MEMBER_NOTI_ACTOR','IDX_MEMBER_NOTI_TRIP','IDX_MEMBER_NOTI_POLL')
+ ORDER BY index_name, column_position;
 ```
 
-기존 H2→Oracle 전환 도구는 검증 당시의 **V11 원본→빈 V11 대상**으로 고정했습니다. QA fixture도 V11을 명시합니다. 이후 버전의 데이터를 이 도구로 덮어쓰거나 병합하지 않습니다. V16은 Flyway가 기존 Oracle 스키마에 새 빈 투표 테이블을 추가했으며, 기존 데이터 보호는 적용 전 Data Pump 백업과 22개 테이블 지문 대조로 확인했습니다. V17은 적용된 V16을 변경하지 않고 자식 표의 `(poll_id,option_id)` 인덱스만 추가합니다.
+기존 H2→Oracle 전환 도구는 검증 당시의 **V11 원본→빈 V11 대상**으로 고정했습니다. QA fixture도 V11을 명시합니다. 이후 버전의 데이터를 이 도구로 덮어쓰거나 병합하지 않습니다. V16은 Flyway가 기존 Oracle 스키마에 새 빈 투표 테이블을 추가했으며, 기존 데이터 보호는 적용 전 Data Pump 백업과 22개 테이블 지문 대조로 확인했습니다. V17은 적용된 V16을 변경하지 않고 자식 표의 `(poll_id,option_id)` 인덱스만 추가합니다. V18도 이전 이력을 수정하지 않고 빈 알림 테이블을 추가하며 이후 투표 사건부터 알림을 쌓습니다.
 
 전용 계정은 자신의 테이블만 관리하도록 `CREATE SESSION`, `CREATE TABLE`, `USERS` 테이블스페이스의 256MB 할당량만 부여합니다. 애플리케이션에서 SYS/SYSTEM/DBA 계정을 사용하지 않습니다. 기존 다른 프로젝트 계정과 테이블은 변경하지 않습니다.
 

@@ -32,6 +32,7 @@ import HomePage from "../features/home/HomePage";
 import AuthPage from "../features/auth/AuthPage";
 import AccountPage from "../features/auth/AccountPage";
 import CommunityRoute from "../features/community/CommunityRoute";
+import NotificationBell from "../features/notifications/NotificationBell";
 
 // 홈과 로그인·계정 복구는 직접 주소로 자주 진입하므로 즉시 제공합니다. 아래 기능 화면은 해당 경로를 열 때만 받아 모바일 첫 다운로드를 줄입니다.
 const ExplorePage = lazy(() => import("../features/catalog/ExplorePage"));
@@ -43,6 +44,9 @@ const MessagesPage = lazy(() => import("../features/messaging/MessagesPage"));
 const ProfilePage = lazy(() => import("../features/profile/ProfilePage"));
 const AdminPage = lazy(() => import("../features/admin/AdminPage"));
 const FavoritesPage = lazy(() => import("../features/favorites/FavoritesPage"));
+const NotificationPage = lazy(
+  () => import("../features/notifications/NotificationPage"),
+);
 
 /** 지연 화면을 표시하는 중 문제가 생겨도 공통 내비게이션을 유지하고 다시 시작할 방법을 제공합니다. */
 class AsyncRouteBoundary extends Component<
@@ -139,9 +143,10 @@ export default function App() {
             </Link>
             {user ? (
               <>
+                <NotificationBell />
                 <Link
                   to="/messages"
-                  className="icon-button"
+                  className="icon-button header-message-link"
                   aria-label="메시지"
                 >
                   <MessageCircle size={21} />
@@ -284,6 +289,16 @@ export default function App() {
               <RequireAuth>
                 <AsyncRoute text="메시지를 불러오고 있어요">
                   <MessagesPage />
+                </AsyncRoute>
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <RequireAuth>
+                <AsyncRoute text="여행 알림을 불러오고 있어요">
+                  <NotificationPage />
                 </AsyncRoute>
               </RequireAuth>
             }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useParams, useNavigate } from "react-router-dom";
+import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MapPin,
@@ -59,6 +59,7 @@ export default function TripPage() {
   const client = useQueryClient();
   const toast = useToast();
   const navigate = useNavigate();
+  const routeLocation = useLocation();
   const { user } = useAuth();
   const query = useQuery({
     queryKey: ["trip", id],
@@ -79,6 +80,18 @@ export default function TripPage() {
   // 날짜나 공동 편집 내용이 달라지면 이전 구간의 경로가 남지 않도록 초기화합니다.
   useEffect(() => setSelectedRoute(null), [id, day, query.data?.version]);
   const [tab, setTab] = useState("일정");
+  useEffect(() => {
+    if (routeLocation.hash !== "#trip-polls" || !query.data) return;
+    // 알림에서 들어오면 투표가 있는 '함께 준비' 탭부터 열고, 렌더가 끝난 뒤
+    // 제목으로 포커스와 스크롤을 옮겨 키보드·스크린리더 사용자도 도착점을 압니다.
+    setTab("함께 준비");
+    const timer = window.setTimeout(() => {
+      const panel = document.getElementById("trip-polls");
+      panel?.focus({ preventScroll: true });
+      panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.clearTimeout(timer);
+  }, [routeLocation.hash, query.data?.id]);
   const [compare, setCompare] = useState<Item | null>(null);
   const [booking, setBooking] = useState<Item | null>(null);
   const [visitConditions, setVisitConditions] = useState<Item | null>(null);

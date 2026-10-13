@@ -154,8 +154,10 @@ export default function TripPollPanel({ tripId }: { tripId: string }) {
 
   return (
     <section
+      id="trip-polls"
       className="panel trip-poll-panel"
       aria-labelledby="trip-poll-heading"
+      tabIndex={-1}
     >
       <div className="trip-poll-panel-heading">
         <div>

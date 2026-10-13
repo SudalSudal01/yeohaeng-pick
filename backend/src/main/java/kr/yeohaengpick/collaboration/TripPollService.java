@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.*;
 import java.util.*;
 import kr.yeohaengpick.common.DomainException;
+import kr.yeohaengpick.notification.NotificationService;
 import kr.yeohaengpick.trip.TripService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +21,16 @@ public class TripPollService {
 
   private final TripService trips;
   private final TripPollMapper polls;
+  private final NotificationService notifications;
 
-  public TripPollService(TripService trips, TripPollMapper polls) {
+  public TripPollService(
+    TripService trips,
+    TripPollMapper polls,
+    NotificationService notifications
+  ) {
     this.trips = trips;
     this.polls = polls;
+    this.notifications = notifications;
   }
 
   public record OptionView(
@@ -87,6 +94,14 @@ public class TripPollService {
       labels.get(index),
       index
     );
+    // 후보까지 모두 저장된 뒤 현재 동행에게 알립니다. 같은 트랜잭션이므로 알림 저장이 실패하면
+    // 질문과 후보도 함께 롤백되어, 눌러도 존재하지 않는 알림이 생기지 않습니다.
+    notifications.notifyPoll(
+      tripId,
+      pollId,
+      NotificationService.TRIP_POLL_CREATED,
+      member
+    );
     return view(tripId, pollId, member, trip.get("ownerId").toString());
   }
 
@@ -140,6 +155,14 @@ public class TripPollService {
     requireVersion(poll, version);
     if (!"OPEN".equals(effectiveStatus(poll, now()))) throw closed();
     if (polls.close(tripId, pollId, version, now()) != 1) throw closed();
+    // 성공한 수동 마감만 알립니다. closes_at으로 계산되는 자동 만료는 별도 스케줄러가 없으므로
+    // 이번 알림 범위에 포함하지 않아 조회 시점에 알림이 중복 생성되는 일을 막습니다.
+    notifications.notifyPoll(
+      tripId,
+      pollId,
+      NotificationService.TRIP_POLL_CLOSED,
+      member
+    );
     return view(tripId, pollId, member, trip.get("ownerId").toString());
   }
 

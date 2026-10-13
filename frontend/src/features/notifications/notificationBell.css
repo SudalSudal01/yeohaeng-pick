@@ -1,0 +1,25 @@
+/* 헤더 벨은 알림 페이지보다 먼저 렌더되므로 배지 스타일도 벨과 함께 초기 번들에서 불러옵니다. */
+.notification-bell {
+  position: relative;
+}
+.notification-bell.active {
+  color: var(--green);
+  background: var(--green-soft);
+}
+.notification-badge {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  min-width: 23px;
+  height: 23px;
+  padding: 0 5px;
+  border: 2px solid #fafbf9;
+  border-radius: 10px;
+  background: #a44932;
+  color: #fff;
+  font-size: var(--text-caption);
+  font-weight: 800;
+  line-height: 1;
+}

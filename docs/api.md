@@ -30,6 +30,7 @@
 | 일정 가져오기 | POST /trips/import | 로그인·CSRF·공개 스냅샷·요청 키. `{id}`로 독립 여행 생성, 예약/개인 기록 제외. [복사·중복 방지 계약](shared-trip-import.md) |
 | 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록 |
 | 여행 투표 | GET/POST /trips/{id}/polls, PUT /trips/{id}/polls/{pollId}/ballot, POST /trips/{id}/polls/{pollId}/close, DELETE /trips/{id}/polls/{pollId} | 참여자 생성·집계/내 선택 조회·재투표/취소. 만든 사람 또는 현재 소유자 마감·삭제. [계약과 개인정보 범위](trip-polls.md) |
+| 알림 센터 | GET /notifications, GET /notifications/unread-count, PUT /notifications/{id}/read, PUT /notifications/read-all | 현재 참여 중인 여행의 투표 생성·수동 마감 알림, 회원별 읽음 상태. [계약과 개인정보 범위](notifications.md) |
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |
 | 소유권 이전 | POST /trips/{id}/ownership/transfer | `{version,memberId}`·현재 소유자/대상 참여 검사·대기 초대 종료·별도 변경 기록. [권한과 계약](trip-ownership.md) |
@@ -93,6 +94,28 @@
 
 잘못된 형식·중복 후보·지난 마감·다른 투표 후보는 400, 비로그인은 401, 비참여자 또는 관리 권한 부족은 403, 여행·투표 없음은 404입니다. 이미 닫힌 투표, 오래된 version, 50개 상한은 409입니다. 서비스는 먼저 URL의 여행과 투표 소속을 함께 잠가 확인한 뒤, 검증된 투표 ID 범위에서 후보와 본인 표를 처리합니다. 투표 version은 마감·삭제 수명 주기만 보호하며 개별 표 변경으로 증가하지 않습니다. 여행 일정 version과도 분리되어 투표로 일정·예약·경비가 바뀌지 않습니다.
 
+## 앱 안 알림
+
+`GET /notifications?page=1&pageSize=20`은 `{items,total,page,pageSize,totalPages,unreadCount}`를 반환합니다. `pageSize`는 최대 30이며 전체 개수가 줄어 요청 페이지가 범위를 벗어나면 존재하는 마지막 페이지로 보정합니다. 항목은 아래처럼 화면 표시와 이동에 필요한 필드만 포함합니다.
+
+```json
+{
+  "id": "알림 UUID",
+  "type": "TRIP_POLL_CREATED",
+  "readAt": null,
+  "createdAt": "2026-10-13T12:30:00",
+  "actorName": "수달수달",
+  "tripId": "여행 UUID",
+  "tripTitle": "서울 여행",
+  "pollId": "투표 UUID",
+  "pollTitle": "저녁은 어디에서 먹을까요?"
+}
+```
+
+`GET /notifications/unread-count`는 `{unreadCount}`를 반환합니다. `PUT /notifications/{id}/read`는 본인 알림 한 건, `PUT /notifications/read-all`은 현재 접근 가능한 본인 알림 전체를 읽음 처리하며 성공은 204입니다. 쓰기는 CSRF 토큰이 필요합니다. 단건 처리는 멱등이며 이미 읽은 알림의 최초 시각을 유지합니다. 타인의 알림 ID나 참여가 끝난 여행의 알림은 존재 여부를 감춰 404를 반환합니다.
+
+목록·개수·읽음은 세션 회원을 수신자로 사용하고 현재 여행 참여 관계를 다시 확인합니다. 회원 내부 ID, 이메일, 다른 회원의 투표 선택을 반환하지 않습니다. 자동 마감 `EXPIRED`는 실행 사건이 아니라 조회 시 계산한 상태이므로 이번 알림 종류에 포함하지 않습니다.
+
 ## 저장한 여행의 방문 장소 비교
 
 `GET /trips/{id}/alternatives/{item}?rain=`은 기존처럼 서버가 조회한 일반 후보만 반환합니다. `rain=true`이면 실내 후보만 반환하며 개인 찜 목록은 응답에 합치지 않습니다. 화면은 별도의 본인 전용 `GET /favorites`에서 같은 지역의 방문 찜을 골라 한 곳씩 비교합니다.
@@ -129,7 +152,7 @@ V4 마이그레이션은 기존 예약에 `arrival=null`, `scheduleLinked=false`
 
 ## 데이터 저장
 
-회원·여행·참여자·일정·숙소·외부 예약·초대·지출·준비물·게시물·댓글·대화·차단·신고는 정규 테이블로 관리합니다. 취향 목록·방문 일정 이력 스냅샷·서버가 검증한 구간별 경로 시간은 JSON 텍스트로 저장합니다. 현재 목록 조회는 규모 제한/페이지네이션을 보강해야 합니다. 계약의 TypeScript 표현은 `frontend/src/shared/types.ts`, 실제 검증은 Java 요청 DTO가 기준입니다.
+회원·여행·참여자·일정·숙소·외부 예약·초대·지출·준비물·게시물·댓글·대화·차단·신고·공동 투표·회원별 알림은 정규 테이블로 관리합니다. 취향 목록·방문 일정 이력 스냅샷·서버가 검증한 구간별 경로 시간은 JSON 텍스트로 저장합니다. 커뮤니티·찜·알림은 페이지 조회를 제공하며 나머지 긴 목록은 규모 제한/페이지네이션을 보강해야 합니다. 계약의 TypeScript 표현은 `frontend/src/shared/types.ts`와 기능별 계약 파일, 실제 검증은 Java 요청 DTO가 기준입니다.
 
 ## 실제 경로 조회 계약
 

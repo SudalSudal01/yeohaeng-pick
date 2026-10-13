@@ -2,6 +2,7 @@ package kr.yeohaengpick.auth;
 
 import java.util.*;
 import kr.yeohaengpick.common.DomainException;
+import kr.yeohaengpick.notification.NotificationService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -13,15 +14,18 @@ public class WithdrawalService {
   private final WithdrawalMapper withdrawal;
   private final MemberMapper members;
   private final PasswordEncoder encoder;
+  private final NotificationService notifications;
 
   public WithdrawalService(
     WithdrawalMapper withdrawal,
     MemberMapper members,
-    PasswordEncoder encoder
+    PasswordEncoder encoder,
+    NotificationService notifications
   ) {
     this.withdrawal = withdrawal;
     this.members = members;
     this.encoder = encoder;
+    this.notifications = notifications;
   }
 
   public Object preview(String member) {
@@ -61,6 +65,9 @@ public class WithdrawalService {
     // 참여 연결을 끊기 전에 표를 지워 재가입이나 재초대가 과거 선택을 복구하지 않게 합니다.
     // 탈퇴 회원이 만든 질문과 다른 참여자의 집계는 공동 여행 기록으로 유지합니다.
     withdrawal.pollVotes(member);
+    // 수신 알림은 개인 받은 편지함이므로 익명화 전에 전부 지웁니다. 이 회원이 행동자로 남은
+    // 다른 사람의 알림은 공동 기록이며, 이후 '탈퇴한 회원' 닉네임으로 안전하게 표시됩니다.
+    notifications.clearRecipient(member);
     withdrawal.leaveAll(member);
     withdrawal.invitations(member);
     withdrawal.blocks(member);

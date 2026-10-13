@@ -1,0 +1,202 @@
+.notification-page {
+  max-width: 920px;
+  margin: 0 auto;
+}
+.notification-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+.notification-heading h1 {
+  margin-top: 10px;
+}
+.notification-heading p {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+.notification-results {
+  outline: none;
+}
+.notification-results:focus-visible {
+  outline: 3px solid #c2a566;
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+.notification-summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px 14px;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+.notification-summary strong {
+  color: var(--ink);
+}
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+.notification-refresh-error {
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 0 18px;
+}
+.notification-refresh-error .text-button {
+  flex-shrink: 0;
+}
+.notification-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+  padding: 19px 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.notification-item.is-unread {
+  border-color: #b7d3c5;
+  background: #f5faf7;
+}
+.notification-kind-icon {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  color: var(--green);
+  background: var(--green-soft);
+}
+.notification-open {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.notification-open strong,
+.notification-trip-title {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: keep-all;
+}
+.notification-open strong {
+  font-size: var(--text-body);
+  line-height: 1.65;
+}
+.notification-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--green);
+  font-size: var(--text-caption);
+  font-weight: 700;
+}
+.notification-unread-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+.notification-trip-title {
+  margin-top: 4px;
+  color: #4d6258;
+  font-size: var(--text-support);
+}
+.notification-open time {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+.notification-read-button {
+  min-width: 94px;
+}
+.notification-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  margin-top: 28px;
+  font-size: var(--text-support);
+}
+.notification-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 18px;
+  color: var(--muted);
+  font-size: var(--text-support);
+}
+@media (max-width: 760px) {
+  .notification-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-action);
+    margin-bottom: 25px;
+  }
+  .notification-heading h1 {
+    font-size: 27px;
+  }
+  .notification-heading p,
+  .notification-summary,
+  .notification-trip-title,
+  .notification-pagination,
+  .notification-refresh {
+    font-size: var(--text-support);
+  }
+  .notification-heading > .button {
+    width: 100%;
+  }
+  .notification-summary {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .notification-refresh-error {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-action);
+  }
+  .notification-item {
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 17px 15px;
+  }
+  .notification-read-button {
+    grid-column: 2;
+    width: 100%;
+    margin-top: 12px;
+  }
+  .notification-open strong {
+    font-size: var(--text-body);
+  }
+  .notification-open time,
+  .notification-state {
+    font-size: var(--text-caption);
+  }
+  .notification-pagination {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .notification-pagination .button {
+    padding-inline: 12px;
+  }
+}
+
+@media (max-width: 360px) {
+  .notification-pagination span {
+    max-width: 82px;
+    text-align: center;
+    line-height: 1.5;
+  }
+}

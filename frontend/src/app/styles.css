@@ -275,6 +275,11 @@ textarea:focus-visible {
   height: 32px;
   width: 32px;
   font-size: var(--text-caption);
+  /* 보이는 원은 작게 유지하되 링크 자체는 충분히 눌릴 수 있게 여백을 포함합니다. */
+  min-height: 44px;
+  min-width: 44px;
+  border: 6px solid transparent;
+  background-clip: padding-box;
 }
 .small-avatar {
   height: 30px;
@@ -3215,6 +3220,10 @@ textarea {
     display: none;
   }
   .search-link {
+    display: none;
+  }
+  /* 메시지는 하단 고정 메뉴에 있으므로 좁은 헤더에서는 숨기고 알림 버튼 공간을 확보합니다. */
+  .header-message-link {
     display: none;
   }
   .mobile-dropdown {
