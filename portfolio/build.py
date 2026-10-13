@@ -120,7 +120,8 @@ def flow(items, y):
 def project_intro(project, y=78):
     y = text(project["name"], M, y, 34, bold=True, leading=44) + 6
     y = text(project["subtitle"], M, y, 15, MUTED) + 12
-    y = text(f'{project["type"]} {project["teamSize"]}명 / {project["period"]} / {project["scheduleStatus"]}', M, y, 9.5, ACCENT) + 12
+    meta = [f'{project["type"]} {project["teamSize"]}명', project["period"], project["scheduleStatus"]]
+    y = text(" / ".join(value for value in meta if value), M, y, 9.5, ACCENT) + 12
     overview = re.sub(r"(?<=[.!?])\s+(?=[가-힣A-Z])", "\n", project["overview"])
     y = text(overview, M, y, leading=16) + 14
     y = section("본인 담당", project["role"], y)
@@ -161,7 +162,7 @@ y = linked_text(profile["phone"], "tel:"+profile["phone"].replace("-", ""), M, y
 y = linked_text(profile["email"], "mailto:"+profile["email"], M, y, 10.5, ACCENT) + 4
 linked_text(profile["github"], profile["github"], M, y, 9.5, MUTED)
 
-# 소개와 학력은 사용자가 직접 확인한 이력을 사용합니다. 미래 수료·종료를 완료로 표현하지 않습니다.
+# 소개와 학력은 사용자가 직접 확인한 이력을 사용합니다. 상태 문구는 요청한 표시 범위만 사용합니다.
 page("ABOUT ME / EDUCATION")
 y = title("보안에 대한 관심에서,\n백엔드 개발로.", size=27)
 for item in data["about"]:
@@ -169,7 +170,7 @@ for item in data["about"]:
 y += 8
 for item in data["education"]:
     y = section(item["kind"]+" / "+item["title"],
-                item["subtitle"]+"\n"+item["period"]+" / "+item["status"], y, 10)
+                item["subtitle"]+"\n"+" / ".join(value for value in [item["period"],item["status"]] if value), y, 10)
 
 # 기술은 임의의 숙련도 수치 대신 실제 적용 분야와 프로젝트를 연결해 설명합니다.
 page("SKILLS / PROJECT EXPERIENCE")
@@ -220,7 +221,7 @@ section("현재 상태", "실시간 좌석·객실·결제 확인은 미구현�
 page("03 / 5ASIS / 메인 대시보드와 Steam API")
 y = title(oasis["name"], 78, 34)
 y = text(oasis["subtitle"], M, y, 14, MUTED) + 18
-y = text(f'{oasis["teamSize"]}명 / {oasis["period"]} / {oasis["scheduleStatus"]}', M, y, 9.5, ACCENT) + 10
+y = text(" / ".join(value for value in [f'{oasis["teamSize"]}명',oasis["period"],oasis["scheduleStatus"]] if value), M, y, 9.5, ACCENT) + 10
 y = section("팀 프로젝트 / 본인 담당", oasis["role"], y)
 y = section("기술", " · ".join(oasis["stack"]), y, 9.5)
 y = case(oasis["cases"][0], y)
