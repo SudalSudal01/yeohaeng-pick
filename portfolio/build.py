@@ -6,6 +6,7 @@
 from pathlib import Path
 from xml.sax.saxutils import escape
 import json
+import re
 import shutil
 import zipfile
 from reportlab.pdfgen import canvas
@@ -41,7 +42,7 @@ page_number = 0
 def text(value, x, y, size=10.5, color=INK, bold=False, width=None, leading=None):
     """상단 좌표로 문단을 배치하고 다음 문단의 좌표를 반환합니다. 고정 길이로 잘라내지 않습니다."""
     style = ParagraphStyle("body", fontName="KoreanBold" if bold else "Korean", fontSize=size,
-                           leading=leading or size * 1.65, textColor=color, wordWrap="CJK")
+                           leading=leading or size * 1.65, textColor=color, wordWrap="LTR")
     p = Paragraph(escape(str(value)).replace("\n", "<br/>"), style)
     _, height = p.wrap(width or CW, H)
     if y + height > H - 57:
@@ -85,8 +86,21 @@ def title(value, y=76, size=29):
 
 
 def section(label, body, y, size=10.5):
-    y = text(label, M, y, 9.5, ACCENT, True) + 8
-    return text(body, M, y, size) + 22
+    """문장마다 줄을 바꾸고 같은 역할의 설명을 카드 안에 묶습니다. 높이는 실제 문단으로 계산합니다."""
+    body = re.sub(r"(?<=[.!?])\s+(?=[가-힣A-Z])", "\n", str(body))
+    style = ParagraphStyle("card", fontName="Korean", fontSize=size,
+                           leading=size*1.5, textColor=INK, wordWrap="LTR")
+    paragraph = Paragraph(escape(body).replace("\n", "<br/>"), style)
+    _, body_height = paragraph.wrap(CW-28, H)
+    card_height = 8 + 9.5*1.65 + 4 + body_height + 8
+    if y + card_height > H - 57:
+        raise ValueError(f"페이지 {page_number}: 카드가 하단을 넘습니다: {label}")
+    c.setFillColor(HexColor("#fffefb"))
+    c.setStrokeColor(LINE)
+    c.roundRect(M, H-y-card_height, CW, card_height, 7, fill=1, stroke=1)
+    body_y = text(label, M+14, y+8, 9.5, ACCENT, True, width=CW-28) + 4
+    text(body, M+14, body_y, size, width=CW-28, leading=size*1.5)
+    return y + card_height + 10
 
 
 def flow(items, y):
@@ -103,16 +117,17 @@ def flow(items, y):
 
 
 def project_intro(project, y=78):
-    y = text(project["name"], M, y, 34, bold=True) + 6
-    y = text(project["subtitle"], M, y, 15, MUTED) + 17
-    y = text(f'{project["type"]}  /  {project["period"]}', M, y, 9.5, ACCENT) + 18
-    y = text(project["overview"], M, y) + 20
+    y = text(project["name"], M, y, 34, bold=True, leading=44) + 6
+    y = text(project["subtitle"], M, y, 15, MUTED) + 12
+    y = text(f'{project["type"]}  /  {project["period"]}', M, y, 9.5, ACCENT) + 12
+    overview = re.sub(r"(?<=[.!?])\s+(?=[가-힣A-Z])", "\n", project["overview"])
+    y = text(overview, M, y, leading=16) + 14
     y = section("본인 담당", project["role"], y)
-    return section("기술", " · ".join(project["stack"]), y, 9.5)
+    return text("기술: "+" · ".join(project["stack"]), M, y, 9.5, MUTED) + 16
 
 
 def case(item, y, include_limit=True):
-    y = text(item["title"], M, y, 16, bold=True) + 17
+    y = text(item["title"], M, y, 16, bold=True) + 12
     y = section("문제", item["problem"], y)
     y = section("처리 방식", item["action"], y)
     y = section("코드 근거", item["evidence"], y, 9)
@@ -130,16 +145,17 @@ image_width, image_height = portrait.getSize()
 photo_height = photo_width * image_height / image_width
 c.drawImage(portrait, W-M-photo_width, H-100-photo_height,
             width=photo_width, height=photo_height, mask="auto")
-y = text("기능의 뒤에서,\n데이터의 신뢰를\n만듭니다.", M, 100, 36,
-         bold=True, width=CW-photo_width-24, leading=36*1.35) + 20
-y = text(profile["intro"], M, y+7, 12, MUTED, width=470) + 28
-y = text("김명현", M, y, 23, bold=True) + 5
-y = text("백엔드 개발자", M, y, 11, MUTED) + 37
+y = text(profile["greeting"]+"\n"+profile["aspiration"]+"\n"+profile["introductionName"], M, 100, 29,
+         bold=True, width=CW-photo_width-24, leading=29*1.45) + 20
+y = max(y, 100+photo_height+12)
+intro = re.sub(r"(?<=[.!?])\s+(?=[가-힣A-Z])", "\n", profile["intro"])
+y = text(intro, M, y+7, 12, MUTED, width=470) + 28
+y = text("프로젝트 경험", M, y, 23, bold=True) + 5
+y = text("팀 프로젝트 2개 · 개인 프로젝트 1개", M, y, 11, MUTED) + 37
 line(y)
 y += 25
 for project in projects:
-    y = text(f'{project["number"]}   {project["name"]}', M, y, 17, bold=True) + 4
-    y = text(project["role"], M, y, 9.5, MUTED) + 22
+    y = section(f'{project["number"]}   {project["name"]}', project["role"], y, 10)
 y = linked_text(profile["phone"], "tel:"+profile["phone"].replace("-", ""), M, y+8, 12, ACCENT) + 4
 y = linked_text(profile["email"], "mailto:"+profile["email"], M, y, 10.5, ACCENT) + 4
 linked_text(profile["github"], profile["github"], M, y, 9.5, MUTED)
@@ -172,14 +188,14 @@ y = flow(travel["flow"], y)
 case(travel["cases"][0], y)
 
 page("02 / 여행픽 / 저장소와 접근 권한")
-y = title("DB가 달라도,\n접근 권한이 바뀌어도.")
+y = title("DB가 달라도,\n접근 권한이 바뀌어도.") - 10
 y = case(travel["cases"][1], y)
 line(y)
 y += 20
 y = text(travel["cases"][2]["title"], M, y, 16, bold=True) + 14
 y = section("처리 방식", travel["cases"][2]["action"], y)
 y = section("검증", travel["verification"], y, 9.5)
-section("현재 상태", "실제 서비스 공개 운영은 미완료입니다. 실시간 좌석·객실·결제 확인은 미구현이며 외부 예매 결과를 사용자가 기록합니다. 여행픽은 AI 개발 도구를 활용한 개인 프로젝트입니다.", y, 9.5)
+section("현재 상태", "실시간 좌석·객실·결제 확인은 미구현이며 외부 예매 결과는 사용자가 기록합니다.\nAI 개발 도구를 활용한 개인 프로젝트로, 공개 운영은 미완료입니다.", y, 9.5)
 
 # 7. 이전 팀 프로젝트는 외부 API 어댑터와 화면 데이터 계약 경험을 담습니다.
 page("03 / 5ASIS / 메인 대시보드와 Steam API")

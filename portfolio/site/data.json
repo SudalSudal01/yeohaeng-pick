@@ -6,59 +6,168 @@
     "email": "sudalsudal1127@naver.com",
     "photo": "./assets/profile.png",
     "github": "https://github.com/SudalSudal01",
-    "headline": "기능의 뒤에서, 데이터의 신뢰를 만듭니다.",
-    "intro": "Java와 Spring을 중심으로 데이터 조회, 외부 API 연동, 사용자 권한과 상태 변경 흐름을 구현해 왔습니다. 팀 프로젝트의 담당 기능과 개인 프로젝트의 설계·검증 과정을 소개합니다.",
+    "headline": "안녕하세요. 백엔드 개발자를 꿈꾸는 김명현입니다.",
+    "intro": "Java와 Spring으로 서비스의 흐름을 만듭니다. 제때약·여행픽·5ASIS에서 맡은 역할과 개발 경험을 소개합니다.",
     "strengths": [
-      {"title": "조회와 해석의 경계", "text": "AI와 외부 API의 결과를 그대로 신뢰하지 않고, 서버의 데이터·허용 조건과 대조합니다."},
-      {"title": "상태와 권한의 경계", "text": "누가 어떤 데이터에 접근할 수 있는지, 변경이 실패하면 어디까지 되돌릴지 함께 설계합니다."},
-      {"title": "구현과 검증의 연결", "text": "기능 설명에 코드·테스트·기록을 연결하고, 실제로 확인한 범위와 남은 과제를 구분합니다."}
-    ]
+      {
+        "title": "조회와 해석의 경계",
+        "text": "AI와 외부 API의 결과를 그대로 신뢰하지 않고, 서버의 데이터·허용 조건과 대조합니다."
+      },
+      {
+        "title": "상태와 권한의 경계",
+        "text": "누가 어떤 데이터에 접근할 수 있는지, 변경이 실패하면 어디까지 되돌릴지 함께 설계합니다."
+      },
+      {
+        "title": "구현과 검증의 연결",
+        "text": "기능 설명에 코드·테스트·기록을 연결하고, 실제로 확인한 범위와 남은 과제를 구분합니다."
+      }
+    ],
+    "greeting": "안녕하세요.",
+    "aspiration": "백엔드 개발자를 꿈꾸는",
+    "introductionName": "김명현입니다."
   },
   "projects": [
     {
-      "id": "jette-yak", "number": "01", "name": "제때약", "english": "JETTE-YAK",
-      "type": "팀 프로젝트", "period": "개발 2.5주", "subtitle": "복약 정보와 일상 관리를 연결하는 서비스",
+      "id": "jette-yak",
+      "number": "01",
+      "name": "제때약",
+      "english": "JETTE-YAK",
+      "type": "팀 프로젝트",
+      "period": "개발 2.5주",
+      "subtitle": "복약 정보와 일상 관리를 연결하는 서비스",
       "overview": "복약 관리 서비스에서 AI 상담 챗봇, 커뮤니티, 내 약 관리 기능을 담당했습니다. 개인 약 정보와 공개 의약품 정보를 구분하고, 조회 근거를 유지하는 데 집중했습니다.",
       "role": "AI 상담 챗봇 · 커뮤니티 · 내 약 관리 · 결과 발표",
-      "stack": ["Java 21", "Spring MVC", "MyBatis", "Oracle", "React", "Gemini API"],
+      "stack": [
+        "Java 21",
+        "Spring MVC",
+        "MyBatis",
+        "Oracle",
+        "React",
+        "Gemini API"
+      ],
       "repo": "https://github.com/SudalSudal01/Jette-Yak",
       "upstream": "https://github.com/jws909/Jette-Yak",
-      "flow": ["사용자 질문", "의도·조건 검증", "DB·DUR 조회", "근거 중심 응답"],
+      "flow": [
+        "사용자 질문",
+        "의도·조건 검증",
+        "DB·DUR 조회",
+        "근거 중심 응답"
+      ],
       "cases": [
-        {"title": "AI 상담: 생성 결과를 조회 조건으로 검증", "problem": "자연어 질문을 그대로 검색하거나 AI 답변만 사용하면 잘못된 제품·조건이 결과에 섞일 수 있습니다.", "action": "질문 의도와 검색 조건을 분리하고, 허용된 필드와 질문에 실제로 포함된 엔티티를 검증합니다. 개인 약 조회는 로그인 세션의 사용자 범위로 제한하고, 응급·오남용 표현에는 규칙 기반 분기를 둡니다.", "evidence": "QuestionAnalysis · CatalogQuery · MedicationChatService · ChatController", "limit": "의료 진단이나 안전한 복용을 보장하는 서비스가 아닙니다. 조회 근거가 없다는 사실을 안전하다는 결론으로 바꾸지 않습니다."},
-        {"title": "내 약 관리: 등록 이력과 복용 상태 분리", "problem": "같은 제품을 여러 번 등록하거나 복용 기간이 끝난 기록을 현재 복용약과 섞으면 비교 결과를 오해할 수 있습니다.", "action": "등록 건별 복용·중지·종료·보관 상태를 관리하고, 기간과 ACTIVE 상태를 함께 확인합니다. 현재 사용자 소유 등록만 변경하고, 비교 대상 제품의 중복을 제거해 DUR 원문과 연결합니다.", "evidence": "MedicationManagementService · MedicationGuideDao · MEDICATION_USE_STATES", "limit": "상태 관리는 처방 용량을 변경하지 않습니다. 미연결 제품·성분과 DUR 기록 미연결을 구분합니다."},
-        {"title": "커뮤니티: 작성자 권한과 운영 상태 보존", "problem": "게시글·댓글·신고가 연결된 상태에서 삭제와 관리자 처리를 단순 CRUD로만 구현하면 권한과 참조 관계가 깨질 수 있습니다.", "action": "서버 세션으로 사용자를 식별하고 작성자 또는 현재 관리자 권한을 확인합니다. 상태 삭제로 댓글·신고 참조를 보존하고, 댓글·답글·신고 이벤트를 수신자별 알림과 연결합니다.", "evidence": "CommunityService · CommunityController · community_mapper.xml", "limit": "팀 서비스 전체 기능과 본인 담당 기능을 구분합니다. 운영 규모의 부하 검증과 실기기 점검은 별도 과제입니다."}
+        {
+          "title": "AI 상담: 생성 결과를 조회 조건으로 검증",
+          "problem": "자연어 질문을 그대로 검색하거나 AI 답변만 사용하면 잘못된 제품·조건이 결과에 섞일 수 있습니다.",
+          "action": "질문 의도와 검색 조건을 분리하고, 허용된 필드와 질문에 실제로 포함된 엔티티를 검증합니다. 개인 약 조회는 로그인 세션의 사용자 범위로 제한하고, 응급·오남용 표현에는 규칙 기반 분기를 둡니다.",
+          "evidence": "QuestionAnalysis · CatalogQuery · MedicationChatService · ChatController",
+          "limit": "의료 진단이나 안전한 복용을 보장하는 서비스가 아닙니다. 조회 근거가 없다는 사실을 안전하다는 결론으로 바꾸지 않습니다."
+        },
+        {
+          "title": "내 약 관리: 등록 이력과 복용 상태 분리",
+          "problem": "같은 제품을 여러 번 등록하거나 복용 기간이 끝난 기록을 현재 복용약과 섞으면 비교 결과를 오해할 수 있습니다.",
+          "action": "등록 건별 복용·중지·종료·보관 상태를 관리하고, 기간과 ACTIVE 상태를 함께 확인합니다. 현재 사용자 소유 등록만 변경하고, 비교 대상 제품의 중복을 제거해 DUR 원문과 연결합니다.",
+          "evidence": "MedicationManagementService · MedicationGuideDao · MEDICATION_USE_STATES",
+          "limit": "상태 관리는 처방 용량을 변경하지 않습니다. 미연결 제품·성분과 DUR 기록 미연결을 구분합니다."
+        },
+        {
+          "title": "커뮤니티: 작성자 권한과 운영 상태 보존",
+          "problem": "게시글·댓글·신고가 연결된 상태에서 삭제와 관리자 처리를 단순 CRUD로만 구현하면 권한과 참조 관계가 깨질 수 있습니다.",
+          "action": "서버 세션으로 사용자를 식별하고 작성자 또는 현재 관리자 권한을 확인합니다. 상태 삭제로 댓글·신고 참조를 보존하고, 댓글·답글·신고 이벤트를 수신자별 알림과 연결합니다.",
+          "evidence": "CommunityService · CommunityController · community_mapper.xml",
+          "limit": "팀 서비스 전체 기능과 본인 담당 기능을 구분합니다. 운영 규모의 부하 검증과 실기기 점검은 별도 과제입니다."
+        }
       ],
       "verification": "저장소의 2026.10.07 팀 점검 기록: 백엔드 11개 Check / 408 assertions, 프론트 74개 테스트, 실제 서버 HTTP 32개 검사 통과. 이번 포트폴리오 작업에서 해당 팀 서버를 재실행한 결과는 아닙니다.",
       "learning": "AI 응답 품질은 모델 호출만으로 결정되지 않았습니다. 질문 조건·성분 연결·사용자 범위를 먼저 정리해야 근거를 가진 응답과 재현 가능한 오류 처리가 가능했습니다."
     },
     {
-      "id": "travel-pick", "number": "02", "name": "여행픽", "english": "YEOHAENG PICK",
-      "type": "개인 프로젝트", "period": "2026.10 · 개발 중", "subtitle": "취향과 예약을 고려하는 국내 여행 플래너",
+      "id": "travel-pick",
+      "number": "02",
+      "name": "여행픽",
+      "english": "YEOHAENG PICK",
+      "type": "개인 프로젝트",
+      "period": "2026.10 · 개발 중",
+      "subtitle": "취향과 예약을 고려하는 국내 여행 플래너",
       "overview": "세 가지 여행 코스를 비교하고 저장한 뒤, 장소·숙소·이동 시간을 조정하는 반응형 웹 서비스입니다. 추천뿐 아니라 변경 이후의 일정과 공동 편집의 일관성을 함께 다룹니다.",
       "role": "기획 · 프론트/백엔드 연결 · DB · 테스트 · Git 관리 / AI 개발 도구 활용",
-      "stack": ["Java 21", "Spring Boot 4", "Spring Security", "MyBatis", "Oracle 19c", "Flyway", "React 19", "TypeScript"],
-      "repo": "https://github.com/SudalSudal01/yeohaeng-pick", "private": false,
-      "flow": ["지역·취향 입력", "조회 후보·AI 평가", "3코스 비교", "저장·변경 검증"],
+      "stack": [
+        "Java 21",
+        "Spring Boot 4",
+        "Spring Security",
+        "MyBatis",
+        "Oracle 19c",
+        "Flyway",
+        "React 19",
+        "TypeScript"
+      ],
+      "repo": "https://github.com/SudalSudal01/yeohaeng-pick",
+      "private": false,
+      "flow": [
+        "지역·취향 입력",
+        "조회 후보·AI 평가",
+        "3코스 비교",
+        "저장·변경 검증"
+      ],
       "cases": [
-        {"title": "예약을 보존하는 일정 변경", "problem": "장소 하나를 바꾸면 뒤 일정이나 직접 확인한 교통 예약과 충돌할 수 있습니다.", "action": "비교는 읽기 전용으로 계산하고, 적용 시 서버가 현재 권한과 version을 다시 검사합니다. 고정 방문·교통 예약·반영한 경로 시간을 보호하고, 일정·이력을 같은 트랜잭션에서 저장합니다.", "evidence": "BookingSchedule · RouteSchedule · WholeSchedule · TripService", "limit": "미조회 구간은 추정입니다. 외부 예약 성공·실시간 좌석·객실 재고를 자동으로 확인하지 않습니다."},
-        {"title": "Oracle 이전과 API 계약 유지", "problem": "H2와 Oracle은 BOOLEAN·빈 문자열·CLOB·날짜 처리 방식이 달라 기존 데이터를 단순 복사하기 어렵습니다.", "action": "전용 스키마와 Flyway 이력을 분리하고, FK 순서 삽입·단일 커밋·전체 값 해시로 이전을 대조했습니다. Unicode CLOB 바인딩과 숫자·날짜 정규화로 기존 API 계약을 유지합니다.", "evidence": "Oracle 이전 도구 · LongTextTypeHandler · MyBatis 변환 · 격리 Oracle QA", "limit": "로컬 이전과 Data Pump 백업을 검증했습니다. 운영 복구 훈련·다중 서버·HTTPS 배포 검증은 남아 있습니다."},
-        {"title": "동행 권한과 공개 데이터 분리", "problem": "초대 수락·나가기·탈퇴·공개 공유가 겹치면 과거 접근 권한이나 비공개 정보가 남을 수 있습니다.", "action": "현재 참여 관계를 서버에서 재검사하고 같은 여행의 변경 잠금 순서를 맞춥니다. 공개 공유는 별도 화이트리스트를 사용하며, 참여 종료 때 표·수신 알림을 정리합니다.", "evidence": "TripMembershipService · TripSharingService · NotificationFlowTest", "limit": "현재는 조회 주기 기반 동기화입니다. WebSocket 편집이나 분산 세션을 구현했다고 표현하지 않습니다."}
+        {
+          "title": "예약을 보존하는 일정 변경",
+          "problem": "장소 하나를 바꾸면 뒤 일정이나 직접 확인한 교통 예약과 충돌할 수 있습니다.",
+          "action": "비교는 읽기 전용으로 계산하고, 적용 시 서버가 현재 권한과 version을 다시 검사합니다. 고정 방문·교통 예약·반영한 경로 시간을 보호하고, 일정·이력을 같은 트랜잭션에서 저장합니다.",
+          "evidence": "BookingSchedule · RouteSchedule · WholeSchedule · TripService",
+          "limit": "미조회 구간은 추정입니다. 외부 예약 성공·실시간 좌석·객실 재고를 자동으로 확인하지 않습니다."
+        },
+        {
+          "title": "Oracle 이전과 API 계약 유지",
+          "problem": "H2와 Oracle은 BOOLEAN·빈 문자열·CLOB·날짜 처리 방식이 달라 기존 데이터를 단순 복사하기 어렵습니다.",
+          "action": "전용 스키마와 Flyway 이력을 분리하고, FK 순서 삽입·단일 커밋·전체 값 해시로 이전을 대조했습니다. Unicode CLOB 바인딩과 숫자·날짜 정규화로 기존 API 계약을 유지합니다.",
+          "evidence": "Oracle 이전 도구 · LongTextTypeHandler · MyBatis 변환 · 격리 Oracle QA",
+          "limit": "로컬 이전과 Data Pump 백업을 검증했습니다. 운영 복구 훈련·다중 서버·HTTPS 배포 검증은 남아 있습니다."
+        },
+        {
+          "title": "동행 권한과 공개 데이터 분리",
+          "problem": "초대 수락·나가기·탈퇴·공개 공유가 겹치면 과거 접근 권한이나 비공개 정보가 남을 수 있습니다.",
+          "action": "현재 참여 관계를 서버에서 재검사하고 같은 여행의 변경 잠금 순서를 맞춥니다. 공개 공유는 별도 화이트리스트를 사용하며, 참여 종료 때 표·수신 알림을 정리합니다.",
+          "evidence": "TripMembershipService · TripSharingService · NotificationFlowTest",
+          "limit": "현재는 조회 주기 기반 동기화입니다. WebSocket 편집이나 분산 세션을 구현했다고 표현하지 않습니다."
+        }
       ],
       "verification": "최신 H2 전체 203개·프론트 50개 테스트 통과. Oracle 전체 195개는 이전 알림 단계의 결과이며, 최신 지역 확대 HTTP 2개를 Oracle에서 추가 검증했습니다. 15개 지역 합성 검색·경주→전주 추천/저장과 모바일 검증을 별도로 기록합니다.",
       "learning": "추천 결과를 만드는 것과 사용자가 안전하게 변경하는 것은 다른 문제였습니다. 외부 조회값·추정·사용자 확인값을 나누고, 변경 시점에 조건을 다시 검사하는 구조가 필요했습니다."
     },
     {
-      "id": "5asis", "number": "03", "name": "5ASIS", "english": "5ASIS",
-      "type": "팀 프로젝트", "period": "팀 결과보고서 보유", "subtitle": "게임 정보와 커뮤니티를 연결하는 대시보드",
+      "id": "5asis",
+      "number": "03",
+      "name": "5ASIS",
+      "english": "5ASIS",
+      "type": "팀 프로젝트",
+      "period": "팀 결과보고서 보유",
+      "subtitle": "게임 정보와 커뮤니티를 연결하는 대시보드",
       "overview": "게임 커뮤니티의 메인 대시보드와 Steam API 연동을 담당했습니다. 내부 인기 게임과 외부 할인·랜덤 게임을 하나의 진입 화면으로 연결했습니다.",
       "role": "메인 대시보드 · Steam API 연동 · 결과 발표",
-      "stack": ["Java 11", "Spring MVC", "JSP", "MyBatis", "Oracle", "RestTemplate", "Steam Store API"],
+      "stack": [
+        "Java 11",
+        "Spring MVC",
+        "JSP",
+        "MyBatis",
+        "Oracle",
+        "RestTemplate",
+        "Steam Store API"
+      ],
       "repo": "https://github.com/SudalSudal01/Team_5asis",
       "upstream": "https://github.com/PSK6262/Team_5asis",
-      "flow": ["메인 요청", "내부 인기 게임", "Steam 데이터 변환", "JSP 대시보드"],
+      "flow": [
+        "메인 요청",
+        "내부 인기 게임",
+        "Steam 데이터 변환",
+        "JSP 대시보드"
+      ],
       "cases": [
-        {"title": "여러 데이터 소스를 하나의 화면 계약으로", "problem": "내부 DB의 인기 게임과 Steam의 할인·검색·상세 응답은 형태가 서로 다릅니다.", "action": "MainController는 데이터 조합과 화면 전달을, SteamGameService는 외부 호출과 SteamGame DTO 변환을 담당하도록 구분했습니다. 할인·랜덤 게임을 각 6개로 구성하고 랜덤 검색의 중복과 재시도 범위를 제한합니다.", "evidence": "MainController · SteamGameServiceImpl · SteamGame · main.jsp", "limit": "외부 호출 실패 시 빈 목록으로 반환하는 현재 방식을 확인했습니다. 시간 제한·캐시·실패/정상 빈 결과의 구분은 후속 개선 대상으로 봅니다."}
+        {
+          "title": "여러 데이터 소스를 하나의 화면 계약으로",
+          "problem": "내부 DB의 인기 게임과 Steam의 할인·검색·상세 응답은 형태가 서로 다릅니다.",
+          "action": "MainController는 데이터 조합과 화면 전달을, SteamGameService는 외부 호출과 SteamGame DTO 변환을 담당하도록 구분했습니다. 할인·랜덤 게임을 각 6개로 구성하고 랜덤 검색의 중복과 재시도 범위를 제한합니다.",
+          "evidence": "MainController · SteamGameServiceImpl · SteamGame · main.jsp",
+          "limit": "외부 호출 실패 시 빈 목록으로 반환하는 현재 방식을 확인했습니다. 시간 제한·캐시·실패/정상 빈 결과의 구분은 후속 개선 대상으로 봅니다."
+        }
       ],
       "verification": "팀 결과보고서의 메인 페이지 담당 기록과 저장소 코드를 확인했습니다. 이번 작업에서는 서비스 전체 자동 테스트나 실제 Steam 응답 재검증을 수행하지 않았습니다.",
       "learning": "API 응답을 화면에서 직접 소비하기보다 DTO와 서비스 계층에서 정리하면, 컨트롤러와 화면의 책임을 더 명확하게 유지할 수 있었습니다."
