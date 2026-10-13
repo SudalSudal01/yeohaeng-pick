@@ -785,3 +785,270 @@ footer {
     scroll-behavior: auto;
   }
 }
+/* 참고 사이트의 정보 분류와 섹션 이동 방식만 반영합니다.
+   개인정보·기술 경험은 공통 JSON을 사용하고, 데스크톱 고정 메뉴는 모바일에서 접어 본문 공간을 확보합니다. */
+html {
+  scroll-padding-top: 112px;
+}
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: #f5f3edf5;
+  backdrop-filter: blur(12px);
+}
+nav {
+  gap: 24px;
+}
+nav a[aria-current="location"] {
+  color: var(--accent);
+  font-weight: 700;
+}
+.menu-toggle {
+  display: none;
+  min-height: 44px;
+  min-width: 64px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--white);
+  font-size: 14px;
+  color: var(--ink);
+}
+.section-block {
+  padding-bottom: 48px;
+}
+.story-grid,
+.education-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+.story-card,
+.skill-card,
+.education-card {
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  min-width: 0;
+}
+.step-label {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  background: var(--soft);
+  color: var(--accent);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.story-card h3,
+.skill-card h3,
+.education-card h3 {
+  font-size: 21px;
+  margin: 18px 0;
+}
+.story-card .sentence-group,
+.skill-card .sentence-group,
+.education-card .sentence-group {
+  font-size: 15px;
+  color: var(--muted);
+}
+.skill-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.skill-label {
+  font-size: 14px;
+  color: var(--accent);
+  font-weight: 700;
+}
+.skill-card .tags {
+  margin-bottom: 22px;
+}
+.skill-projects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.skill-projects a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--accent);
+}
+.education-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  font-size: 14px;
+  color: var(--accent);
+}
+.status-badge {
+  padding: 4px 9px;
+  background: var(--soft);
+  border-radius: 6px;
+  font-size: 13px;
+}
+.education-subtitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.education-period {
+  font-size: 14px;
+  color: var(--accent);
+  margin-bottom: 20px;
+}
+.project-preview {
+  margin: 28px 0 0;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f4f7fa;
+}
+.project-preview img {
+  display: block;
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  object-position: center 40%;
+}
+.project-preview figcaption {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 12px 18px;
+  background: #fafbf8;
+  border-top: 1px solid var(--line);
+}
+.architecture-preview {
+  padding: 24px;
+  background: linear-gradient(125deg, #edf2fa, #f4f6ee);
+}
+.architecture-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 20px;
+}
+.architecture-steps > div {
+  position: relative;
+  padding: 22px 16px;
+  border: 1px solid #d1dcec;
+  background: white;
+  border-radius: 12px;
+  min-width: 0;
+}
+.architecture-steps > div:not(:last-child):after {
+  content: "→";
+  position: absolute;
+  right: -16px;
+  top: 40%;
+  color: var(--accent);
+  font-size: 16px;
+  z-index: 1;
+}
+.architecture-steps span {
+  display: block;
+  font-size: 13px;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.architecture-steps strong {
+  font-size: 15px;
+}
+/* 설명 그림에서 이미 처리 흐름을 읽었으므로 작은 단계 목록의 중복 노출은 줄입니다. */
+.project-preview ~ .flow {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .story-grid,
+  .education-grid {
+    grid-template-columns: 1fr;
+  }
+  .story-card,
+  .education-card {
+    padding: 24px;
+  }
+  .architecture-steps {
+    gap: 12px;
+  }
+  .architecture-steps > div {
+    padding: 18px 12px;
+  }
+  .architecture-steps > div:not(:last-child):after {
+    right: -12px;
+  }
+}
+@media (max-width: 760px) {
+  .skill-grid {
+    grid-template-columns: 1fr;
+  }
+  .project-preview img {
+    height: 260px;
+  }
+  .header {
+    gap: 16px;
+  }
+  nav {
+    gap: 16px;
+  }
+}
+@media (max-width: 600px) {
+  html {
+    scroll-padding-top: 90px;
+  }
+  .header {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .menu-toggle {
+    display: block;
+  }
+  #primary-nav {
+    display: none;
+    flex-basis: 100%;
+    width: 100%;
+    gap: 4px 12px;
+    border-top: 1px solid var(--line);
+    padding-top: 10px;
+  }
+  #primary-nav.is-open {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  #primary-nav a {
+    justify-content: center;
+    font-size: 14px;
+  }
+  .story-card,
+  .skill-card,
+  .education-card {
+    padding: 20px;
+  }
+  .architecture-preview {
+    padding: 18px 14px;
+  }
+  .architecture-steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .architecture-steps > div:not(:last-child):after {
+    display: none;
+  }
+  .project-preview img {
+    height: 210px;
+  }
+  .section-block {
+    padding-bottom: 32px;
+  }
+}

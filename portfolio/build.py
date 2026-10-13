@@ -37,6 +37,7 @@ c.setTitle("김명현 | 백엔드 개발자 포트폴리오")
 c.setAuthor("김명현")
 c.setSubject("제때약 · 여행픽 · 5ASIS의 담당 기능과 설계·검증")
 page_number = 0
+TOTAL_PAGES = 10
 
 
 def text(value, x, y, size=10.5, color=INK, bold=False, width=None, leading=None):
@@ -78,7 +79,7 @@ def page(label):
     c.setFont("Korean", 8)
     c.setFillColor(MUTED)
     c.drawString(M, 27, "김명현 · 백엔드 포트폴리오 / 2026.10")
-    c.drawRightString(W-M, 27, f"{page_number:02d} / 08")
+    c.drawRightString(W-M, 27, f"{page_number:02d} / {TOTAL_PAGES:02d}")
 
 
 def title(value, y=76, size=29):
@@ -119,7 +120,7 @@ def flow(items, y):
 def project_intro(project, y=78):
     y = text(project["name"], M, y, 34, bold=True, leading=44) + 6
     y = text(project["subtitle"], M, y, 15, MUTED) + 12
-    y = text(f'{project["type"]}  /  {project["period"]}', M, y, 9.5, ACCENT) + 12
+    y = text(f'{project["type"]} {project["teamSize"]}명 / {project["period"]} / {project["scheduleStatus"]}', M, y, 9.5, ACCENT) + 12
     overview = re.sub(r"(?<=[.!?])\s+(?=[가-힣A-Z])", "\n", project["overview"])
     y = text(overview, M, y, leading=16) + 14
     y = section("본인 담당", project["role"], y)
@@ -159,6 +160,24 @@ for project in projects:
 y = linked_text(profile["phone"], "tel:"+profile["phone"].replace("-", ""), M, y+8, 12, ACCENT) + 4
 y = linked_text(profile["email"], "mailto:"+profile["email"], M, y, 10.5, ACCENT) + 4
 linked_text(profile["github"], profile["github"], M, y, 9.5, MUTED)
+
+# 소개와 학력은 사용자가 직접 확인한 이력을 사용합니다. 미래 수료·종료를 완료로 표현하지 않습니다.
+page("ABOUT ME / EDUCATION")
+y = title("보안에 대한 관심에서,\n백엔드 개발로.", size=27)
+for item in data["about"]:
+    y = section(item["title"], item["text"], y, 10)
+y += 8
+for item in data["education"]:
+    y = section(item["kind"]+" / "+item["title"],
+                item["subtitle"]+"\n"+item["period"]+" / "+item["status"], y, 10)
+
+# 기술은 임의의 숙련도 수치 대신 실제 적용 분야와 프로젝트를 연결해 설명합니다.
+page("SKILLS / PROJECT EXPERIENCE")
+y = title("사용한 기술,\n경험으로 설명합니다.", size=27)
+for item in data["skills"]:
+    y = section(item["label"]+" / "+item["title"],
+                " · ".join(item["items"])+"\n"+item["usage"], y)
+section("사용 경험의 범위", "팀 프로젝트는 본인 담당 기능을 기준으로 설명했습니다. 개인 프로젝트 여행픽은 AI 개발 도구를 활용했으며, 구현 결과와 실제 검증 기록을 함께 정리했습니다.", y, 10)
 
 # 2-4. 주력 팀 프로젝트에서 본인이 담당한 세 영역을 각각 설명합니다.
 jette, travel, oasis = projects
@@ -201,6 +220,7 @@ section("현재 상태", "실시간 좌석·객실·결제 확인은 미구현�
 page("03 / 5ASIS / 메인 대시보드와 Steam API")
 y = title(oasis["name"], 78, 34)
 y = text(oasis["subtitle"], M, y, 14, MUTED) + 18
+y = text(f'{oasis["teamSize"]}명 / {oasis["period"]} / {oasis["scheduleStatus"]}', M, y, 9.5, ACCENT) + 10
 y = section("팀 프로젝트 / 본인 담당", oasis["role"], y)
 y = section("기술", " · ".join(oasis["stack"]), y, 9.5)
 y = case(oasis["cases"][0], y)
@@ -243,4 +263,4 @@ with zipfile.ZipFile(web_output / "kim-myeonghyeon-portfolio-web.zip", "w", zipf
         if path.is_file():
             archive.write(path, path.relative_to(SITE))
 print(f"PDF: {pdf_path}")
-print("8 pages / web content synchronized")
+print(f"{TOTAL_PAGES} pages / web content synchronized")
