@@ -14,4 +14,6 @@
 *.tsbuildinfo
 playwright-report/
 test-results/
+tmp/pdfs/
+**/__pycache__/
 .DS_Store
