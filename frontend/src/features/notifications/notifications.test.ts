@@ -7,6 +7,7 @@ import {
   notificationAccessLost,
   notificationPageParams,
   readNotificationPage,
+  readNotificationUnreadOnly,
   type NotificationPageData,
 } from "./notifications";
 
@@ -43,6 +44,39 @@ const page: NotificationPageData = {
 };
 
 describe("알림 센터 표시 계산", () => {
+  it("미확인 필터를 페이지 주소에 유지하고 명시적인 true만 허용한다", () => {
+    expect(notificationPageParams(3, true).toString()).toBe(
+      "unreadOnly=true&page=3",
+    );
+    expect(notificationPageParams(1, true).toString()).toBe("unreadOnly=true");
+    expect(
+      readNotificationUnreadOnly(new URLSearchParams("unreadOnly=true")),
+    ).toBe(true);
+    expect(
+      readNotificationUnreadOnly(new URLSearchParams("unreadOnly=false")),
+    ).toBe(false);
+    expect(
+      readNotificationUnreadOnly(new URLSearchParams("unreadOnly=anything")),
+    ).toBe(false);
+  });
+
+  it("미확인 화면에서 읽은 항목은 제외하고 전체 건수와 페이지 수를 줄인다", () => {
+    const first = markNotificationReadInPage(
+      { ...page, pageSize: 1, totalPages: 2 },
+      "one",
+      "now",
+      true,
+    )!;
+    expect(first.items.map((item) => item.id)).toEqual(["two"]);
+    expect(first.total).toBe(1);
+    expect(first.totalPages).toBe(1);
+    expect(first.unreadCount).toBe(1);
+    expect(markNotificationReadInPage(first, "one", "again", true)).toBe(first);
+    const all = markAllNotificationsRead(first, "all", true)!;
+    expect(all.items).toEqual([]);
+    expect(all.total).toBe(0);
+    expect(all.totalPages).toBe(0);
+  });
   it("잘못된 페이지는 1페이지로 보정하고 첫 페이지는 주소에서 생략한다", () => {
     expect(readNotificationPage(new URLSearchParams("page=-2"))).toBe(1);
     expect(readNotificationPage(new URLSearchParams("page=3"))).toBe(3);

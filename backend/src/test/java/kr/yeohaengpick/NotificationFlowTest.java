@@ -208,6 +208,74 @@ class NotificationFlowTest extends HttpFlowDatabase {
   }
 
   @Test
+  void unreadFilterAppliesBeforePaginationAndPreservesRecipientAccess()
+    throws Exception {
+    var owner = new Browser("여행장").signup();
+    var recipient = new Browser("미확인 동행").signup();
+    var outsider = new Browser("외부 회원").signup();
+    String trip = owner.trip().get("id").toString();
+    join(owner, recipient, trip);
+    createPoll(owner, trip, "첫 알림");
+    createPoll(owner, trip, "둘째 알림");
+    createPoll(owner, trip, "셋째 알림");
+    String readId = firstNotification(recipient).get("id").toString();
+    assertStatus(
+      recipient,
+      "PUT",
+      "/notifications/" + readId + "/read",
+      null,
+      true,
+      204
+    );
+
+    // 미확인 조건을 페이지 제한 전에 적용해야 읽은 항목 때문에 페이지가 비거나 건수가 틀리지 않습니다.
+    var filtered = recipient.call(
+      "GET",
+      "/notifications?unreadOnly=true&page=99&pageSize=1",
+      null
+    );
+    assertThat(filtered)
+      .containsEntry("total", 2)
+      .containsEntry("page", 2)
+      .containsEntry("totalPages", 2)
+      .containsEntry("unreadCount", 2);
+    assertThat(items(filtered))
+      .hasSize(1)
+      .allSatisfy(item -> {
+        assertThat(item.get("readAt")).isNull();
+        assertThat(item.get("id")).isNotEqualTo(readId);
+      });
+    assertThat(notifications(recipient, 1, 20)).containsEntry("total", 3);
+    assertThat(
+      recipient.call("GET", "/notifications?unreadOnly=false", null)
+    ).containsEntry("total", 3);
+    assertThat(
+      outsider.call("GET", "/notifications?unreadOnly=true", null)
+    ).containsEntry("total", 0);
+    assertStatus(
+      recipient,
+      "GET",
+      "/notifications?unreadOnly=invalid",
+      null,
+      false,
+      400
+    );
+
+    assertStatus(recipient, "PUT", "/notifications/read-all", null, true, 204);
+    var empty = recipient.call(
+      "GET",
+      "/notifications?unreadOnly=true&page=99",
+      null
+    );
+    assertThat(empty)
+      .containsEntry("total", 0)
+      .containsEntry("page", 1)
+      .containsEntry("totalPages", 0);
+    assertThat(items(empty)).isEmpty();
+    assertThat(notifications(recipient, 1, 20)).containsEntry("total", 3);
+  }
+
+  @Test
   void listingValidatesBoundsAndCorrectsAnEmptyRequestedPage()
     throws Exception {
     var owner = new Browser("여행장").signup();

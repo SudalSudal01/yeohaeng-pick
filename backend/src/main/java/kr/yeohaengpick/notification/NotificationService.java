@@ -27,11 +27,13 @@ public class NotificationService {
   /** 쿼리 문자열을 직접 바꿔도 서버가 처리할 수 있는 페이지 범위를 넘지 않게 합니다. */
   public record Query(
     @Min(1) @Max(1000000) Integer page,
-    @Min(1) @Max(30) Integer pageSize
+    @Min(1) @Max(30) Integer pageSize,
+    Boolean unreadOnly
   ) {
     public Query {
       page = page == null ? 1 : page;
       pageSize = pageSize == null ? 20 : pageSize;
+      unreadOnly = Boolean.TRUE.equals(unreadOnly);
     }
   }
 
@@ -60,7 +62,10 @@ public class NotificationService {
   /** 목록 건수와 페이지가 바뀌면 존재하는 마지막 페이지로 보정해 빈 화면에 갇히지 않게 합니다. */
   @Transactional(readOnly = true)
   public Page list(Query query, String member) {
-    long total = notifications.count(member);
+    // 필터를 건수와 실제 페이지에 똑같이 적용합니다. 전체 목록을 받은 뒤 화면에서 거르면
+    // 다음 페이지의 미확인 알림을 놓치므로 DB가 페이지를 나누기 전에 읽음 조건을 검사합니다.
+    int unreadOnly = query.unreadOnly() ? 1 : 0;
+    long total = notifications.count(member, unreadOnly);
     long totalPages = (total + query.pageSize() - 1) / query.pageSize();
     int page = (int) Math.min(query.page(), Math.max(1, totalPages));
     long offset = (long) (page - 1) * query.pageSize();
@@ -68,7 +73,7 @@ public class NotificationService {
       total == 0
         ? List.<Item>of()
         : notifications
-            .page(member, offset, query.pageSize())
+            .page(member, offset, query.pageSize(), unreadOnly)
             .stream()
             .map(this::item)
             .toList();

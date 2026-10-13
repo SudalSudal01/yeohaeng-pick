@@ -20,6 +20,23 @@
 .notification-results {
   outline: none;
 }
+/* 두 필터는 작은 화면에서도 같은 너비로 배치하고 글자를 줄이지 않습니다. */
+.notification-filters {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.notification-filters .button {
+  min-width: 0;
+  white-space: normal;
+}
+.notification-filters [aria-pressed="true"] {
+  border-color: var(--green);
+  color: var(--green);
+  background: var(--green-soft);
+  font-weight: 700;
+}
 .notification-results:focus-visible {
   outline: 3px solid #c2a566;
   outline-offset: 6px;

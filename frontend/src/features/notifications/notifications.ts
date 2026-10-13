@@ -33,9 +33,15 @@ export function readNotificationPage(params: URLSearchParams) {
   return /^[1-9]\d*$/.test(raw) ? Math.min(Number(raw), 1_000_000) : 1;
 }
 
-/** 1페이지는 주소에서 생략해 알림 센터 링크를 짧고 읽기 쉽게 유지합니다. */
-export function notificationPageParams(page: number) {
+/** 필터는 명시적인 true만 적용하고, 없는 값이나 다른 문자열은 전체 목록으로 해석합니다. */
+export function readNotificationUnreadOnly(params: URLSearchParams) {
+  return params.get("unreadOnly") === "true";
+}
+
+/** 필터를 유지한 채 페이지를 이동하며, 필터 변경 시에는 호출자가 1페이지를 전달합니다. */
+export function notificationPageParams(page: number, unreadOnly = false) {
   const params = new URLSearchParams();
+  if (unreadOnly) params.set("unreadOnly", "true");
   if (page > 1) params.set("page", String(page));
   return params;
 }
@@ -52,16 +58,22 @@ export function markNotificationReadInPage(
   data: NotificationPageData | undefined,
   id: string,
   readAt: string,
+  unreadOnly = false,
 ) {
   if (!data) return data;
   const target = data.items.find((item) => item.id === id);
   if (!target || target.readAt) return data;
   return {
     ...data,
+    // 미확인 화면에서는 읽은 항목을 즉시 빼고, 빈 마지막 페이지의 보정은 서버 조회에 맡깁니다.
+    total: unreadOnly ? data.total - 1 : data.total,
+    totalPages: unreadOnly
+      ? Math.ceil((data.total - 1) / data.pageSize)
+      : data.totalPages,
     unreadCount: Math.max(0, data.unreadCount - 1),
-    items: data.items.map((item) =>
-      item.id === id ? { ...item, readAt } : item,
-    ),
+    items: unreadOnly
+      ? data.items.filter((item) => item.id !== id)
+      : data.items.map((item) => (item.id === id ? { ...item, readAt } : item)),
   };
 }
 
@@ -69,8 +81,18 @@ export function markNotificationReadInPage(
 export function markAllNotificationsRead(
   data: NotificationPageData | undefined,
   readAt: string,
+  unreadOnly = false,
 ) {
   if (!data) return data;
+  if (unreadOnly)
+    return {
+      ...data,
+      items: [],
+      total: 0,
+      totalPages: 0,
+      page: 1,
+      unreadCount: 0,
+    };
   return {
     ...data,
     unreadCount: 0,

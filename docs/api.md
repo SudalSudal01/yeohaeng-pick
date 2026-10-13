@@ -96,7 +96,7 @@
 
 ## 앱 안 알림
 
-`GET /notifications?page=1&pageSize=20`은 `{items,total,page,pageSize,totalPages,unreadCount}`를 반환합니다. `pageSize`는 최대 30이며 전체 개수가 줄어 요청 페이지가 범위를 벗어나면 존재하는 마지막 페이지로 보정합니다. 항목은 아래처럼 화면 표시와 이동에 필요한 필드만 포함합니다.
+`GET /notifications?page=1&pageSize=20`은 `{items,total,page,pageSize,totalPages,unreadCount}`를 반환합니다. `pageSize`는 최대 30이며 전체 개수가 줄어 요청 페이지가 범위를 벗어나면 존재하는 마지막 페이지로 보정합니다. 선택적 `unreadOnly=true`는 미확인 알림만 서버에서 필터한 뒤 페이지를 나눕니다. 생략/false는 전체 목록이며 `total`·`totalPages`는 필터 결과, `unreadCount`는 현재 접근 가능한 전체 미확인 수입니다. 항목은 아래처럼 화면 표시와 이동에 필요한 필드만 포함합니다.
 
 ```json
 {

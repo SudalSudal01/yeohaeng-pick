@@ -31,9 +31,12 @@ public interface NotificationMapper {
   );
 
   @Select(
-    "SELECT COUNT(*) FROM member_notifications n JOIN trip_members tm ON tm.trip_id=n.trip_id AND tm.member_id=n.recipient_id WHERE n.recipient_id=#{member}"
+    "SELECT COUNT(*) FROM member_notifications n JOIN trip_members tm ON tm.trip_id=n.trip_id AND tm.member_id=n.recipient_id WHERE n.recipient_id=#{member} AND (#{unreadOnly}=0 OR n.read_at IS NULL)"
   )
-  long count(String member);
+  long count(
+    @Param("member") String member,
+    @Param("unreadOnly") int unreadOnly
+  );
 
   @Select(
     "SELECT COUNT(*) FROM member_notifications n JOIN trip_members tm ON tm.trip_id=n.trip_id AND tm.member_id=n.recipient_id WHERE n.recipient_id=#{member} AND n.read_at IS NULL"
@@ -45,12 +48,13 @@ public interface NotificationMapper {
    * 매퍼 결과가 실수로 그대로 반환돼도 내부 UUID나 이메일이 API에 포함되지 않습니다.
    */
   @Select(
-    "SELECT n.id,n.event_type,n.read_at,n.created_at,a.nickname AS actor_name,n.trip_id,t.title AS trip_title,n.poll_id,p.title AS poll_title FROM member_notifications n JOIN trip_members tm ON tm.trip_id=n.trip_id AND tm.member_id=n.recipient_id JOIN members a ON a.id=n.actor_id JOIN trips t ON t.id=n.trip_id JOIN trip_polls p ON p.id=n.poll_id WHERE n.recipient_id=#{member} ORDER BY n.created_at DESC,n.id DESC OFFSET #{offset} ROWS FETCH NEXT #{pageSize} ROWS ONLY"
+    "SELECT n.id,n.event_type,n.read_at,n.created_at,a.nickname AS actor_name,n.trip_id,t.title AS trip_title,n.poll_id,p.title AS poll_title FROM member_notifications n JOIN trip_members tm ON tm.trip_id=n.trip_id AND tm.member_id=n.recipient_id JOIN members a ON a.id=n.actor_id JOIN trips t ON t.id=n.trip_id JOIN trip_polls p ON p.id=n.poll_id WHERE n.recipient_id=#{member} AND (#{unreadOnly}=0 OR n.read_at IS NULL) ORDER BY n.created_at DESC,n.id DESC OFFSET #{offset} ROWS FETCH NEXT #{pageSize} ROWS ONLY"
   )
   List<Map<String, Object>> page(
     @Param("member") String member,
     @Param("offset") long offset,
-    @Param("pageSize") int pageSize
+    @Param("pageSize") int pageSize,
+    @Param("unreadOnly") int unreadOnly
   );
 
   /** 다른 회원의 알림 ID를 알아도 수신자와 현재 여행 참여 조건이 모두 맞아야 읽음 처리됩니다. */

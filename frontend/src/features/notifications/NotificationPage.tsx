@@ -12,6 +12,7 @@ import {
   notificationCopy,
   notificationPageParams,
   readNotificationPage,
+  readNotificationUnreadOnly,
   type NotificationPageData,
   type TravelNotification,
 } from "./notifications";
@@ -26,6 +27,7 @@ export default function NotificationPage() {
   const client = useQueryClient();
   const [params, setParams] = useSearchParams();
   const requestedPage = readNotificationPage(params);
+  const unreadOnly = readNotificationUnreadOnly(params);
   const listRef = useRef<HTMLElement>(null);
   const pageFocus = useRef(false);
   const readMutationBusy = useRef(false);
@@ -33,10 +35,10 @@ export default function NotificationPage() {
   const [markingAll, setMarkingAll] = useState(false);
   const [accessFailure, setAccessFailure] = useState<unknown>(null);
   const query = useQuery({
-    queryKey: ["notifications", requestedPage],
+    queryKey: ["notifications", requestedPage, unreadOnly],
     queryFn: () =>
       api<NotificationPageData>(
-        `/notifications?page=${requestedPage}&pageSize=${PAGE_SIZE}`,
+        `/notifications?page=${requestedPage}&pageSize=${PAGE_SIZE}&unreadOnly=${unreadOnly}`,
       ),
     refetchInterval: 30_000,
     refetchOnWindowFocus: true,
@@ -59,10 +61,24 @@ export default function NotificationPage() {
 
   // 삭제·권한 변경으로 마지막 페이지가 줄면 서버가 보정한 페이지를 주소에도 반영합니다.
   useEffect(() => {
-    if (!accessFailure && query.data && query.data.page !== requestedPage) {
-      setParams(notificationPageParams(query.data.page), { replace: true });
+    if (
+      !accessFailure &&
+      !reading &&
+      query.data &&
+      query.data.page !== requestedPage
+    ) {
+      setParams(notificationPageParams(query.data.page, unreadOnly), {
+        replace: true,
+      });
     }
-  }, [accessFailure, query.data, requestedPage, setParams]);
+  }, [
+    accessFailure,
+    reading,
+    query.data,
+    requestedPage,
+    unreadOnly,
+    setParams,
+  ]);
 
   // 페이지 버튼을 직접 누른 경우에만 결과 시작으로 이동합니다. 주기 갱신은 읽던 위치를 유지합니다.
   useEffect(() => {
@@ -105,14 +121,14 @@ export default function NotificationPage() {
   async function markRead(notification: TravelNotification) {
     if (notification.readAt) return true;
     if (!(await beginReadMutation())) return false;
-    const key = ["notifications", requestedPage] as const;
+    const key = ["notifications", requestedPage, unreadOnly] as const;
     const previousPage = client.getQueryData<NotificationPageData>(key);
     const previousCount = client.getQueryData<{ unreadCount: number }>([
       "notification-unread-count",
     ]) ?? { unreadCount: previousPage?.unreadCount ?? 0 };
     const readAt = new Date().toISOString();
     client.setQueryData<NotificationPageData>(key, (current) =>
-      markNotificationReadInPage(current, notification.id, readAt),
+      markNotificationReadInPage(current, notification.id, readAt, unreadOnly),
     );
     client.setQueryData<{ unreadCount: number }>(
       ["notification-unread-count"],
@@ -149,14 +165,14 @@ export default function NotificationPage() {
 
   async function markAllRead() {
     if (!(await beginReadMutation(true))) return;
-    const key = ["notifications", requestedPage] as const;
+    const key = ["notifications", requestedPage, unreadOnly] as const;
     const previousPage = client.getQueryData<NotificationPageData>(key);
     const previousCount = client.getQueryData<{ unreadCount: number }>([
       "notification-unread-count",
     ]) ?? { unreadCount: previousPage?.unreadCount ?? 0 };
     const readAt = new Date().toISOString();
     client.setQueryData<NotificationPageData>(key, (current) =>
-      markAllNotificationsRead(current, readAt),
+      markAllNotificationsRead(current, readAt, unreadOnly),
     );
     client.setQueryData(["notification-unread-count"], { unreadCount: 0 });
     let accessWasLost = false;
@@ -192,12 +208,34 @@ export default function NotificationPage() {
           <button
             className="button secondary"
             onClick={markAllRead}
-            disabled={markingAll}
+            disabled={reading}
           >
             <Check size={17} />
             {markingAll ? "읽음 처리 중…" : "모두 읽음"}
           </button>
         )}
+      </div>
+
+      {/* 실제 버튼의 누름 상태로 필터를 설명합니다. 읽음 저장 중에는 주소를 바꾸지 않아
+          실패 복원 대상과 현재 화면이 달라지는 일을 방지합니다. */}
+      <div
+        className="notification-filters"
+        role="group"
+        aria-label="알림 표시 범위"
+      >
+        {[false, true].map((onlyUnread) => (
+          <button
+            key={String(onlyUnread)}
+            className="button secondary"
+            aria-pressed={unreadOnly === onlyUnread}
+            disabled={reading}
+            onClick={() => {
+              setParams(notificationPageParams(1, onlyUnread));
+            }}
+          >
+            {onlyUnread ? "읽지 않음" : "전체 알림"}
+          </button>
+        ))}
       </div>
 
       <section
@@ -223,8 +261,16 @@ export default function NotificationPage() {
           <ErrorState error={query.error} retry={() => query.refetch()} />
         ) : !data?.items.length ? (
           <Empty
-            title="새로운 여행 알림이 없어요"
-            text="동행이 투표를 만들거나 마감하면 이곳에서 바로 알려 드릴게요."
+            title={
+              unreadOnly
+                ? "읽지 않은 알림이 없어요"
+                : "새로운 여행 알림이 없어요"
+            }
+            text={
+              unreadOnly
+                ? "모두 확인했어요. 읽은 알림은 ‘전체 알림’에서 다시 볼 수 있어요."
+                : "동행이 투표를 만들거나 마감하면 이곳에서 바로 알려 드릴게요."
+            }
           />
         ) : (
           <>
@@ -246,7 +292,8 @@ export default function NotificationPage() {
               aria-live="polite"
             >
               <strong>
-                전체 {data.total.toLocaleString()}개 · 읽지 않음{" "}
+                {unreadOnly ? "미확인 결과" : "전체"}{" "}
+                {data.total.toLocaleString()}개 · 읽지 않음{" "}
                 {data.unreadCount.toLocaleString()}개
               </strong>
               <span>
@@ -294,7 +341,13 @@ export default function NotificationPage() {
                       className="button secondary small-button notification-read-button"
                       aria-label={`${notification.pollTitle} 투표 알림 읽음 표시`}
                       disabled={reading}
-                      onClick={() => void markRead(notification)}
+                      onClick={async () => {
+                        if (await markRead(notification)) {
+                          // 미확인 항목을 지우면 누른 버튼도 없어지므로 결과 영역으로 포커스를 이어 줍니다.
+                          if (unreadOnly)
+                            listRef.current?.focus({ preventScroll: true });
+                        }
+                      }}
                     >
                       읽음 표시
                     </button>
@@ -309,10 +362,12 @@ export default function NotificationPage() {
               >
                 <button
                   className="button secondary"
-                  disabled={data.page <= 1}
+                  disabled={reading || data.page <= 1}
                   onClick={() => {
                     pageFocus.current = true;
-                    setParams(notificationPageParams(data.page - 1));
+                    setParams(
+                      notificationPageParams(data.page - 1, unreadOnly),
+                    );
                   }}
                 >
                   <ArrowLeft size={17} />
@@ -324,10 +379,12 @@ export default function NotificationPage() {
                 </span>
                 <button
                   className="button secondary"
-                  disabled={data.page >= data.totalPages}
+                  disabled={reading || data.page >= data.totalPages}
                   onClick={() => {
                     pageFocus.current = true;
-                    setParams(notificationPageParams(data.page + 1));
+                    setParams(
+                      notificationPageParams(data.page + 1, unreadOnly),
+                    );
                   }}
                 >
                   다음
