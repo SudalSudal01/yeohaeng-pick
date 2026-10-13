@@ -82,13 +82,26 @@ export default function HomePage() {
         <label className="quick-select">
           <MapPin size={19} />
           <span className="sr-only">여행 지역</span>
-          <select value={region} onChange={(e) => setRegion(e.target.value)}>
-            {["서울", "부산", "제주", "강릉"].map((c) => (
+          <select
+            value={region}
+            disabled={!config.data}
+            onChange={(e) => setRegion(e.target.value)}
+          >
+            {!config.data && (
+              <option value="서울">
+                {config.error ? "지역 확인 필요" : "지역 불러오는 중"}
+              </option>
+            )}
+            {config.data?.regions.map((c) => (
               <option key={c}>{c}</option>
             ))}
           </select>
         </label>
-        <button className="button primary" type="submit">
+        <button
+          className="button primary"
+          type="submit"
+          disabled={!config.data}
+        >
           여행 계획하기
           <ArrowRight size={18} />
         </button>

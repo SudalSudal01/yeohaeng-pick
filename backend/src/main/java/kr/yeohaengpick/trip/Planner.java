@@ -4,6 +4,7 @@ import java.time.*;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 import kr.yeohaengpick.catalog.Place;
+import kr.yeohaengpick.catalog.TravelRegions;
 import kr.yeohaengpick.common.DomainException;
 import org.springframework.stereotype.Component;
 
@@ -35,6 +36,8 @@ public class Planner {
   ) {}
 
   public void validate(TripRequest r) {
+    // 추천·저장·공개 일정 가져오기 모두 같은 지역 계약을 검사하며 외부 조회 전에 거절합니다.
+    r.regions().forEach(TravelRegions::require);
     long days = ChronoUnit.DAYS.between(r.startDate(), r.endDate()) + 1;
     if (
       days < 1 ||

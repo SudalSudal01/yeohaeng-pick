@@ -39,7 +39,9 @@ public class CatalogController {
       "socialLoginConfigured",
       false,
       "tourismConfigured",
-      tourism.configured()
+      tourism.configured(),
+      "regions",
+      TravelRegions.names(catalog.isSample())
     );
   }
 

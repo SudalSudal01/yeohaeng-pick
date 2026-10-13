@@ -24,7 +24,7 @@ public class TourismService {
 
   public TourismInfo.Search search(String region, String query, int page) {
     if (
-      !List.of("서울", "부산", "제주", "강릉").contains(region) ||
+      !TravelRegions.supports(region) ||
       query == null ||
       query.isBlank() ||
       query.length() > 80 ||
@@ -64,7 +64,7 @@ public class TourismService {
 
   /** 법정동 코드와 명칭은 공급자 목록에서 찾습니다. 폐지 예정인 areaCode/contentTypeId 검색 필터는 보내지 않습니다. */
   private Map<String, String> regionCodes(String region) {
-    String province = region.equals("강릉") ? "강원" : region;
+    var definition = TravelRegions.require(region);
     var provinces = client.get(
       "ldongCode2",
       Map.of("numOfRows", "100", "pageNo", "1", "lDongListYn", "N"),
@@ -73,7 +73,7 @@ public class TourismService {
     String code = provinces
       .items()
       .stream()
-      .filter(i -> i.path("name").asText().startsWith(province))
+      .filter(i -> definition.provinceNames().contains(i.path("name").asText()))
       .map(i -> i.path("code").asText())
       .filter(s -> s.matches("\\d{1,5}"))
       .findFirst()
@@ -83,7 +83,7 @@ public class TourismService {
           "관광공사의 지역 코드를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
         )
       );
-    if (!region.equals("강릉")) return Map.of("lDongRegnCd", code);
+    if (definition.city() == null) return Map.of("lDongRegnCd", code);
     var cities = client.get(
       "ldongCode2",
       Map.of(
@@ -101,14 +101,16 @@ public class TourismService {
     String city = cities
       .items()
       .stream()
-      .filter(i -> i.path("name").asText().equals("강릉시"))
+      .filter(i -> i.path("name").asText().equals(definition.city()))
       .map(i -> i.path("code").asText())
       .filter(s -> s.matches("\\d{1,5}"))
       .findFirst()
       .orElseThrow(() ->
         new DomainException(
           503,
-          "관광공사의 강릉 지역 코드를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+          "관광공사의 " +
+            region +
+            " 지역 코드를 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
         )
       );
     return Map.of("lDongRegnCd", code, "lDongSignguCd", city);

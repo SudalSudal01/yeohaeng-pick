@@ -15,6 +15,7 @@ import { Loading, ErrorState, Empty } from "../../shared/ui";
 import TourismInfoButton from "./TourismInfoButton";
 import FavoriteButton from "../favorites/FavoriteButton";
 import { useFavorites } from "../favorites/useFavorites";
+import RegionChoices from "./RegionChoices";
 
 /** URL에 검색 조건을 보존해 새로고침·뒤로 가기·공유 시 사용자가 보던 검색을 유지합니다. */
 export default function ExplorePage() {
@@ -72,21 +73,10 @@ export default function ExplorePage() {
         />
         <button className="button primary">검색</button>
       </form>
-      <div className="filter-row">
-        <span className="filter-label">
-          <MapPin size={17} />
-          지역
-        </span>
-        {["서울", "부산", "제주", "강릉"].map((c) => (
-          <button
-            key={c}
-            className={"chip " + (region === c ? "selected" : "")}
-            onClick={() => update("region", c)}
-          >
-            {c}
-          </button>
-        ))}
-      </div>
+      <RegionChoices
+        selected={[region]}
+        onSelect={(value) => update("region", value)}
+      />
       <div className="filter-row">
         <span className="filter-label">
           <SlidersHorizontal size={17} />

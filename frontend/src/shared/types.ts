@@ -9,6 +9,8 @@ export type Member = {
   dmScope: "ALL" | "COMPANIONS" | "OFF";
 };
 export type Config = {
+  /** 서버가 현재 검색 모드에서 제공하는 지역. 예시 모드는 검증된 기존 4곳만 제공합니다. */
+  regions: string[];
   mapKey: string;
   aiConfigured: boolean;
   sampleData: boolean;

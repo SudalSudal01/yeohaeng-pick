@@ -92,7 +92,13 @@ export default function FavoritesPage() {
                 value={region}
                 onChange={(e) => update("region", e.target.value)}
               >
-                {["전체", "서울", "부산", "제주", "강릉"].map((x) => (
+                {/* 개인 목록의 실제 지역을 사용해 지원 지역이 늘거나 예시 모드로 전환해도 보관한 찜을 찾습니다. */}
+                {[
+                  "전체",
+                  ...new Set(
+                    favorites.data.map((favorite) => favorite.place.region),
+                  ),
+                ].map((x) => (
                   <option key={x}>{x}</option>
                 ))}
               </select>

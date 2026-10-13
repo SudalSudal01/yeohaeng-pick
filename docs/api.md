@@ -128,7 +128,7 @@
 
 ## 관광공사 이용정보
 
-공개 GET 조회이며 `Config.tourismConfigured`는 서버 키 설정 유무다. 검색은 region(서울/부산/제주/강릉), query(공백 제외 1~80자, 제어문자 불가), page(1~50, 기본 1)를 받는다. 응답은 `{items,totalCount,page,pageSize:20,queriedAt}`이며 items에는 id/typeId/category/title/address/telephone/providerUpdatedAt이 있다. totalCount는 공급자의 전체 검색 수, items는 해당 페이지에서 지원 유형·지역 주소가 확인된 결과다.
+공개 GET 조회이며 `Config.tourismConfigured`는 서버 키 설정 유무다. 검색은 region([지원 15개 지역](regions.md)), query(공백 제외 1~80자, 제어문자 불가), page(1~50, 기본 1)를 받는다. `Config.regions`는 현재 장소 검색 모드의 선택 지역이며 예시 모드는 기존 4곳이다. 응답은 `{items,totalCount,page,pageSize:20,queriedAt}`이며 items에는 id/typeId/category/title/address/telephone/providerUpdatedAt이 있다. totalCount는 공급자의 전체 검색 수, items는 해당 페이지에서 지원 유형·지역 주소가 확인된 결과다.
 
 상세는 숫자 contentId 1~15자리만 받고 공통 응답에서 typeId를 얻어 소개/반복 응답의 ID·종류를 대조한다. 응답은 `{content,overview,homepageUrl,hours,restDays,fees,additional,queriedAt,source,sourceUrl}`이다. hours/restDays/fees/additional의 항목은 `{label,text,status:PROVIDED|NOT_PROVIDED}`이며 원문 텍스트다. 요금 숫자나 영업 가능 판정 필드는 없다. queriedAt은 묶음 내 가장 오래된 서버 조회 시각이며 공급자 수정 표기와 구분한다. 홈페이지는 http(s) 링크만 제공하고 외부 HTML을 반환하지 않는다.
 

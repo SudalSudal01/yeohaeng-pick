@@ -39,14 +39,6 @@ public final class KakaoPlaceClassifier {
 
   /** 지역 키워드 검색은 인접 도시도 반환할 수 있어 실제 주소로 지역을 다시 확인합니다. */
   public static boolean inRegion(String region, String address) {
-    return switch (region) {
-      case "서울" -> address.startsWith("서울 ") ||
-        address.startsWith("서울특별시 ");
-      case "부산" -> address.startsWith("부산 ") ||
-        address.startsWith("부산광역시 ");
-      case "제주" -> address.startsWith("제주");
-      case "강릉" -> address.contains(" 강릉시 ");
-      default -> false;
-    };
+    return TravelRegions.containsAddress(region, address);
   }
 }

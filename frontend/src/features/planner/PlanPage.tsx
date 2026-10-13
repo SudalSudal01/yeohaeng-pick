@@ -22,6 +22,7 @@ import type { Conditions, Course } from "../../shared/types";
 import { ErrorState } from "../../shared/ui";
 import LodgingPicker from "./LodgingPicker";
 import FavoritePicker from "../favorites/FavoritePicker";
+import RegionChoices from "../catalog/RegionChoices";
 
 /** 단계별 입력을 유지하고, 생성 중 중복 요청을 막습니다. AI 대체 실행은 engine 값으로 정확히 표시합니다. */
 export default function PlanPage() {
@@ -56,11 +57,23 @@ export default function PlanPage() {
     setForm((f) => ({ ...f, [key]: value }));
   // 지역을 제거하면 이전 지역의 숙소 선택도 지웁니다. 오래된 선택이 새 여행에 섞이지 않습니다.
   const toggle = (key: "regions" | "preferences", value: string) => {
+    if (
+      key === "regions" &&
+      !form.regions.includes(value) &&
+      form.regions.length >= 5
+    )
+      return toast("한 여행에는 최대 5개 지역을 선택할 수 있어요.", true);
     setForm((f) => ({
       ...f,
       [key]: f[key].includes(value)
         ? f[key].filter((v) => v !== value)
-        : [...f[key], value],
+        : [
+            ...f[key].filter(
+              (entry) =>
+                key !== "regions" || config.data?.regions.includes(entry),
+            ),
+            value,
+          ],
       ...(key === "regions"
         ? { lodgingIds: [], favoriteIds: [], favoriteLodgingIds: [] }
         : {}),
@@ -148,24 +161,24 @@ export default function PlanPage() {
                 />
               </label>
               <label>어디로 떠날까요?</label>
-              <div className="region-choices">
-                {["서울", "부산", "제주", "강릉"].map((c) => (
-                  <button
-                    key={c}
-                    className={
-                      "region-choice " +
-                      (form.regions.includes(c) ? "selected" : "")
-                    }
-                    onClick={() => toggle("regions", c)}
-                  >
-                    <MapPin size={20} />
-                    <strong>{c}</strong>
-                    {form.regions.includes(c) && (
-                      <span>{form.regions.indexOf(c) + 1}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              <p className="muted">
+                최대 5개 지역을 선택해요. 숫자는 방문 순서이며, 지역 수만큼 여행
+                일수가 필요해요.
+              </p>
+              <RegionChoices
+                selected={form.regions}
+                onSelect={(region) => toggle("regions", region)}
+                ordered
+              />
+              {config.data &&
+                form.regions.some(
+                  (region) => !config.data.regions.includes(region),
+                ) && (
+                  <p role="alert">
+                    주소에 포함된 지역을 현재 검색 모드에서 지원하지 않아요.
+                    위에서 여행 지역을 다시 골라 주세요.
+                  </p>
+                )}
               <div className="form-grid">
                 <label>
                   <span>
@@ -375,6 +388,10 @@ export default function PlanPage() {
                 busy ||
                 !form.title.trim() ||
                 !form.regions.length ||
+                !config.data ||
+                form.regions.some(
+                  (region) => !config.data.regions.includes(region),
+                ) ||
                 !form.origin.trim() ||
                 !form.startDate ||
                 !form.endDate

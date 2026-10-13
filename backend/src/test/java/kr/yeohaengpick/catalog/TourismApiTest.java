@@ -261,6 +261,126 @@ class TourismApiTest {
   }
 
   @Test
+  void expandedCitiesResolveProvinceAndCityIndependentlyAndRejectNearbyResults() {
+    for (String name : List.of(
+      "수원",
+      "경주",
+      "전주",
+      "여수",
+      "속초",
+      "춘천"
+    )) {
+      var definition = TravelRegions.require(name);
+      reply = uri -> {
+        if (uri.getPath().equals("/ldongCode2")) return params(uri).containsKey(
+          "lDongRegnCd"
+        )
+          ? data(List.of(Map.of("code", "123", "name", definition.city())), 1)
+          : data(
+              List.of(
+                Map.of(
+                  "code",
+                  "77",
+                  "name",
+                  definition.provinceNames().getLast()
+                )
+              ),
+              1
+            );
+        return data(
+          List.of(
+            Map.of(
+              "contentid",
+              "1",
+              "contenttypeid",
+              "12",
+              "title",
+              "지역 관광지",
+              "addr1",
+              definition.provinceNames().getLast() +
+                " " +
+                definition.city() +
+                " 검증로 1"
+            ),
+            Map.of(
+              "contentid",
+              "2",
+              "contenttypeid",
+              "12",
+              "title",
+              "다른 지역 관광지",
+              "addr1",
+              definition.provinceNames().getLast() + " 다른시 검증로 1"
+            )
+          ),
+          2
+        );
+      };
+      var result = new TourismService(client("test", 50)).search(
+        name,
+        "관광",
+        1
+      );
+      assertThat(result.items())
+        .as(name)
+        .extracting(TourismInfo.Content::id)
+        .containsExactly("1");
+      assertThat(params(seen.getLast()))
+        .containsEntry("lDongRegnCd", "77")
+        .containsEntry("lDongSignguCd", "123");
+    }
+  }
+
+  @Test
+  void metropolitanGwangjuCannotUseGyeonggiGwangjuOrInventMissingCodes() {
+    reply = uri ->
+      uri.getPath().equals("/ldongCode2")
+        ? data(List.of(Map.of("code", "29", "name", "광주광역시")), 1)
+        : data(
+            List.of(
+              Map.of(
+                "contentid",
+                "1",
+                "contenttypeid",
+                "12",
+                "title",
+                "광주 관광지",
+                "addr1",
+                "광주광역시 동구 검증로 1"
+              ),
+              Map.of(
+                "contentid",
+                "2",
+                "contenttypeid",
+                "12",
+                "title",
+                "경기도 관광지",
+                "addr1",
+                "경기도 광주시 검증로 1"
+              )
+            ),
+            2
+          );
+    var result = new TourismService(client("test", 50)).search(
+      "광주",
+      "관광",
+      1
+    );
+    assertThat(result.items())
+      .extracting(TourismInfo.Content::id)
+      .containsExactly("1");
+    assertThat(params(seen.getLast()))
+      .containsEntry("lDongRegnCd", "29")
+      .doesNotContainKey("lDongSignguCd");
+    reply = uri -> data(List.of(), 0);
+    assertThatThrownBy(() ->
+      new TourismService(client("test", 50)).search("경주", "관광", 1)
+    )
+      .isInstanceOf(DomainException.class)
+      .hasMessageContaining("지역 코드");
+  }
+
+  @Test
   void combinesProviderFieldsWithoutInferringFareAndDoesNotSendRemovedCommonFlags() {
     reply = uri ->
       switch (uri.getPath()) {

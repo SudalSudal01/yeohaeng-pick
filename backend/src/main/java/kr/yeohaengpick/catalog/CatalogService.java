@@ -45,7 +45,7 @@ public class CatalogService {
   /** 분류를 서버 검색에 반영합니다. 먼저 무관한 15곳을 받은 뒤 화면에서만 거르면 빈 목록이 됩니다. */
   public List<Place> search(String region, String query, String category) {
     if (
-      !List.of("서울", "부산", "제주", "강릉").contains(region) ||
+      !TravelRegions.supports(region) ||
       query.length() > 100 ||
       (!QUERIES.containsKey(category) && !category.equals("전체"))
     ) throw DomainException.bad("지원 지역과 검색 조건을 확인해 주세요.");
@@ -74,6 +74,8 @@ public class CatalogService {
   }
 
   public List<Place> candidates(List<String> regions) {
+    // 외부 키가 있을 때도 검색 분기 전에 검사하여 직접 조작한 추천 지역을 공급자에 보내지 않습니다.
+    regions.forEach(TravelRegions::require);
     List<Place> all = new ArrayList<>();
     for (String region : regions) {
       if (kakaoKey.isBlank()) all.addAll(search(region, ""));
@@ -139,11 +141,20 @@ public class CatalogService {
       ) return hit.places();
     }
     try {
+      String bounds = TravelRegions.searchBounds(region);
       String response = client
         .get()
         .uri(
-          "https://dapi.kakao.com/v2/local/search/keyword.json?query={q}&size=15",
-          region + " " + query
+          "https://dapi.kakao.com/v2/local/search/keyword.json?query={q}&size=15" +
+            (bounds == null ? "" : "&rect={rect}"),
+          Map.of(
+            "q",
+            bounds == null
+              ? TravelRegions.searchPrefix(region) + " " + query
+              : query,
+            "rect",
+            bounds == null ? "" : bounds
+          )
         )
         .header("Authorization", "KakaoAK " + kakaoKey)
         .retrieve()
