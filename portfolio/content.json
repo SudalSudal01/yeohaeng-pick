@@ -76,12 +76,33 @@
           "limit": "팀 서비스 전체 기능과 본인 담당 기능을 구분합니다. 운영 규모의 부하 검증과 실기기 점검은 별도 과제입니다."
         }
       ],
-      "verification": "저장소의 2026.10.07 팀 점검 기록: 백엔드 11개 Check / 408 assertions, 프론트 74개 테스트, 실제 서버 HTTP 32개 검사 통과. 이번 포트폴리오 작업에서 해당 팀 서버를 재실행한 결과는 아닙니다.",
+      "verification": "저장소의 2026.10.07 팀 점검 기록: 백엔드 11개 Check / 408 assertions, 프론트 74개 테스트, 실제 서버 HTTP 32개 검사 통과.",
       "learning": "AI 응답 품질은 모델 호출만으로 결정되지 않았습니다. 질문 조건·성분 연결·사용자 범위를 먼저 정리해야 근거를 가진 응답과 재현 가능한 오류 처리가 가능했습니다.",
       "teamSize": 5,
       "scheduleStatus": "",
       "summary": "복약 정보와 일상을 연결하는 서비스입니다.",
-      "previewRole": "AI 상담 · 커뮤니티 · 내 약 관리"
+      "previewRole": "AI 상담 · 커뮤니티 · 내 약 관리",
+      "media": [
+        {
+          "src": "./assets/jette-chat.jpg",
+          "title": "AI 상담",
+          "alt": "제때약 AI 상담 화면",
+          "caption": "질문과 답변·근거 경고를 함께 보여주는 원본 상담 화면이다. 개인 정보와 공개 정보의 조회 범위를 구분하는 담당 기능을 소개한다."
+        },
+        {
+          "src": "./assets/jette-medications.jpg",
+          "title": "내 약 관리",
+          "alt": "제때약 내 약 관리 화면",
+          "caption": "등록 출처와 현재 복용·보관 상태를 구분해 표시한다. 상태 변경 요청에서는 로그인 사용자의 소유 등록인지 서버가 확인한다."
+        },
+        {
+          "src": "./assets/jette-community.jpg",
+          "title": "커뮤니티",
+          "alt": "제때약 커뮤니티 화면",
+          "caption": "게시글 목록과 검색·작성 흐름을 보여준다. 작성자·관리자 권한과 삭제 후 연결 데이터의 처리를 담당했다."
+        }
+      ],
+      "mediaNote": "원본 React 화면을 로컬 실행해 촬영했다. 계정·약·게시글·AI 답변은 촬영용 가상 데이터이며, 서버 연동 검증이나 의료 정보가 아니다."
     },
     {
       "id": "travel-pick",
@@ -139,7 +160,28 @@
       "teamSize": 1,
       "scheduleStatus": "개발 중",
       "summary": "취향과 예약을 고려하는 국내 여행 플래너입니다.",
-      "previewRole": "일정 비교 · 공동 편집 · Oracle 전환"
+      "previewRole": "일정 비교 · 공동 편집 · Oracle 전환",
+      "media": [
+        {
+          "src": "./assets/travel-courses.jpg",
+          "title": "여행 코스 3안 비교",
+          "alt": "여행픽 여행 코스 3안 비교 화면",
+          "caption": "같은 여행 조건으로 제안한 세 코스를 비교한다. AI는 조회된 장소 ID 안에서 선택하고, 미확인 가격을 확정 정보로 표시하지 않는다."
+        },
+        {
+          "src": "./assets/travel-explore.png",
+          "title": "지역·취향으로 장소 탐색",
+          "alt": "여행픽 지역·취향으로 장소 탐색 화면",
+          "caption": "지역과 취향으로 후보를 좁히고 장소를 저장한다. 확인이 필요한 요금과 운영 정보는 별도로 안내한다."
+        },
+        {
+          "src": "./assets/travel-regions.png",
+          "title": "여행 조건 선택",
+          "alt": "여행픽 여행 조건 선택 화면",
+          "caption": "여러 지역과 여행 조건을 선택하는 입력 흐름이다. 사용자 기본 취향을 여행별로 변경할 수 있다."
+        }
+      ],
+      "mediaNote": "로컬 시연·QA 환경에서 촬영한 화면이다. 공개 운영 화면이나 실시간 예약·가격 보장 결과가 아니다."
     },
     {
       "id": "5asis",
@@ -182,7 +224,22 @@
       "teamSize": 4,
       "scheduleStatus": "",
       "summary": "게임 정보와 커뮤니티를 연결하는 서비스입니다.",
-      "previewRole": "메인 대시보드 · Steam API 연동"
+      "previewRole": "메인 대시보드 · Steam API 연동",
+      "media": [
+        {
+          "src": "./assets/oasis-dashboard.jpg",
+          "title": "메인 대시보드",
+          "alt": "5ASIS 메인 대시보드 화면",
+          "caption": "내부 인기 게임과 외부 Steam 할인 목록을 한 화면에 연결하는 담당 화면의 구조를 보여준다."
+        },
+        {
+          "src": "./assets/oasis-steam.jpg",
+          "title": "Steam 게임 카드",
+          "alt": "5ASIS Steam 게임 카드 화면",
+          "caption": "Steam 응답을 내부 모델로 변환해 이름·이미지·할인 정보를 표시한다. 이 캡처의 목록과 가격은 가상 데이터이며 실제 판매 정보가 아니다."
+        }
+      ],
+      "mediaNote": "원본 JSP·CSS로 재현한 로컬 화면이다. 목록과 가격은 촬영용 가상 데이터이며, 실제 서버·Steam API 연동을 재실행한 결과가 아니다."
     }
   ],
   "notes": [

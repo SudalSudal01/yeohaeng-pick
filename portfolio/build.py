@@ -37,7 +37,7 @@ c.setTitle("김명현 | 백엔드 개발자 포트폴리오")
 c.setAuthor("김명현")
 c.setSubject("제때약 · 여행픽 · 5ASIS의 담당 기능과 설계·검증")
 page_number = 0
-TOTAL_PAGES = 10
+TOTAL_PAGES = 13
 
 
 def text(value, x, y, size=10.5, color=INK, bold=False, width=None, leading=None):
@@ -226,6 +226,25 @@ y = section("팀 프로젝트 / 본인 담당", oasis["role"], y)
 y = section("기술", " · ".join(oasis["stack"]), y, 9.5)
 y = case(oasis["cases"][0], y)
 section("확인 범위", oasis["verification"], y, 9.5)
+
+# 화면 자료는 설명과 분리한 전용 페이지에 배치한다. 가상 데이터·재현 여부를 이미지보다 먼저 명시한다.
+for project in projects:
+    page(project["name"] + " / 핵심 기능 화면")
+    y = title(project["name"] + " 화면으로 보기", size=27)
+    y = text(project["mediaNote"], M, y, 9, MUTED) + 18
+    for media in project["media"][:2]:
+        image = ImageReader(str(SITE / media["src"].removeprefix("./")))
+        iw, ih = image.getSize()
+        # 원본 비율을 유지하며 페이지 폭·높이 안에 담아 화면 일부가 잘리지 않게 한다.
+        scale = min(CW / iw, 188 / ih)
+        width, height = iw * scale, ih * scale
+        c.setFillColor(HexColor("#e8ece8"))
+        c.roundRect(M, H-y-188, CW, 188, 8, fill=1, stroke=0)
+        c.drawImage(image, M+(CW-width)/2, H-y-(188+height)/2, width, height)
+        y += 198
+        y = text(media["title"], M, y, 12, INK, True) + 5
+        y = text(media["caption"], M, y, 9, MUTED) + 20
+    linked_text("전체 화면 갤러리 보기 ↗", "https://sudalsudal01.github.io/backend-portfolio/#projects", M, y, 10, ACCENT)
 
 # 8. 연락처와 근거 출처를 남기고 확인하지 않은 경력·학력·성과 수치를 채우지 않습니다.
 page("DEVELOPMENT APPROACH / CONTACT")

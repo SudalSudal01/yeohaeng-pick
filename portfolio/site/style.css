@@ -813,3 +813,106 @@ footer {
     scroll-behavior: auto;
   }
 }
+
+/* 갤러리는 모달 내부에서만 확장한다. 모바일에서는 글자를 줄이지 않고 선택 카드를 세로로 놓는다. */
+.media-gallery {
+  margin: 28px 0 36px;
+}
+.media-gallery h3 {
+  font-size: 21px;
+  margin: 0 0 16px;
+}
+.media-notice,
+.media-caption {
+  font-size: 15px;
+  line-height: 1.8;
+}
+.media-notice {
+  color: var(--muted, #57666d);
+  margin-bottom: 24px;
+}
+.media-stage {
+  margin: 0;
+  border: 1px solid #d9ded9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+}
+.media-stage img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 540px;
+  object-fit: contain;
+  background: #eef1ef;
+}
+.media-stage figcaption {
+  padding: 20px;
+}
+.media-title {
+  font-size: 17px;
+}
+.media-caption {
+  margin: 12px 0 0;
+}
+.media-choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.media-choice {
+  min-height: 44px;
+  border: 2px solid #d9ded9;
+  border-radius: 12px;
+  background: #fff;
+  padding: 10px;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.media-choice[aria-pressed="true"] {
+  border-color: #2459bd;
+  background: #eef3ff;
+}
+.media-choice img {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 6px;
+}
+.media-choice span {
+  display: block;
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.media-hint {
+  font-size: 13px;
+  color: #57666d;
+  margin-top: 20px;
+}
+@media (max-width: 600px) {
+  .media-choices {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .media-choice {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .media-choice img {
+    width: 78px;
+    height: 55px;
+    flex-shrink: 0;
+  }
+  .media-choice span {
+    margin: 0;
+  }
+  .media-stage figcaption {
+    padding: 16px;
+  }
+}

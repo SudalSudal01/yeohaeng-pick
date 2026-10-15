@@ -28,6 +28,10 @@ const closeButton = document.querySelector("#close-detail");
 
 /* 실제 서비스 캡처와 구조 설명을 명확히 구분합니다. 임의의 시연 화면을 생성하지 않습니다. */
 function preview(project) {
+  if (project.media?.length) {
+    const first = project.media[0];
+    return `<section class="media-gallery" aria-label="${e(project.name)} 화면 갤러리"><h3>핵심 기능 화면</h3><p class="media-notice">${e(project.mediaNote)}</p><figure class="media-stage"><a class="media-original" href="${e(first.src)}" target="_blank" rel="noopener noreferrer" aria-label="${e(first.title)} 원본 이미지 새 창으로 열기"><img src="${e(first.src)}" alt="${e(first.alt)}" width="1440" height="1000"></a><figcaption><strong class="media-title">${e(first.title)}</strong><p class="media-caption">${e(first.caption)}</p></figcaption></figure><div class="media-choices" aria-label="화면 선택">${project.media.map((m, i) => `<button type="button" class="media-choice" data-media-project="${e(project.id)}" data-media-index="${i}" aria-pressed="${i === 0}"><img src="${e(m.src)}" alt="" width="160" height="110" loading="lazy"><span>${e(m.title)}</span></button>`).join("")}</div><p class="media-hint">큰 이미지를 누르면 원본 크기로 확인할 수 있습니다.</p></section>`;
+  }
   if (project.id === "travel-pick")
     return `<figure class="project-preview"><img src="./assets/travel-courses.jpg" alt="여행픽 세 코스 비교의 로컬 시연 화면" width="1265" height="1449"><figcaption>코스 비교 · 로컬 시연 화면</figcaption></figure>`;
   return `<figure class="project-preview"><div class="architecture-steps">${project.flow.map((step, i) => `<div><span>0${i + 1}</span><strong>${e(step)}</strong></div>`).join("")}</div><figcaption>담당 백엔드 처리 흐름 · 구조 설명</figcaption></figure>`;
@@ -95,12 +99,39 @@ dialog.addEventListener("close", () => {
 });
 /* 모달 안의 관련 프로젝트를 누르면 창을 중첩하지 않고 내용을 교체합니다. 복귀 대상은 배경의 원래 카드로 유지합니다. */
 dialogBody.addEventListener("click", (event) => {
+  // 같은 상세창 안에서 이미지만 교체한다. 버튼 초점을 유지해 키보드로 다음 화면을 고를 수 있다.
+  const mediaButton = event.target.closest("[data-media-index]");
+  if (mediaButton) {
+    const project = content.projects.find(
+      (p) => p.id === mediaButton.dataset.mediaProject,
+    );
+    const media = project?.media?.[Number(mediaButton.dataset.mediaIndex)];
+    if (!media) return;
+    const gallery = mediaButton.closest(".media-gallery");
+    const image = gallery.querySelector(".media-stage img");
+    image.src = media.src;
+    image.alt = media.alt;
+    const link = gallery.querySelector(".media-original");
+    link.href = media.src;
+    link.setAttribute(
+      "aria-label",
+      `${media.title} 원본 이미지 새 창으로 열기`,
+    );
+    gallery.querySelector(".media-title").textContent = media.title;
+    gallery.querySelector(".media-caption").textContent = media.caption;
+    gallery
+      .querySelectorAll(".media-choice")
+      .forEach((button) =>
+        button.setAttribute("aria-pressed", String(button === mediaButton)),
+      );
+    return;
+  }
   const button = event.target.closest("[data-open]");
   if (button) openDetail(button.dataset.open, button.dataset.id, returnFocus);
 });
 
 async function renderPortfolio() {
-  const response = await fetch("./data.json?v=20261013-modal");
+  const response = await fetch("./data.json?v=20261015-media");
   if (!response.ok) throw new Error("content unavailable");
   content = await response.json();
   const { profile, projects, about, skills, education } = content;
