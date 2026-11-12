@@ -1,6 +1,12 @@
 /** 같은 출처 세션을 사용하며 변경 요청에는 서버가 발급한 CSRF 토큰을 추가합니다.
  * 비밀 키와 인증 토큰을 localStorage에 남기지 않습니다. 409는 화면의 비교 상태를 버리고 재조회해야 합니다. */
 let csrf: string | undefined;
+export const SESSION_EXPIRED_EVENT = "yeohaeng:session-expired";
+/** 로그인 시도나 익명 상태 확인의 401은 정상 흐름입니다. 보호 API의 인증 종료만 공통 경계에 알립니다. */
+export function announceSessionExpired() {
+  if (typeof window !== "undefined")
+    window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+}
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -45,6 +51,15 @@ export async function api<T>(
     );
   }
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      !["/auth/login", "/auth/register", "/auth/me"].includes(
+        path.split("?")[0],
+      )
+    ) {
+      csrf = undefined;
+      announceSessionExpired();
+    }
     const error = await response
       .json()
       .catch(() => ({ message: "요청을 처리하지 못했어요." }));

@@ -19,7 +19,8 @@ public class MessageController {
 
   public record Request(String email, String recipientId, String body) {}
 
-  public record Text(String body) {}
+  /** requestId는 클라이언트가 첫 전송 때 한 번 만든 UUID입니다. 같은 요청의 재시도에만 재사용합니다. */
+  public record Text(String body, String requestId) {}
 
   public record Response(boolean accept) {}
 
@@ -28,6 +29,19 @@ public class MessageController {
   @GetMapping
   Object list(Authentication a) {
     return messages.list(auth.id(a));
+  }
+
+  @GetMapping("/recipients")
+  Object recipients(
+    @RequestParam(defaultValue = "") String query,
+    Authentication a
+  ) {
+    return messages.recipients(query, auth.id(a));
+  }
+
+  @GetMapping("/recipients/{member}")
+  Object recipient(@PathVariable String member, Authentication a) {
+    return messages.recipient(member, auth.id(a));
   }
 
   @PostMapping
@@ -50,13 +64,17 @@ public class MessageController {
   }
 
   @GetMapping("/{id}")
-  Object detail(@PathVariable String id, Authentication a) {
-    return messages.detail(id, auth.id(a));
+  Object detail(
+    @PathVariable String id,
+    @RequestParam(required = false) String before,
+    Authentication a
+  ) {
+    return messages.detail(id, before, auth.id(a));
   }
 
   @PostMapping("/{id}")
   Object send(@PathVariable String id, @RequestBody Text t, Authentication a) {
-    return messages.send(id, t.body, auth.id(a));
+    return messages.send(id, t.body, t.requestId, auth.id(a));
   }
 
   @PostMapping("/{id}/respond")

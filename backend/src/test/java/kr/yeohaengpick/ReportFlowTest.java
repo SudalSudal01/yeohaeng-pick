@@ -146,7 +146,12 @@ class ReportFlowTest extends HttpFlowDatabase {
     var room = sender.call(
       "POST",
       "/messages",
-      Map.of("email", receiver.email, "body", "신고한 메시지")
+      Map.of(
+        "recipientId",
+        receiver.call("GET", "/auth/me", null).get("id"),
+        "body",
+        "신고한 메시지"
+      )
     );
     String roomId = room.get("id").toString();
     var messages = json.mapper().valueToTree(room).path("messages");

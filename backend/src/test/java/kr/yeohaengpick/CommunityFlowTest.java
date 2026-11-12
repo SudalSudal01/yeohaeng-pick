@@ -221,7 +221,12 @@ class CommunityFlowTest extends HttpFlowDatabase {
     var dm = reader.call(
       "POST",
       "/messages",
-      Map.of("email", owner.email, "body", "글에서 시작한 개인 대화")
+      Map.of(
+        "recipientId",
+        owner.call("GET", "/auth/me", null).get("id"),
+        "body",
+        "글에서 시작한 개인 대화"
+      )
     );
     String room = dm.get("id").toString();
     owner.call(

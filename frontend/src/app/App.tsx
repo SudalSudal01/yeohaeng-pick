@@ -26,7 +26,11 @@ import {
   X,
   LogOut,
 } from "lucide-react";
-import { useAuth, useToast } from "../shared/providers";
+import {
+  useAuth,
+  useSessionExpiryBoundary,
+  useToast,
+} from "../shared/providers";
 import { RequireAuth, Empty, ErrorState, Loading } from "../shared/ui";
 import HomePage from "../features/home/HomePage";
 import AuthPage from "../features/auth/AuthPage";
@@ -93,6 +97,7 @@ function AsyncRoute({
 
 /** 공통 내비게이션. 현재 위치를 강조하고 모바일에서는 엄지로 접근하기 쉬운 하단 메뉴를 제공합니다. */
 export default function App() {
+  useSessionExpiryBoundary();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

@@ -322,6 +322,15 @@ export type Room = {
   recipientName: string;
   status: "PENDING" | "ACTIVE" | "DECLINED" | "CLOSED";
   tripId?: string;
+  tripTitle?: string;
+  /** 서버가 현재 차단·참여 관계를 확인한 전송 가능 상태입니다. 화면 판단만으로 권한을 부여하지 않습니다. */
+  canSend?: boolean;
+  blocked?: boolean;
+  /** 상세 조회는 최신 묶음부터 시간순으로 반환하며, 이전 페이지는 같은 방의 커서로 조회합니다. */
+  hasOlder?: boolean;
+  olderCursor?: string | null;
+  /** 새 방에서 첫 인사를 저장한 요청인지, 이미 존재하던 방을 연 결과인지 구분합니다. */
+  requestCreated?: boolean;
   messages?: {
     id: string;
     senderId: string;

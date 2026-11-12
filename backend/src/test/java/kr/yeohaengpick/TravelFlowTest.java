@@ -3147,7 +3147,12 @@ class TravelFlowTest extends HttpFlowDatabase {
     var dm = companion.call(
       "POST",
       "/messages",
-      Map.of("email", owner.email, "body", "개인 대화 요청")
+      Map.of(
+        "recipientId",
+        owner.call("GET", "/auth/me", null).get("id"),
+        "body",
+        "개인 대화 요청"
+      )
     );
     String room = dm.get("id").toString();
     owner.call(
@@ -3178,7 +3183,12 @@ class TravelFlowTest extends HttpFlowDatabase {
         .request(
           "POST",
           "/messages",
-          Map.of("email", another.email, "body", "새 대화 요청"),
+          Map.of(
+            "recipientId",
+            another.call("GET", "/auth/me", null).get("id"),
+            "body",
+            "새 대화 요청"
+          ),
           true
         )
         .statusCode()
@@ -3189,7 +3199,12 @@ class TravelFlowTest extends HttpFlowDatabase {
         .request(
           "POST",
           "/messages",
-          Map.of("email", another.email, "body", "다시 동행으로 대화 요청"),
+          Map.of(
+            "recipientId",
+            another.call("GET", "/auth/me", null).get("id"),
+            "body",
+            "다시 동행으로 대화 요청"
+          ),
           true
         )
         .statusCode()
@@ -4077,7 +4092,12 @@ class TravelFlowTest extends HttpFlowDatabase {
     var room = sender.call(
       "POST",
       "/messages",
-      Map.of("email", receiver.email, "body", "여행 관련 대화 요청")
+      Map.of(
+        "recipientId",
+        receiver.call("GET", "/auth/me", null).get("id"),
+        "body",
+        "여행 관련 대화 요청"
+      )
     );
     String id = (String) room.get("id");
     assertThat(

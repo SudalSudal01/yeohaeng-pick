@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Eye, EyeOff, MapPin, Loader2 } from "lucide-react";
 import { api } from "../../shared/api";
 import { useAuth, useToast } from "../../shared/providers";
+import { returnPath } from "./returnPath";
 
 /** 로그인 뒤에는 원래 가려던 내부 화면으로 돌아갑니다. 외부 URL로 이동하는 open redirect를 차단합니다. */
 export default function AuthPage({ register = false }: { register?: boolean }) {
@@ -16,9 +17,7 @@ export default function AuthPage({ register = false }: { register?: boolean }) {
   const toast = useToast();
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = params.get("next");
-  const target =
-    next?.startsWith("/") && !next.startsWith("//") ? next : "/trips";
+  const target = returnPath(params.get("next"), window.location.origin);
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
