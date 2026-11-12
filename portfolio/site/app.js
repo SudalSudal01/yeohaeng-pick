@@ -271,6 +271,13 @@ async function renderPortfolio() {
   window.addEventListener("resize", scheduleNavigation);
   window.addEventListener("hashchange", scheduleNavigation);
   dialog.addEventListener("close", scheduleNavigation);
+  // JSON을 받은 뒤 섹션이 생기므로 새 창의 #projects 같은 주소는 브라우저가
+  // 최초 문서를 읽을 때 찾을 수 없습니다. 실제 렌더링 뒤 알려진 섹션으로 이동합니다.
+  const initialSection = sections.find(
+    (section) => `#${section.id}` === location.hash,
+  );
+  if (initialSection)
+    initialSection.scrollIntoView({ behavior: "instant", block: "start" });
   scheduleNavigation();
 }
 const menuToggle = document.querySelector("#menu-toggle"),
