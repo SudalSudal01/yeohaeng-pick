@@ -948,6 +948,27 @@ footer {
 .media-original {
   display: block;
 }
+.media-frame {
+  position: relative;
+  min-height: 260px;
+}
+.media-loading,
+.media-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  margin: 0;
+  padding: 24px;
+  background: #edf0f4;
+  color: var(--muted);
+  font-size: 15px;
+  text-align: center;
+  line-height: 1.8;
+}
 .media-stage figcaption {
   padding: 22px 24px;
   background: #fff;

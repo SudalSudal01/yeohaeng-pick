@@ -47,7 +47,24 @@ const closeButton = document.querySelector("#close-detail");
 function preview(project) {
   if (!project.media?.length) return "";
   const first = project.media[0];
-  return `<section id="detail-screens" class="media-gallery" aria-label="${e(project.name)} 화면 갤러리"><div class="detail-section-head"><span class="eyebrow">SCREENS</span><h3>구현한 화면</h3></div><div class="media-choices" aria-label="화면 선택">${project.media.map((media, index) => `<button type="button" class="media-choice" data-media-project="${e(project.id)}" data-media-index="${index}" aria-pressed="${index === 0}"><span class="media-index">0${index + 1}</span><span>${e(media.title)}</span></button>`).join("")}</div><figure class="media-stage"><a class="media-original" href="${e(first.src)}" target="_blank" rel="noopener noreferrer" aria-label="${e(first.title)} 원본 이미지 새 창으로 열기"><img src="${e(first.src)}" alt="${e(first.alt)}" width="1440" height="1000"></a><figcaption aria-live="polite" aria-atomic="true"><strong class="media-title">${e(first.title)}</strong><p class="media-caption">${e(first.caption)}</p></figcaption></figure><p class="media-notice">${e(project.mediaNote)}</p><p class="media-hint">큰 이미지를 누르면 원본 크기로 확인할 수 있습니다.</p></section>`;
+  return `<section id="detail-screens" class="media-gallery" aria-label="${e(project.name)} 화면 갤러리"><div class="detail-section-head"><span class="eyebrow">SCREENS</span><h3>구현한 화면</h3></div><div class="media-choices" aria-label="화면 선택">${project.media.map((media, index) => `<button type="button" class="media-choice" data-media-project="${e(project.id)}" data-media-index="${index}" aria-pressed="${index === 0}"><span class="media-index">0${index + 1}</span><span>${e(media.title)}</span></button>`).join("")}</div><figure class="media-stage" aria-busy="true"><div class="media-frame"><a class="media-original" href="${e(first.src)}" target="_blank" rel="noopener noreferrer" aria-label="${e(first.title)} 원본 이미지 새 창으로 열기"><img src="${e(first.src)}" alt="${e(first.alt)}" width="1440" height="1000"></a><p class="media-loading" role="status">화면 이미지를 불러오는 중입니다.</p><div class="media-error" role="alert" hidden><p>화면 이미지를 불러오지 못했습니다. 연결 상태를 확인한 뒤 다시 시도해 주세요.</p><button class="button" type="button" data-retry-media>이미지 다시 불러오기</button></div></div><figcaption aria-live="polite" aria-atomic="true"><strong class="media-title">${e(first.title)}</strong><p class="media-caption">${e(first.caption)}</p></figcaption></figure><p class="media-notice">${e(project.mediaNote)}</p><p class="media-hint">큰 이미지를 누르면 원본 크기로 확인할 수 있습니다.</p></section>`;
+}
+// 화면 이미지도 네트워크 오류가 날 수 있으므로 로딩·실패·재시도를 같은 갤러리에서 처리합니다.
+function setGalleryState(gallery, state) {
+  gallery
+    .querySelector(".media-stage")
+    .setAttribute("aria-busy", String(state === "loading"));
+  gallery.querySelector(".media-loading").hidden = state !== "loading";
+  gallery.querySelector(".media-error").hidden = state !== "error";
+  gallery.querySelector(".media-original").hidden = state === "error";
+}
+function connectGallery(gallery) {
+  const image = gallery.querySelector(".media-stage img");
+  image.addEventListener("load", () => setGalleryState(gallery, "ready"));
+  image.addEventListener("error", () => setGalleryState(gallery, "error"));
+  // 브라우저 캐시에서 이미 완료된 이미지도 이벤트를 기다리지 않고 상태를 맞춥니다.
+  if (image.complete)
+    setGalleryState(gallery, image.naturalWidth ? "ready" : "error");
 }
 function projectDetail(project) {
   return `<section class="detail-intro"><p class="detail-meta">${e(projectMeta(project))}</p><p class="detail-subtitle">${e(project.subtitle)}</p>${prose(project.overview)}<div class="detail-role"><span>제가 맡은 일</span><strong>${e(project.role)}</strong></div><div class="tags detail-tags">${tags(project.stack)}</div><div class="modal-actions"><a class="button primary" href="${e(project.repo)}" target="_blank" rel="noopener noreferrer">코드 보기 ↗</a>${project.upstream ? `<a class="button" href="${e(project.upstream)}" target="_blank" rel="noopener noreferrer">팀 저장소 보기 ↗</a>` : ""}</div></section><nav class="detail-jump" aria-label="프로젝트 상세 바로가기"><button type="button" data-detail-target="detail-screens">구현 화면</button><button type="button" data-detail-target="detail-implementation">구현 과정</button><button type="button" data-detail-target="detail-learning">배운 점</button></nav><section class="highlights" aria-label="구현한 기능">${(project.highlights || []).map((highlight, index) => `<article class="highlight-card"><span class="step-label">0${index + 1}</span><h3>${e(highlight.title)}</h3><p>${e(highlight.text)}</p></article>`).join("")}</section>${preview(project)}<section id="detail-implementation" class="implementation"><div class="detail-section-head"><span class="eyebrow">BUILD LOG</span><h3>이렇게 구현하였습니다</h3></div><div class="case-list">${project.cases.map((item, index) => `<article class="case-section"><div class="case-title"><span>0${index + 1}</span><h4 class="case-heading">${e(item.title)}</h4></div><div class="case-problem"><h5 class="field-label">고민한 점</h5>${prose(item.problem)}</div><div class="case-action"><h5 class="field-label">제가 구현한 방법</h5>${prose(item.action)}</div><details class="case-evidence"><summary>관련 코드와 추가 과제</summary><div class="evidence-inner"><div class="code-reference"><h5 class="field-label">관련 코드</h5><p>${e(item.evidence)}</p></div><div><h5 class="field-label">추가로 확인할 부분</h5>${prose(item.limit)}</div></div></details></article>`).join("")}</div></section><section id="detail-learning" class="learning-section"><div class="detail-section-head"><span class="eyebrow">LEARNED</span><h3>직접 만들며 배운 점</h3></div>${prose(project.learning)}</section><details class="verification"><summary>테스트와 확인 기록</summary><div class="verification-content">${prose(project.verification)}</div></details>`;
@@ -83,6 +100,8 @@ function openDetail(kind, id, trigger) {
   if (!dialog.open) dialog.showModal();
   dialogBody.scrollTop = 0;
   closeButton.focus();
+  const gallery = dialogBody.querySelector(".media-gallery");
+  if (gallery) connectGallery(gallery);
 }
 closeButton.addEventListener("click", () => dialog.close());
 /* summary도 키보드 이동 대상에 포함합니다. 접힌 details의 내부 컨트롤은 제외하고
@@ -131,6 +150,20 @@ dialog.addEventListener("close", () => {
   if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
 });
 dialogBody.addEventListener("click", (event) => {
+  const retry = event.target.closest("[data-retry-media]");
+  if (retry) {
+    const gallery = retry.closest(".media-gallery");
+    const image = gallery.querySelector(".media-stage img");
+    gallery
+      .querySelector('.media-choice[aria-pressed="true"]')
+      .focus({ preventScroll: true });
+    setGalleryState(gallery, "loading");
+    // 일시적인 실패 응답을 재사용하지 않도록 재시도 요청에만 캐시 구분값을 붙입니다.
+    const url = new URL(gallery.querySelector(".media-original").href);
+    url.searchParams.set("retry", Date.now());
+    image.src = url.href;
+    return;
+  }
   const jump = event.target.closest("[data-detail-target]");
   if (jump) {
     const section = dialogBody.querySelector(`#${jump.dataset.detailTarget}`);
@@ -158,7 +191,10 @@ dialogBody.addEventListener("click", (event) => {
     const gallery = mediaButton.closest(".media-gallery"),
       image = gallery.querySelector(".media-stage img"),
       link = gallery.querySelector(".media-original");
+    setGalleryState(gallery, "loading");
     image.src = media.src;
+    if (image.complete)
+      setGalleryState(gallery, image.naturalWidth ? "ready" : "error");
     image.alt = media.alt;
     link.href = media.src;
     link.setAttribute(
@@ -198,21 +234,44 @@ async function renderPortfolio() {
     if (button) openDetail(button.dataset.open, button.dataset.id, button);
   });
   const links = [...document.querySelectorAll("#primary-nav a")];
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries)
-        if (entry.isIntersecting) {
-          links.forEach((link) => link.removeAttribute("aria-current"));
-          document
-            .querySelector(`#primary-nav a[href="#${entry.target.id}"]`)
-            ?.setAttribute("aria-current", "location");
-        }
-    },
-    { rootMargin: "-15% 0px -55% 0px", threshold: 0 },
-  );
-  document
-    .querySelectorAll("#about,#skills,#projects,#contact")
-    .forEach((section) => observer.observe(section));
+  const sections = [
+    ...document.querySelectorAll("#about,#skills,#projects,#contact"),
+  ];
+  let navigationFrame;
+  // 마지막 영역은 페이지가 짧으면 관찰 화면의 중앙까지 올라오지 못합니다.
+  // 고정 헤더 아래의 실제 위치와 문서 하단 도달 여부로 현재 메뉴를 정합니다.
+  const updateNavigation = () => {
+    navigationFrame = undefined;
+    if (dialog.open) return;
+    const atBottom =
+      window.scrollY > 0 &&
+      Math.ceil(window.scrollY + window.innerHeight) >=
+        document.documentElement.scrollHeight - 2;
+    const readingLine =
+      document.querySelector(".header").getBoundingClientRect().bottom + 48;
+    const current = atBottom
+      ? sections.at(-1)
+      : sections
+          .filter(
+            (section) => section.getBoundingClientRect().top <= readingLine,
+          )
+          .at(-1);
+    links.forEach((link) => {
+      if (link.hash === `#${current?.id}`)
+        link.setAttribute("aria-current", "location");
+      else link.removeAttribute("aria-current");
+    });
+  };
+  // 스크롤 이벤트마다 레이아웃을 반복 계산하지 않고 화면 프레임당 한 번만 검사합니다.
+  const scheduleNavigation = () => {
+    if (navigationFrame === undefined)
+      navigationFrame = requestAnimationFrame(updateNavigation);
+  };
+  window.addEventListener("scroll", scheduleNavigation, { passive: true });
+  window.addEventListener("resize", scheduleNavigation);
+  window.addEventListener("hashchange", scheduleNavigation);
+  dialog.addEventListener("close", scheduleNavigation);
+  scheduleNavigation();
 }
 const menuToggle = document.querySelector("#menu-toggle"),
   menu = document.querySelector("#primary-nav");
