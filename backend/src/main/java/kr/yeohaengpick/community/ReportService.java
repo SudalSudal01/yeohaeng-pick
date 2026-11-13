@@ -1,5 +1,6 @@
 package kr.yeohaengpick.community;
 
+import jakarta.validation.constraints.*;
 import java.util.*;
 import kr.yeohaengpick.common.*;
 import kr.yeohaengpick.messaging.MessageService;
@@ -104,20 +105,60 @@ public class ReportService {
   }
 
   public Object list() {
-    return reports
-      .list()
-      .stream()
-      .map(source -> {
-        var result = new LinkedHashMap<>(source);
-        String evidence = (String) result.get("evidence");
-        // 기존 신고는 당시 내용을 알 수 없습니다. 현재 원문을 증거인 것처럼 소급해서 보여주지 않습니다.
-        result.put(
-          "evidence",
-          evidence == null ? null : json.read(evidence, Map.class)
-        );
-        return result;
-      })
-      .toList();
+    return reports.list().stream().map(this::view).toList();
+  }
+
+  /** 처리 대기를 기본으로 열되, 전체/완료 내역도 같은 서버 페이지 계약으로 조회합니다. */
+  public record Query(
+    @Pattern(regexp = "OPEN|RESOLVED|ALL") String status,
+    @Min(1) @Max(1000000) Integer page,
+    @Min(1) @Max(30) Integer pageSize
+  ) {
+    public Query {
+      status = status == null ? "OPEN" : status.strip();
+      page = page == null ? 1 : page;
+      pageSize = pageSize == null ? 20 : pageSize;
+    }
+  }
+
+  public record Page(
+    List<Map<String, Object>> items,
+    long total,
+    int page,
+    int pageSize,
+    long totalPages
+  ) {}
+
+  /** 목록을 자르기 전에 상태별 건수를 계산합니다. 마지막 신고 처리로 빈 페이지가 되면 마지막 실제 페이지로 보정합니다. */
+  @Transactional(readOnly = true)
+  public Page search(Query query) {
+    long total = reports.count(query.status());
+    long totalPages = (total + query.pageSize() - 1) / query.pageSize();
+    int page = (int) Math.min(query.page(), Math.max(1, totalPages));
+    var items =
+      total == 0
+        ? List.<Map<String, Object>>of()
+        : reports
+            .page(
+              query.status(),
+              (long) (page - 1) * query.pageSize(),
+              query.pageSize()
+            )
+            .stream()
+            .map(this::view)
+            .toList();
+    return new Page(items, total, page, query.pageSize(), totalPages);
+  }
+
+  private Map<String, Object> view(Map<String, Object> source) {
+    var result = new LinkedHashMap<>(source);
+    String evidence = (String) result.get("evidence");
+    // 기존 신고는 당시 내용을 알 수 없습니다. 현재 원문을 증거인 것처럼 소급해서 보여주지 않습니다.
+    result.put(
+      "evidence",
+      evidence == null ? null : json.read(evidence, Map.class)
+    );
+    return result;
   }
 
   @Transactional

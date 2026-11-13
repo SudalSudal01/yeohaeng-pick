@@ -3,6 +3,7 @@ import { Loader2, Save } from "lucide-react";
 import { api, ApiError } from "../../shared/api";
 import type { Post } from "../../shared/types";
 import { ErrorState, Modal } from "../../shared/ui";
+import { useCommunitySession } from "./useCommunitySession";
 
 /** 작성과 수정을 같은 양식으로 다룹니다. 열린 시점 버전을 보존하고 사용자 선택 없이 초안을 최신 글로 덮지 않습니다. */
 export default function PostEditor({
@@ -18,6 +19,7 @@ export default function PostEditor({
   done: (post: Post) => Promise<void>;
   reload?: () => Promise<void>;
 }) {
+  const currentSession = useCommunitySession();
   const [form, setForm] = useState({
     category: initial?.category ?? "후기",
     region: initial?.region ?? "서울",
@@ -57,12 +59,12 @@ export default function PostEditor({
           body: initial ? { version: initial.version, content } : content,
         },
       );
-      await done(saved);
+      if (currentSession()) await done(saved);
     } catch (e) {
-      setError(e as Error);
+      if (currentSession()) setError(e as Error);
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if (currentSession()) setBusy(false);
     }
   }
   return (

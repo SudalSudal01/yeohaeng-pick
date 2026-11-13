@@ -1,11 +1,12 @@
 import {
   useCallback,
+  useEffect,
   useRef,
   useState,
   type FormEvent,
   type RefObject,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Copy, Loader2 } from "lucide-react";
 import { api, ApiError, calendarDateLabel } from "../../shared/api";
@@ -36,7 +37,19 @@ export default function SharedTripImport({
   const { user } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
+  const pagePath = useLocation().pathname;
   const client = useQueryClient();
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  const currentAccount = () =>
+    mounted.current &&
+    window.location.pathname === pagePath &&
+    client.getQueryData<{ id: string }>(["me"])?.id === user?.id;
   // 백그라운드 재조회로 배경 일정이 바뀌어도 사용자가 양식을 열 때 본 공개본을 기준으로 요청합니다.
   const viewed = useRef(trip);
   const [title, setTitle] = useState(
@@ -109,12 +122,16 @@ export default function SharedTripImport({
         method: "POST",
         body: attempt.current,
       });
+      // 공유 페이지는 로그아웃해도 남을 수 있습니다. 과거 회원의 가져오기 응답은 현재 화면을 이동시키지 않습니다.
+      if (!currentAccount()) return;
       await client.invalidateQueries({ queryKey: ["trips"] });
+      if (!currentAccount()) return;
       toast(
         "내 여행으로 가져왔어요. 날짜에 맞게 이동과 운영시간을 확인해 주세요.",
       );
       navigate("/trips/" + result.id);
     } catch (e) {
+      if (!currentAccount()) return;
       setError(e);
       const ambiguous =
         !(e instanceof ApiError) || e.status === 0 || e.status >= 500;
@@ -130,7 +147,7 @@ export default function SharedTripImport({
         setBlocked(true);
     } finally {
       busy.current = false;
-      setPending(false);
+      if (mounted.current) setPending(false);
     }
   }
   return (

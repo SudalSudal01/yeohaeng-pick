@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -23,6 +24,8 @@ import { ErrorState } from "../../shared/ui";
 import LodgingPicker from "./LodgingPicker";
 import FavoritePicker from "../favorites/FavoritePicker";
 import RegionChoices from "../catalog/RegionChoices";
+import { planIssue } from "./planValidation";
+import { localToday } from "../trips/sharedTripDates";
 
 /** 단계별 입력을 유지하고, 생성 중 중복 요청을 막습니다. AI 대체 실행은 engine 값으로 정확히 표시합니다. */
 export default function PlanPage() {
@@ -31,7 +34,16 @@ export default function PlanPage() {
   const navigate = useNavigate();
   const config = useConfig();
   const toast = useToast();
-  const today = new Date().toLocaleDateString("en-CA");
+  const client = useQueryClient();
+  const today = localToday();
+  const mounted = useRef(false);
+  const working = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   // 날짜 필드는 input에서도 상태를 갱신해 change가 늦는 브라우저에서 단계 이동 시 값을 잃지 않습니다.
   const [form, setForm] = useState<Conditions>({
     title: "우리의 새로운 여행",
@@ -52,6 +64,8 @@ export default function PlanPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error>();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [recommendedConditions, setRecommendedConditions] =
+    useState<Conditions | null>(null);
   const [selected, setSelected] = useState(1);
   const set = <K extends keyof Conditions>(key: K, value: Conditions[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -79,38 +93,70 @@ export default function PlanPage() {
         : {}),
     }));
   };
+  function validate(throughStep: number) {
+    const issue = planIssue(form, config.data?.regions || [], throughStep);
+    if (!issue) {
+      setError(undefined);
+      return true;
+    }
+    setStep(issue.step);
+    setError(new Error(issue.message));
+    requestAnimationFrame(() => document.getElementById(issue.field)?.focus());
+    return false;
+  }
+  const currentAccount = () =>
+    mounted.current &&
+    // Suspense 전환 중에는 이전 컴포넌트가 잠시 살아 있을 수 있어 실제 주소도 확인합니다.
+    window.location.pathname === "/plan" &&
+    client.getQueryData<{ id: string }>(["me"])?.id === user?.id;
   async function generate() {
-    if (!form.regions.length) return toast("여행할 지역을 골라 주세요.", true);
-    if (form.endDate < form.startDate)
-      return toast("돌아오는 날짜를 확인해 주세요.", true);
+    if (working.current || !validate(2)) return;
+    working.current = true;
+    // 추천에 쓴 조건과 코스를 한 묶음으로 보관합니다. 응답 대기나 이후 상태 변경이 저장 조건을 바꾸지 않습니다.
+    const snapshot = structuredClone(form);
     setBusy(true);
     setError(undefined);
     try {
       const result = await api<Course[]>("/recommendations", {
         method: "POST",
-        body: form,
+        body: snapshot,
       });
+      if (!currentAccount()) return;
+      if (!result.length)
+        throw new Error(
+          "추천 코스를 받지 못했어요. 조건을 확인하고 다시 시도해 주세요.",
+        );
       setCourses(result);
+      setRecommendedConditions(snapshot);
+      setSelected(Math.min(1, result.length - 1));
       setStep(3);
     } catch (e) {
-      setError(e as Error);
+      if (mounted.current) setError(e as Error);
     } finally {
-      setBusy(false);
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   async function save() {
+    const course = courses[selected];
+    if (working.current || !recommendedConditions || !course) return;
+    working.current = true;
     setBusy(true);
+    setError(undefined);
     try {
       const trip = await api<{ id: string }>("/trips", {
         method: "POST",
-        body: { conditions: form, items: courses[selected].items },
+        body: { conditions: recommendedConditions, items: course.items },
       });
+      // 다른 화면으로 떠나거나 세션이 끝난 뒤 도착한 응답이 과거 여행으로 강제 이동시키지 않습니다.
+      if (!currentAccount()) return;
       toast("여행을 저장했어요. 이제 함께 다듬어 볼까요?");
       navigate("/trips/" + trip.id);
     } catch (e) {
-      setError(e as Error);
+      if (mounted.current) setError(e as Error);
     } finally {
-      setBusy(false);
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -142,7 +188,13 @@ export default function PlanPage() {
         )}
       </ol>
       {step < 3 ? (
-        <div className="plan-card">
+        <fieldset
+          className="plan-card"
+          disabled={busy}
+          aria-label="여행 조건"
+          aria-busy={busy}
+          style={{ minWidth: 0, width: "100%" }}
+        >
           <div className="plan-number">0{step + 1}</div>
           {step === 0 ? (
             <>
@@ -154,6 +206,7 @@ export default function PlanPage() {
               <label>
                 여행 이름
                 <input
+                  id="plan-title"
                   maxLength={100}
                   value={form.title}
                   onChange={(e) => set("title", e.target.value)}
@@ -185,6 +238,7 @@ export default function PlanPage() {
                     <CalendarDays size={16} /> 출발일
                   </span>
                   <input
+                    id="plan-start"
                     type="date"
                     value={form.startDate}
                     onInput={(e) => {
@@ -205,6 +259,7 @@ export default function PlanPage() {
                 <label>
                   돌아오는 날
                   <input
+                    id="plan-end"
                     type="date"
                     min={form.startDate}
                     value={form.endDate}
@@ -216,6 +271,7 @@ export default function PlanPage() {
               <label>
                 어디에서 출발하나요?
                 <input
+                  id="plan-origin"
                   value={form.origin}
                   onChange={(e) => set("origin", e.target.value)}
                   placeholder="주소 또는 출발역을 입력해 주세요"
@@ -235,6 +291,7 @@ export default function PlanPage() {
                     <Users size={16} /> 여행 인원
                   </span>
                   <input
+                    id="plan-party-size"
                     type="number"
                     min={1}
                     max={20}
@@ -248,6 +305,7 @@ export default function PlanPage() {
                   </span>
                   <div className="input-suffix">
                     <input
+                      id="plan-budget"
                       type="number"
                       min={10000}
                       step={10000}
@@ -396,7 +454,9 @@ export default function PlanPage() {
                 !form.startDate ||
                 !form.endDate
               }
-              onClick={() => (step === 2 ? generate() : setStep(step + 1))}
+              onClick={() =>
+                step === 2 ? generate() : validate(step) && setStep(step + 1)
+              }
             >
               {busy ? (
                 <Loader2 className="spin" size={18} />
@@ -411,7 +471,7 @@ export default function PlanPage() {
               {!busy && <ArrowRight size={17} />}
             </button>
           </div>
-        </div>
+        </fieldset>
       ) : (
         <>
           <div className="recommendation-meta">
@@ -422,7 +482,14 @@ export default function PlanPage() {
             <span>
               {form.partySize}명 · {form.startDate} ~ {form.endDate}
             </span>
-            <button className="text-button" onClick={() => setStep(0)}>
+            <button
+              className="text-button"
+              disabled={busy}
+              onClick={() => {
+                setError(undefined);
+                setStep(0);
+              }}
+            >
               조건 다시 선택
             </button>
           </div>
@@ -431,6 +498,7 @@ export default function PlanPage() {
               <button
                 className={"course-card " + (selected === i ? "selected" : "")}
                 key={c.variant}
+                disabled={busy}
                 onClick={() => setSelected(i)}
                 aria-pressed={selected === i}
               >
@@ -518,7 +586,11 @@ export default function PlanPage() {
               <strong>{courses[selected]?.title}</strong>
               <p>저장한 뒤에도 장소 비교와 일정 수정이 가능해요.</p>
             </div>
-            <button className="button primary" disabled={busy} onClick={save}>
+            <button
+              className="button primary"
+              disabled={busy || !courses[selected] || !recommendedConditions}
+              onClick={save}
+            >
               {busy ? (
                 <Loader2 className="spin" size={18} />
               ) : (

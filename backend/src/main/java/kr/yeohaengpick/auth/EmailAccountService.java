@@ -107,14 +107,11 @@ public class EmailAccountService {
   }
 
   @Transactional
-  public void consume(String token, String purpose, String password) {
-    lifecycle.reading(() -> {
-      consumeActive(token, purpose, password);
-      return null;
-    });
+  public String consume(String token, String purpose, String password) {
+    return lifecycle.reading(() -> consumeActive(token, purpose, password));
   }
 
-  private void consumeActive(String token, String purpose, String password) {
+  private String consumeActive(String token, String purpose, String password) {
     if (
       token == null || !token.matches("[0-9a-f]{64}")
     ) throw DomainException.bad("유효하지 않은 링크예요.");
@@ -124,6 +121,13 @@ public class EmailAccountService {
       stored == null || !purpose.equals(stored.get("purpose"))
     ) throw DomainException.bad("만료되었거나 이미 사용한 링크예요.");
     String id = (String) stored.get("memberId");
+    // 다른 토큰 두 개가 동시에 비밀번호를 바꾸면 각 토큰 행을 잡은 채 서로를 삭제하려고
+    // 기다릴 수 있습니다. 회원→토큰 순서로 직렬화하고 기다린 뒤 만료·사용 여부를 다시 확인합니다.
+    members.lockForCredentials(id);
+    stored = members.tokenByHash(hashed);
+    if (
+      stored == null || !purpose.equals(stored.get("purpose"))
+    ) throw DomainException.bad("만료되었거나 이미 사용한 링크예요.");
     if (!MemberMapper.active(members.byId(id))) throw DomainException.bad(
       "만료되었거나 이미 사용한 링크예요."
     );
@@ -139,6 +143,7 @@ public class EmailAccountService {
       members.password(id, encoder.encode(password));
       members.invalidateTokens(id, "RESET");
     }
+    return id;
   }
 
   private String hash(String value) {

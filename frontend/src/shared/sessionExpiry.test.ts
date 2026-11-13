@@ -28,8 +28,10 @@ describe("인증 종료 공통 신호", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValue(
-          new Response(JSON.stringify({ message: "확인" }), { status: 401 }),
+        .mockImplementation(() =>
+          Promise.resolve(
+            new Response(JSON.stringify({ message: "확인" }), { status: 401 }),
+          ),
         ),
     );
     for (const path of ["/auth/me", "/auth/login", "/auth/register"]) {
@@ -52,5 +54,24 @@ describe("인증 종료 공통 신호", () => {
       status: 403,
     });
     expect(dispatchEvent).not.toHaveBeenCalled();
+  });
+  it("비밀번호 재설정 성공도 서버 세션 종료에 맞춰 비공개 캐시 정리를 알린다", async () => {
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal("window", { dispatchEvent });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(Response.json({ token: "reset-csrf" }))
+        .mockResolvedValueOnce(
+          Response.json({ message: "비밀번호를 변경했어요." }),
+        ),
+    );
+    await api("/auth/reset", {
+      method: "POST",
+      body: { token: "a".repeat(64), password: "New-password12!" },
+    });
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchEvent.mock.calls[0][0].type).toBe(SESSION_EXPIRED_EVENT);
   });
 });

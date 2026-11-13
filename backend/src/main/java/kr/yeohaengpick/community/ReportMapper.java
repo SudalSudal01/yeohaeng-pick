@@ -16,6 +16,21 @@ public interface ReportMapper {
   )
   List<Map<String, Object>> list();
 
+  /** 상태 필터를 건수와 실제 페이지에 함께 적용해 오래된 미처리 신고가 최신 100건 뒤에서 사라지지 않게 합니다. */
+  @Select(
+    "SELECT COUNT(*) FROM reports WHERE (#{status}='ALL' OR status=#{status})"
+  )
+  long count(String status);
+
+  @Select(
+    "SELECT * FROM reports WHERE (#{status}='ALL' OR status=#{status}) ORDER BY created_at DESC,id DESC OFFSET #{offset} ROWS FETCH NEXT #{pageSize} ROWS ONLY"
+  )
+  List<Map<String, Object>> page(
+    @Param("status") String status,
+    @Param("offset") long offset,
+    @Param("pageSize") int pageSize
+  );
+
   /** 두 관리자의 동시 처리도 한 건만 성공하도록 신고 행부터 잠급니다. */
   @Select("SELECT * FROM reports WHERE id=#{id} FOR UPDATE")
   Map<String, Object> lock(String id);

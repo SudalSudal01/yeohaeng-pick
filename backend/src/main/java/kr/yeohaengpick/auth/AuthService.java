@@ -38,8 +38,8 @@ public class AuthService {
     String password,
     String nickname
   ) {
-    email = email.trim().toLowerCase(Locale.ROOT);
-    nickname = nickname.trim();
+    email = email.strip().toLowerCase(Locale.ROOT);
+    nickname = nickname.strip();
     if (
       !email.matches("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$") || email.length() > 254
     ) throw DomainException.bad("올바른 이메일을 입력해 주세요.");
@@ -52,7 +52,7 @@ public class AuthService {
       "이미 가입된 이메일이에요."
     );
     String id = UUID.randomUUID().toString();
-    // 운영자 권한은 서버 환경변수에 지정한 이메일에만 부여합니다. 클라이언트 요청의 role은 받지 않습니다.
+    // 가입 시에는 모두 USER입니다. 운영자로 지정한 이메일도 실제 이메일 인증을 완료해야 승격합니다.
     members.insert(id, email, encoder.encode(password), nickname, "USER");
     return safe(members.byId(id));
   }
@@ -73,13 +73,20 @@ public class AuthService {
     HttpServletRequest req,
     HttpServletResponse res
   ) {
-    var member = members.byEmail(email.trim().toLowerCase(Locale.ROOT));
+    var member = members.byEmail(email.strip().toLowerCase(Locale.ROOT));
     if (
       !MemberMapper.active(member) ||
       !encoder.matches(password, (String) member.get("passwordHash"))
     ) throw new DomainException(401, "이메일 또는 비밀번호를 확인해 주세요.");
-    if (req.getSession(false) != null) req.changeSessionId();
-    else req.getSession(true);
+    // 새 로그인은 세션 객체도 새로 만듭니다. ID만 회전하면 이미 진행 중인 A 요청과
+    // 새 B 로그인이 같은 세션 속성을 공유해 늦은 A 요청이 B 세션을 종료할 수 있습니다.
+    var previousSession = req.getSession(false);
+    if (previousSession != null) try {
+      previousSession.invalidate();
+    } catch (IllegalStateException alreadyExpired) {
+      /* 동시에 끝난 이전 세션은 재사용하지 않습니다. */
+    }
+    req.getSession(true);
     req
       .getSession()
       .setAttribute("credentialVersion", member.get("credentialVersion"));

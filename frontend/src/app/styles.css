@@ -429,7 +429,8 @@ textarea:focus-visible {
 }
 .hero-counter span {
   color: #dce5df;
-  font-size: var(--text-eyebrow);
+  /* 한글 안내는 장식용 영문 표제 크기를 상속하지 않고 읽기 쉬운 안내 크기를 사용합니다. */
+  font-size: var(--text-support);
   letter-spacing: 0.5px;
   margin-left: 8px;
 }
@@ -3282,7 +3283,7 @@ textarea {
     bottom: 75px;
   }
   .hero-counter span {
-    font-size: var(--text-eyebrow);
+    font-size: var(--text-support);
   }
   .hero-location {
     display: none;

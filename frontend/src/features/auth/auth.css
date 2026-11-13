@@ -1,0 +1,30 @@
+/* 인증의 정책 설명은 작은 주석으로 숨기지 않고, 입력과 실행 영역을 나누어 읽도록 합니다. */
+.auth-form .auth-password-help {
+  margin: 10px 0 22px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.account-flow .account-field {
+  margin-top: 20px;
+}
+.account-flow .account-help {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.account-flow .account-action {
+  margin-top: 24px;
+}
+.account-flow .account-invalid {
+  display: grid;
+  gap: 24px;
+}
+.account-flow input {
+  font-size: 16px;
+}
+.account-flow .account-invalid p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.8;
+}

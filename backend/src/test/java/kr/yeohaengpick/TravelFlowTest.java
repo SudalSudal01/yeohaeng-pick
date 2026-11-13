@@ -4150,4 +4150,407 @@ class TravelFlowTest extends HttpFlowDatabase {
         .statusCode()
     ).isEqualTo(400);
   }
+
+  /** 화면을 우회해도 잘못된 초기 일정이 저장돼 이후 비교의 기준을 오염시키지 못해야 합니다. */
+  @Test
+  void initialItineraryRejectsInvalidOrderLodgingAndTimeWithoutCreatingTrip()
+    throws Exception {
+    var owner = new Browser().signup();
+    var response = owner.request("POST", "/recommendations", conditions, true);
+    assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+    List<Map<String, Object>> original = json.read(
+      json.mapper().readTree(response.body()).get(1).path("items").toString(),
+      List.class
+    );
+    assertThat(original).hasSizeGreaterThanOrEqualTo(2);
+    List<List<Map<String, Object>>> invalid = new ArrayList<>();
+    var negativeOrder = copyInitialStops(original);
+    negativeOrder.getFirst().put("sortOrder", -1);
+    invalid.add(negativeOrder);
+    var duplicatedOrder = copyInitialStops(original);
+    duplicatedOrder
+      .get(1)
+      .put("sortOrder", duplicatedOrder.getFirst().get("sortOrder"));
+    invalid.add(duplicatedOrder);
+    var missingOrder = copyInitialStops(original);
+    missingOrder.getFirst().put("sortOrder", 99);
+    invalid.add(missingOrder);
+    var overlap = copyInitialStops(original);
+    overlap.get(1).put("startTime", overlap.getFirst().get("startTime"));
+    invalid.add(overlap);
+    var tooLate = copyInitialStops(original);
+    tooLate.getLast().put("startTime", "23:59");
+    invalid.add(tooLate);
+    var tooEarly = copyInitialStops(original);
+    tooEarly.getFirst().put("startTime", "05:00");
+    invalid.add(tooEarly);
+    var hotelVisit = copyInitialStops(original);
+    ((Map<String, Object>) hotelVisit.getFirst().get("place")).put(
+      "id",
+      "sample-11"
+    );
+    invalid.add(hotelVisit);
+    for (var stops : invalid) {
+      var rejected = owner.request(
+        "POST",
+        "/trips",
+        Map.of("conditions", conditions, "items", stops),
+        true
+      );
+      assertThat(rejected.statusCode()).as(rejected.body()).isEqualTo(400);
+      assertThat(
+        json
+          .mapper()
+          .readTree(owner.request("GET", "/trips", null, false).body())
+          .size()
+      ).isZero();
+    }
+    // 요청 배열 순서에는 의존하지 않고, 검증한 날짜/순서대로 저장합니다. 후보의 서버 정보도 다시 사용합니다.
+    var shuffled = copyInitialStops(original);
+    var first = shuffled.getFirst();
+    Map<String, Object> suppliedPlace = (Map<String, Object>) first.get(
+      "place"
+    );
+    suppliedPlace.put("name", "조작한 이름");
+    suppliedPlace.put("cost", -100);
+    suppliedPlace.put("duration", 0);
+    first.put("fixed", true);
+    first.put("bookingStatus", "PARTNER_CONFIRMED");
+    Collections.reverse(shuffled);
+    var saved = owner.call(
+      "POST",
+      "/trips",
+      Map.of("conditions", conditions, "items", shuffled)
+    );
+    assertThat(items(saved))
+      .extracting(i -> ((Number) i.get("sortOrder")).intValue())
+      .containsExactlyElementsOf(
+        java.util.stream.IntStream.range(0, original.size()).boxed().toList()
+      );
+    assertThat(items(saved).getFirst().get("placeName")).isNotEqualTo(
+      "조작한 이름"
+    );
+    assertThat(
+      ((Number) items(saved).getFirst().get("duration")).intValue()
+    ).isPositive();
+    assertThat(items(saved).getFirst())
+      .containsEntry("fixed", false)
+      .containsEntry("bookingStatus", "NONE");
+  }
+
+  /** 첫 방문에는 이전 방문이 없더라도, 긴 대안의 체류 종료는 하루 마감을 지켜야 합니다. */
+  @Test
+  void firstVisitReplacementCannotCrossDailyClosingBoundary() throws Exception {
+    var owner = new Browser().signup();
+    var places = json
+      .mapper()
+      .readTree(
+        owner
+          .request(
+            "GET",
+            "/catalog/places?region=" +
+              java.net.URLEncoder.encode(
+                "서울",
+                java.nio.charset.StandardCharsets.UTF_8
+              ),
+            null,
+            false
+          )
+          .body()
+      );
+    tools.jackson.databind.JsonNode shortVisit = null;
+    for (var place : places)
+      if (
+        place.path("duration").asInt() == 60 &&
+        !place.path("category").asText().equals("숙소")
+      ) {
+        shortVisit = place;
+        break;
+      }
+    assertThat(shortVisit).isNotNull();
+    var trip = owner.call(
+      "POST",
+      "/trips",
+      Map.of(
+        "conditions",
+        conditions,
+        "items",
+        List.of(
+          Map.of(
+            "dayIndex",
+            0,
+            "sortOrder",
+            0,
+            "startTime",
+            "21:00",
+            "fixed",
+            false,
+            "bookingStatus",
+            "NONE",
+            "place",
+            json.read(shortVisit.toString(), Map.class)
+          )
+        )
+      )
+    );
+    String base = "/trips/" + trip.get("id"),
+      item = items(trip).getFirst().get("id").toString();
+    var alternatives = json
+      .mapper()
+      .readTree(
+        owner.request("GET", base + "/alternatives/" + item, null, false).body()
+      );
+    String replacement = null;
+    for (var place : alternatives)
+      if (place.path("duration").asInt() > 60) {
+        replacement = place.path("id").asText();
+        break;
+      }
+    assertThat(replacement).isNotNull();
+    var request = Map.of("itemId", item, "placeId", replacement, "version", 0);
+    var preview = owner.call("POST", base + "/preview", request);
+    assertThat(preview.get("canApply")).isEqualTo(false);
+    assertThat(preview.get("conflicts").toString()).contains("늦게");
+    assertThat(
+      owner.request("POST", base + "/apply", request, true).statusCode()
+    ).isEqualTo(409);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(0);
+  }
+
+  @Test
+  void nullBookingStatusIsBadInputAndForeignTaskDoesNotLookSuccessful()
+    throws Exception {
+    var owner = new Browser().signup();
+    var firstTrip = owner.trip();
+    var secondTrip = owner.trip();
+    String base = "/trips/" + firstTrip.get("id");
+    var badBooking = new HashMap<String, Object>();
+    badBooking.put("itemId", items(firstTrip).getFirst().get("id"));
+    badBooking.put("status", null);
+    badBooking.put("reason", "");
+    badBooking.put("fixed", false);
+    badBooking.put("version", 0);
+    assertThat(
+      owner.request("PUT", base + "/booking", badBooking, true).statusCode()
+    ).isEqualTo(400);
+    assertThat(owner.call("GET", base, null).get("version")).isEqualTo(0);
+    var ownTasks = (List<Map<String, Object>>) firstTrip.get("tasks");
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/tasks",
+          Map.of("taskId", ownTasks.getFirst().get("id")),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(400);
+    var otherTasks = (List<Map<String, Object>>) secondTrip.get("tasks");
+    String otherTask = otherTasks.getFirst().get("id").toString();
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/tasks",
+          Map.of("taskId", otherTask, "done", true),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(404);
+    assertThat(
+      owner
+        .request(
+          "POST",
+          base + "/tasks",
+          Map.of("taskId", UUID.randomUUID().toString(), "done", true),
+          true
+        )
+        .statusCode()
+    ).isEqualTo(404);
+    var unchanged = owner.call("GET", "/trips/" + secondTrip.get("id"), null);
+    assertThat((List<Map<String, Object>>) unchanged.get("tasks")).allSatisfy(
+      t -> assertThat(t.get("done")).isEqualTo(false)
+    );
+  }
+
+  @SuppressWarnings("unchecked")
+  private List<Map<String, Object>> copyInitialStops(
+    List<Map<String, Object>> source
+  ) {
+    return json.read(json.write(source), List.class);
+  }
+
+  /** 예약 취소 후 방문 이력만 되돌려도 취소한 예약이 성공 상태로 부활하면 안 됩니다. */
+  @Test
+  void itineraryUndoKeepsLatestCancellationAndReservationMemo()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id"),
+      item = items(trip).getFirst().get("id").toString();
+    owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "최초 예약 확인",
+        "fixed",
+        true,
+        "version",
+        0
+      )
+    );
+    var cancelled = owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "CANCELLED",
+        "reason",
+        "실제 예약처 취소 확인",
+        "fixed",
+        false,
+        "version",
+        1
+      )
+    );
+    String cancelledHistory = json
+      .mapper()
+      .valueToTree(cancelled.get("history"))
+      .get(0)
+      .path("id")
+      .asText();
+    var restored = owner.call(
+      "POST",
+      base + "/undo",
+      Map.of("historyId", cancelledHistory, "version", 2)
+    );
+    assertThat(items(restored).getFirst())
+      .containsEntry("bookingStatus", "CANCELLED")
+      .containsEntry("bookingReason", "실제 예약처 취소 확인")
+      .containsEntry("fixed", false);
+    owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "새 예약",
+        "fixed",
+        true,
+        "version",
+        3
+      )
+    );
+    var annotated = owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "최신 예약 메모",
+        "fixed",
+        true,
+        "version",
+        4
+      )
+    );
+    String memoHistory = json
+      .mapper()
+      .valueToTree(annotated.get("history"))
+      .get(0)
+      .path("id")
+      .asText();
+    var kept = owner.call(
+      "POST",
+      base + "/undo",
+      Map.of("historyId", memoHistory, "version", 5)
+    );
+    assertThat(items(kept).getFirst())
+      .containsEntry("bookingStatus", "USER_CONFIRMED")
+      .containsEntry("bookingReason", "최신 예약 메모")
+      .containsEntry("fixed", true);
+  }
+
+  @Test
+  void itineraryUndoToDifferentPlaceDoesNotReuseItsHistoricalReservation()
+    throws Exception {
+    var owner = new Browser().signup();
+    var trip = owner.trip();
+    String base = "/trips/" + trip.get("id"),
+      item = items(trip).getFirst().get("id").toString(),
+      originalPlace = items(trip).getFirst().get("placeId").toString();
+    owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "USER_CONFIRMED",
+        "reason",
+        "예전 시설 예약",
+        "fixed",
+        true,
+        "version",
+        0
+      )
+    );
+    var cancelled = owner.call(
+      "PUT",
+      base + "/booking",
+      Map.of(
+        "itemId",
+        item,
+        "status",
+        "CANCELLED",
+        "reason",
+        "예전 예약 취소",
+        "fixed",
+        false,
+        "version",
+        1
+      )
+    );
+    String confirmedSnapshot = json
+      .mapper()
+      .valueToTree(cancelled.get("history"))
+      .get(0)
+      .path("id")
+      .asText();
+    var alternatives = json
+      .mapper()
+      .readTree(
+        owner.request("GET", base + "/alternatives/" + item, null, false).body()
+      );
+    String replacement = alternatives.get(0).path("id").asText();
+    var changed = owner.call(
+      "POST",
+      base + "/apply",
+      Map.of("itemId", item, "placeId", replacement, "version", 2)
+    );
+    assertThat(items(changed).getFirst().get("placeId")).isEqualTo(replacement);
+    var restored = owner.call(
+      "POST",
+      base + "/undo",
+      Map.of("historyId", confirmedSnapshot, "version", 3)
+    );
+    assertThat(items(restored).getFirst())
+      .containsEntry("placeId", originalPlace)
+      .containsEntry("bookingStatus", "NONE")
+      .containsEntry("bookingReason", "")
+      .containsEntry("fixed", false);
+  }
 }

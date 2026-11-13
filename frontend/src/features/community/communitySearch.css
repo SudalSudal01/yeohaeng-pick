@@ -91,6 +91,12 @@
   justify-content: center;
   margin-top: 24px;
 }
+.post-trash-summary {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 24px 0;
+}
 .community-results .post-card {
   display: flex;
   flex-direction: column;

@@ -21,6 +21,21 @@ public interface CommunityMapper {
   )
   List<Map<String, Object>> trash(String member);
 
+  /** 본인 삭제 기록만 페이지를 나누기 전에 셉니다. 운영진 숨김 여부와 무관하게 본인의 복원 불가 상태도 안내합니다. */
+  @Select(
+    "SELECT COUNT(*) FROM posts WHERE author_id=#{member} AND deleted_at IS NOT NULL"
+  )
+  long trashCount(String member);
+
+  @Select(
+    "SELECT id,category,region,title,version,deleted_at,hidden FROM posts WHERE author_id=#{member} AND deleted_at IS NOT NULL ORDER BY deleted_at DESC,id DESC OFFSET #{offset} ROWS FETCH NEXT #{pageSize} ROWS ONLY"
+  )
+  List<Map<String, Object>> trashPage(
+    @Param("member") String member,
+    @Param("offset") long offset,
+    @Param("pageSize") int pageSize
+  );
+
   // Oracle 19c는 SQL BOOLEAN 대신 CHECK로 제한한 NUMBER(1)을 사용합니다.
   @Update(
     value = "UPDATE posts SET region=#{region},title=#{title},body=#{body,jdbcType=CLOB},recruitment_date=#{recruitmentDate},capacity=#{capacity},version=version+1,updated_at=CURRENT_TIMESTAMP WHERE id=#{id} AND author_id=#{member} AND version=#{version} AND hidden=0 AND deleted_at IS NULL",

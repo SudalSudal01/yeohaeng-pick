@@ -1,5 +1,7 @@
 package kr.yeohaengpick.collaboration;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
 import kr.yeohaengpick.auth.AuthService;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -20,12 +22,13 @@ public class TripMembershipController {
     this.auth = auth;
   }
 
-  public record Change(int version) {}
+  /** 버전 누락을 초기 버전 0으로 처리하면 오래된 화면의 참여 변경을 구분할 수 없어 필수값으로 받습니다. */
+  public record Change(@NotNull @Min(0) Integer version) {}
 
   @PostMapping("/leave")
   void leave(
     @PathVariable String id,
-    @RequestBody Change request,
+    @Valid @RequestBody Change request,
     Authentication a
   ) {
     memberships.leave(id, request.version(), auth.id(a));
@@ -35,7 +38,7 @@ public class TripMembershipController {
   Object remove(
     @PathVariable String id,
     @PathVariable String member,
-    @RequestBody Change request,
+    @Valid @RequestBody Change request,
     Authentication a
   ) {
     return memberships.remove(id, request.version(), member, auth.id(a));

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowRightLeft, Loader2 } from "lucide-react";
 import { api, ApiError } from "../../shared/api";
@@ -30,6 +30,15 @@ export default function TripOwnershipPanel({
   const busyRef = useRef(false);
   const client = useQueryClient();
   const toast = useToast();
+  const mounted = useRef(false);
+  const viewedTrip = useRef(trip.id);
+  viewedTrip.current = trip.id;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const close = useCallback(() => {
     if (!busyRef.current) setOpened(null);
   }, []);
@@ -58,14 +67,27 @@ export default function TripOwnershipPanel({
         method: "POST",
         body: { version: opened.version, memberId: recipient.id },
       });
+      // 로그아웃/계정 전환 뒤 늦게 온 응답으로 이전 여행의 비공개 캐시를 다시 만들지 않습니다.
+      if (
+        !mounted.current ||
+        viewedTrip.current !== trip.id ||
+        client.getQueryData<{ id: string }>(["me"])?.id !== userId
+      )
+        return;
       // 서버가 확정한 소유자를 즉시 반영합니다. 이전 소유자 도구가 다음 폴링까지 남지 않게 합니다.
       client.setQueryData(["trip", trip.id], saved);
       setOpened(null);
       await refresh();
+      if (
+        !mounted.current ||
+        client.getQueryData<{ id: string }>(["me"])?.id !== userId
+      )
+        return;
       toast(
         `${recipient.nickname}님에게 소유권을 넘겼어요. 나는 동행으로 계속 참여해요.`,
       );
     } catch (e) {
+      if (!mounted.current) return;
       setError(e as Error);
       if (e instanceof ApiError && [403, 404, 409].includes(e.status)) {
         setConflicted(true);
@@ -73,7 +95,7 @@ export default function TripOwnershipPanel({
       }
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   return (

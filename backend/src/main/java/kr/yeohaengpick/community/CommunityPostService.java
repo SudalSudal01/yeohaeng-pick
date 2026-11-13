@@ -1,5 +1,6 @@
 package kr.yeohaengpick.community;
 
+import jakarta.validation.constraints.*;
 import java.util.*;
 import kr.yeohaengpick.common.DomainException;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,41 @@ public class CommunityPostService {
 
   public Object trash(String member) {
     return posts.trash(member);
+  }
+
+  public record TrashQuery(
+    @Min(1) @Max(1000000) Integer page,
+    @Min(1) @Max(30) Integer pageSize
+  ) {
+    public TrashQuery {
+      page = page == null ? 1 : page;
+      pageSize = pageSize == null ? 12 : pageSize;
+    }
+  }
+
+  public record TrashPage(
+    List<Map<String, Object>> items,
+    long total,
+    int page,
+    int pageSize,
+    long totalPages
+  ) {}
+
+  /** 오래전에 지운 글도 찾도록 전체 본인 삭제 목록에 서버 페이지를 제공합니다. 본문·댓글·다른 회원의 삭제 정보는 제외합니다. */
+  @Transactional(readOnly = true)
+  public TrashPage trash(TrashQuery query, String member) {
+    long total = posts.trashCount(member);
+    long totalPages = (total + query.pageSize() - 1) / query.pageSize();
+    int page = (int) Math.min(query.page(), Math.max(1, totalPages));
+    var items =
+      total == 0
+        ? List.<Map<String, Object>>of()
+        : posts.trashPage(
+            member,
+            (long) (page - 1) * query.pageSize(),
+            query.pageSize()
+          );
+    return new TrashPage(items, total, page, query.pageSize(), totalPages);
   }
 
   public Map<String, Object> detail(String id) {

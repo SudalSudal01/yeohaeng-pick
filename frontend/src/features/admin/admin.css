@@ -1,0 +1,45 @@
+/* 안내와 실행 영역을 분리하고 작은 화면에서는 페이지 조작을 세로로 배치합니다. */
+.admin-report-results {
+  scroll-margin-top: 110px;
+}
+.admin-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+}
+.admin-report-filters [aria-pressed="true"] {
+  background: var(--green-soft);
+  color: var(--green-dark);
+  border-color: var(--green);
+}
+.admin-report-summary {
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.8;
+  margin: 0 0 24px;
+}
+.admin-report-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 32px;
+}
+.admin-report-pagination > span {
+  font-size: 14px;
+  color: var(--muted);
+}
+@media (max-width: 390px) {
+  .admin-report-pagination {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .admin-report-pagination > span {
+    grid-column: 1/-1;
+    grid-row: 1;
+    text-align: center;
+  }
+}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -61,6 +61,22 @@ export default function TripPage() {
   const navigate = useNavigate();
   const routeLocation = useLocation();
   const { user } = useAuth();
+  const working = useRef(false);
+  const mounted = useRef(false);
+  const viewedTrip = useRef(id);
+  viewedTrip.current = id;
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  // 같은 상세 컴포넌트에서 다른 여행으로 이동해도 이전 요청의 결과를 새 화면에 적용하지 않습니다.
+  const currentView = () =>
+    mounted.current &&
+    viewedTrip.current === id &&
+    window.location.pathname === routeLocation.pathname &&
+    client.getQueryData<{ id: string }>(["me"])?.id === user?.id;
   const query = useQuery({
     queryKey: ["trip", id],
     queryFn: () => api<Trip>("/trips/" + id),
@@ -114,6 +130,20 @@ export default function TripPage() {
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setDay(0);
+    setTab(routeLocation.hash === "#trip-polls" ? "함께 준비" : "일정");
+    setCompare(null);
+    setBooking(null);
+    setVisitConditions(null);
+    setInvite(false);
+    setShare(false);
+    setShareLink("");
+    setEmail("");
+    setTask("");
+    setLabel("");
+    setAmount("");
+  }, [id]);
   const ended = accessEnded(query.error);
   useEffect(() => {
     if (!ended) return;
@@ -125,9 +155,15 @@ export default function TripPage() {
     void client.invalidateQueries({ queryKey: ["rooms"] });
   }, [ended, client, id]);
   const closeCompare = useCallback(() => setCompare(null), []);
-  const closeBooking = useCallback(() => setBooking(null), []);
-  const closeInvite = useCallback(() => setInvite(false), []);
-  const closeShare = useCallback(() => setShare(false), []);
+  const closeBooking = useCallback(() => {
+    if (!working.current) setBooking(null);
+  }, []);
+  const closeInvite = useCallback(() => {
+    if (!working.current) setInvite(false);
+  }, []);
+  const closeShare = useCallback(() => {
+    if (!working.current) setShare(false);
+  }, []);
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: ["trip", id] });
     await client.invalidateQueries({ queryKey: ["trips"] });
@@ -138,18 +174,26 @@ export default function TripPage() {
     message: string,
     method = "POST",
   ) {
+    // React가 disabled 상태를 그리기 전 들어온 연속 클릭도 한 요청만 실행합니다.
+    if (working.current) return false;
+    working.current = true;
     setBusy(true);
     try {
       await api("/trips/" + id + path, { method, body });
+      if (!currentView()) return false;
       await refresh();
+      if (!currentView()) return false;
       toast(message);
       return true;
     } catch (e) {
-      toast((e as Error).message, true);
-      await refresh();
+      if (currentView()) {
+        toast((e as Error).message, true);
+        await refresh();
+      }
       return false;
     } finally {
-      setBusy(false);
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   if (query.isPending) return <Loading />;
@@ -177,34 +221,58 @@ export default function TripPage() {
   const plannedEstimate = activity + stayEstimate;
   const paid = trip.expenses.reduce((s, e) => s + e.amount, 0);
   async function sendInvite() {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
+    const sentEmail = email;
     try {
       await api("/invitations", {
         method: "POST",
         body: { tripId: id, email },
       });
+      if (!currentView()) return;
       toast("초대를 보냈어요. 상대방은 내 여행에서 수락할 수 있어요.");
       setInvite(false);
-      setEmail("");
+      setEmail((current) => (current === sentEmail ? "" : current));
     } catch (e) {
-      toast((e as Error).message, true);
+      if (currentView()) toast((e as Error).message, true);
+    } finally {
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   async function groupChat() {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
     try {
       const room = await api<{ id: string }>("/messages/trip/" + id, {
         method: "POST",
       });
-      navigate("/messages?room=" + room.id);
+      if (currentView()) navigate("/messages?room=" + room.id);
     } catch (e) {
-      toast((e as Error).message, true);
+      if (currentView()) toast((e as Error).message, true);
+    } finally {
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   async function sharing(enabled: boolean) {
+    if (working.current) return;
+    working.current = true;
+    setBusy(true);
     try {
       const r = await api<{ token: string }>("/trips/" + id + "/share", {
         method: "POST",
         body: { enabled },
       });
+      await refresh();
+      // 소유권을 넘긴 사이 도착한 응답은 공유 토큰을 다시 표시하지 않습니다.
+      if (
+        !currentView() ||
+        client.getQueryData<Trip>(["trip", id])?.ownerId !== user?.id
+      )
+        return;
       setShareLink(enabled ? location.origin + "/share/" + r.token : "");
       toast(
         enabled
@@ -212,7 +280,10 @@ export default function TripPage() {
           : "공유 링크를 종료했어요.",
       );
     } catch (e) {
-      toast((e as Error).message, true);
+      if (currentView()) toast((e as Error).message, true);
+    } finally {
+      working.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
   return (
@@ -251,6 +322,7 @@ export default function TripPage() {
             <>
               <button
                 className="button secondary"
+                disabled={busy}
                 onClick={() => setInvite(true)}
               >
                 <Plus size={17} />
@@ -258,6 +330,7 @@ export default function TripPage() {
               </button>
               <button
                 className="button secondary"
+                disabled={busy}
                 onClick={() => setShare(true)}
               >
                 <Share2 size={17} />
@@ -267,6 +340,7 @@ export default function TripPage() {
           )}
           <button
             className="icon-button outlined"
+            disabled={busy}
             onClick={groupChat}
             aria-label="여행 단체 대화 열기"
           >
@@ -633,6 +707,7 @@ export default function TripPage() {
           <TripPollPanel tripId={trip.id} />
           <TripMembersPanel
             trip={trip}
+            actionPending={busy}
             userId={user?.id ?? ""}
             invite={() => setInvite(true)}
             groupChat={groupChat}
@@ -649,6 +724,7 @@ export default function TripPage() {
                 <input
                   type="checkbox"
                   checked={t.done}
+                  disabled={busy}
                   onChange={() =>
                     action(
                       "/tasks",
@@ -671,7 +747,7 @@ export default function TripPage() {
                     "준비물을 추가했어요.",
                   )
                 )
-                  setTask("");
+                  setTask((current) => (current === task ? "" : current));
               }}
             >
               <input
@@ -681,6 +757,7 @@ export default function TripPage() {
                 onChange={(e) => setTask(e.target.value)}
                 maxLength={200}
                 required
+                disabled={busy}
               />
               <button className="button primary" disabled={busy}>
                 <Plus size={18} />
@@ -726,8 +803,8 @@ export default function TripPage() {
                     "지출을 기록했어요.",
                   )
                 ) {
-                  setLabel("");
-                  setAmount("");
+                  setLabel((current) => (current === label ? "" : current));
+                  setAmount((current) => (current === amount ? "" : current));
                 }
               }}
             >
@@ -738,6 +815,7 @@ export default function TripPage() {
                 onChange={(e) => setLabel(e.target.value)}
                 required
                 maxLength={100}
+                disabled={busy}
               />
               <input
                 aria-label="지출 금액"
@@ -747,6 +825,7 @@ export default function TripPage() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
+                disabled={busy}
               />
               <button className="button primary" disabled={busy}>
                 <Plus size={16} />
@@ -761,7 +840,7 @@ export default function TripPage() {
             <History size={21} /> 함께 다듬은 기록
           </h2>
           <p className="small muted">
-            방문 일정만 복원해요. 예약 기록과 반영한 경로 시간은 유지되며
+            방문 일정만 복원해요. 현재 예약 상태와 반영한 경로 시간은 유지되며
             충돌하면 복원을 막아요. 조회값을 해제하려면 일정 탭의 ‘반영한 이동
             시간’을 확인해 주세요. 같은 장소의 최신 방문 조건은 유지하고, 장소가
             바뀌면 조건을 다시 확인해야 해요.
@@ -842,6 +921,7 @@ export default function TripPage() {
             동행 이메일
             <input
               type="email"
+              disabled={busy}
               placeholder="friend@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -850,7 +930,7 @@ export default function TripPage() {
           <button
             className="button primary full"
             onClick={sendInvite}
-            disabled={!email.includes("@")}
+            disabled={busy || !email.includes("@")}
           >
             <Mail size={18} />
             초대 보내기
@@ -867,17 +947,39 @@ export default function TripPage() {
             링크를 가진 사람은 독립된 내 여행으로 가져올 수 있어요. 공유를
             종료해도 이미 가져간 복사본은 유지돼요.
           </p>
-          <button className="button primary full" onClick={() => sharing(true)}>
+          <button
+            className="button primary full"
+            disabled={busy}
+            onClick={() => sharing(true)}
+          >
             새 공유 링크 만들기
           </button>
           {shareLink && (
             <div className="share-result">
-              <input aria-label="공유 링크" readOnly value={shareLink} />
+              <input
+                id="trip-share-link"
+                aria-label="공유 링크"
+                readOnly
+                value={shareLink}
+              />
               <button
                 className="button secondary"
                 onClick={async () => {
-                  await navigator.clipboard.writeText(shareLink);
-                  toast("링크를 복사했어요.");
+                  try {
+                    await navigator.clipboard.writeText(shareLink);
+                    toast("링크를 복사했어요.");
+                  } catch {
+                    document.getElementById("trip-share-link")?.focus();
+                    (
+                      document.getElementById(
+                        "trip-share-link",
+                      ) as HTMLInputElement | null
+                    )?.select();
+                    toast(
+                      "복사하지 못했어요. 선택된 링크를 직접 복사해 주세요.",
+                      true,
+                    );
+                  }
                 }}
               >
                 복사
@@ -886,6 +988,7 @@ export default function TripPage() {
           )}
           <button
             className="text-button danger-text"
+            disabled={busy}
             onClick={() => sharing(false)}
           >
             기존 공유 링크 종료하기

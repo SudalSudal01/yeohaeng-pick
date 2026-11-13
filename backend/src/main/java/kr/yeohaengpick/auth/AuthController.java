@@ -35,7 +35,10 @@ public class AuthController {
   }
 
   public record Email(
-    @NotBlank @jakarta.validation.constraints.Email String email
+    @NotBlank
+    @Size(max = 254)
+    @jakarta.validation.constraints.Email
+    String email
   ) {}
 
   public record Token(@NotBlank String token, String password) {}
@@ -60,9 +63,19 @@ public class AuthController {
   }
 
   @PostMapping("/reset")
-  Object reset(@Valid @RequestBody Token t, HttpServletRequest request) {
-    email.consume(t.token, "RESET", t.password);
-    if (request.getSession(false) != null) request.getSession().invalidate();
+  Object reset(
+    @Valid @RequestBody Token t,
+    HttpServletRequest request,
+    Authentication a
+  ) {
+    String changedMember = email.consume(t.token, "RESET", t.password);
+    // 토큰 소유자의 모든 이전 세션은 credential_version으로 끝납니다. 다른 계정으로 로그인한
+    // 브라우저에서 이 링크를 열었더라도 관계없는 현재 계정의 세션까지 종료하지 않습니다.
+    if (
+      a != null &&
+      changedMember.equals(a.getName()) &&
+      request.getSession(false) != null
+    ) request.getSession().invalidate();
     return Map.of("message", "비밀번호를 변경했어요. 다시 로그인해 주세요.");
   }
 
@@ -78,8 +91,8 @@ public class AuthController {
   ) {}
 
   public record Profile(
-    @Size(min = 2, max = 30) String nickname,
-    List<@Size(max = 30) String> preferences,
+    @NotBlank @Size(min = 2, max = 30) String nickname,
+    @NotNull @Size(max = 12) List<@NotBlank @Size(max = 30) String> preferences,
     @NotBlank String dmScope
   ) {}
 
@@ -111,17 +124,14 @@ public class AuthController {
 
   @PutMapping("/profile")
   public Object profile(@Valid @RequestBody Profile p, Authentication a) {
+    // 가입과 같은 정규화 기준을 사용합니다. 공백 닉네임은 검색·화면 표시를 깨뜨리므로 저장하지 않습니다.
+    String nickname = p.nickname.strip();
     if (
       !List.of("ALL", "COMPANIONS", "OFF").contains(p.dmScope) ||
-      p.preferences == null ||
-      p.preferences.size() > 12
+      nickname.length() < 2 ||
+      nickname.length() > 30
     ) throw DomainException.bad("설정 값을 확인해 주세요.");
-    members.update(
-      auth.id(a),
-      p.nickname,
-      json.write(p.preferences),
-      p.dmScope
-    );
+    members.update(auth.id(a), nickname, json.write(p.preferences), p.dmScope);
     return auth.me(a);
   }
 }

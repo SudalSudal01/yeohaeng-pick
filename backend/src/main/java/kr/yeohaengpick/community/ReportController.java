@@ -37,6 +37,12 @@ public class ReportController {
     return reports.list();
   }
 
+  /** 기존 최근 목록 응답은 보존하고, 운영 화면은 전체 내역을 탐색할 수 있는 별도 페이지 계약을 사용합니다. */
+  @GetMapping("/admin/reports/search")
+  ReportService.Page search(@Valid @ModelAttribute ReportService.Query query) {
+    return reports.search(query);
+  }
+
   public record Resolution(
     @NotBlank @Size(max = 1000) String resolution,
     boolean hidePost

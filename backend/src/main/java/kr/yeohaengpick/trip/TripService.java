@@ -109,6 +109,7 @@ public class TripService {
       .stream()
       .collect(java.util.stream.Collectors.toMap(Place::id, p -> p));
     var lodgingPlaces = planner.lodgings(r, candidates);
+    var initial = initialItems(r, create.items, available);
     String id = UUID.randomUUID().toString();
     var t = new HashMap<String, Object>();
     t.put("id", id);
@@ -125,13 +126,35 @@ public class TripService {
     t.put("lodging", Objects.requireNonNullElse(r.lodging(), ""));
     trips.insert(t);
     trips.member(id, member);
+    for (var stop : initial) trips.item(item(id, stop));
+    for (var lodging : lodgingPlaces) trips.lodging(id, lodging);
+    for (String task : List.of(
+      "교통편 예약 확인하기",
+      "숙소 체크인 시간 확인하기",
+      "날씨와 준비물 확인하기"
+    ))
+      trips.addTask(UUID.randomUUID().toString(), id, task);
+    return detail(id, member);
+  }
+
+  /**
+   * 추천 화면을 거치지 않은 저장 요청도 서버 장소·날짜·방문 순서·시간 경계를 통과해야 합니다.
+   * 잘못된 sortOrder나 서로 겹치는 시각을 저장하면 이후 비교가 잘못된 선후 관계를 전제로 계산하므로,
+   * DB 쓰기 전에 날짜별 0부터의 고유 순서와 현재 서버 장소의 체류·추정 이동 시간을 함께 검사합니다.
+   */
+  private List<Planner.Stop> initialItems(
+    TripRequest request,
+    List<Planner.Stop> submitted,
+    Map<String, Place> available
+  ) {
     int days =
       (int) java.time.temporal.ChronoUnit.DAYS.between(
-        r.startDate(),
-        r.endDate()
+        request.startDate(),
+        request.endDate()
       ) + 1;
     Set<String> unique = new HashSet<>();
-    for (var stop : create.items) {
+    List<Planner.Stop> result = new ArrayList<>();
+    for (var stop : submitted) {
       if (
         stop == null ||
         stop.place() == null ||
@@ -141,36 +164,62 @@ public class TripService {
       Place p = available.get(stop.place().id());
       if (
         p == null ||
+        p.category().equals("숙소") ||
         stop.dayIndex() < 0 ||
         stop.dayIndex() >= days ||
+        stop.sortOrder() < 0 ||
+        stop.sortOrder() >= 100 ||
         !unique.add(p.id()) ||
         !stop.startTime().matches("(?:[01]\\d|2[0-3]):[0-5]\\d")
       ) throw DomainException.bad(
         "일정 데이터가 유효하지 않아요. 코스를 다시 선택해 주세요."
       );
-      trips.item(
-        item(
-          id,
-          new Planner.Stop(
-            UUID.randomUUID().toString(),
-            stop.dayIndex(),
-            stop.sortOrder(),
-            p,
-            stop.startTime(),
-            false,
-            "NONE"
-          )
+      result.add(
+        new Planner.Stop(
+          UUID.randomUUID().toString(),
+          stop.dayIndex(),
+          stop.sortOrder(),
+          p,
+          stop.startTime(),
+          false,
+          "NONE"
         )
       );
     }
-    for (var lodging : lodgingPlaces) trips.lodging(id, lodging);
-    for (String task : List.of(
-      "교통편 예약 확인하기",
-      "숙소 체크인 시간 확인하기",
-      "날씨와 준비물 확인하기"
-    ))
-      trips.addTask(UUID.randomUUID().toString(), id, task);
-    return detail(id, member);
+    result.sort(
+      Comparator.comparingInt(Planner.Stop::dayIndex).thenComparingInt(
+        Planner.Stop::sortOrder
+      )
+    );
+    Planner.Stop previous = null;
+    for (var stop : result) {
+      boolean sameDay =
+        previous != null && previous.dayIndex() == stop.dayIndex();
+      if (
+        stop.sortOrder() != (sameDay ? previous.sortOrder() + 1 : 0)
+      ) throw DomainException.bad("방문 순서를 날짜별로 다시 확인해 주세요.");
+      int start = RouteTiming.clock(stop.startTime());
+      if (
+        start < 360 || start + stop.place().duration() > 1320
+      ) throw DomainException.bad(
+        "방문과 머무르는 시간은 06:00~22:00 안에 있어야 해요."
+      );
+      if (
+        sameDay &&
+        start <
+          RouteTiming.clock(previous.startTime()) +
+            previous.place().duration() +
+            planner.estimateMinutes(
+              previous.place(),
+              stop.place(),
+              request.transport()
+            )
+      ) throw DomainException.bad(
+        "방문 시간과 장소 사이 이동이 겹쳐요. 코스를 다시 선택해 주세요."
+      );
+      previous = stop;
+    }
+    return result;
   }
 
   public List<Map<String, Object>> list(String member) {
@@ -563,10 +612,13 @@ public class TripService {
           "startTime",
           String.format("%02d:%02d", arrival / 60, arrival % 60)
         );
-        if (
-          arrival + ((Number) current.get("duration")).intValue() > 22 * 60
-        ) conflicts.add("하루 일정이 너무 늦게 끝나요.");
       }
+      // 첫 방문·숙소에서 바로 도착하는 방문도 같은 하루 마감 경계를 따릅니다.
+      // 이전 방문이 있을 때만 검사하면 첫 장소 교체의 긴 체류 시간이 22시를 넘어도 저장될 수 있습니다.
+      if (
+        affected &&
+        time(current) + ((Number) current.get("duration")).intValue() > 22 * 60
+      ) conflicts.add("하루 일정이 너무 늦게 끝나요.");
       previous = current;
     }
     int party = ((Number) trip.get("partySize")).intValue();
@@ -914,6 +966,7 @@ public class TripService {
   public Object booking(String id, Booking b, String member) {
     access(id, member);
     if (
+      b.status == null ||
       !List.of(
         "NONE",
         "NEEDS_CONFIRMATION",
@@ -1001,6 +1054,27 @@ public class TripService {
           "현재 고정된 예약이 바뀌는 복원이어서 적용할 수 없어요."
         );
       }
+    // 이력 복원은 방문 장소·시각을 되돌리는 작업이며 예약 성공/취소를 과거 상태로 바꾸지 않습니다.
+    // 같은 장소는 최신 수동 확인 상태를 유지하고, 다른 장소를 되살리면 당시의 예약/고정을 재사용하지 않습니다.
+    for (var restored : snapshot) {
+      var samePlace = currentItems
+        .stream()
+        .filter(
+          i ->
+            i.get("id").equals(restored.get("id")) &&
+            i.get("placeId").equals(restored.get("placeId"))
+        )
+        .findFirst();
+      restored.put(
+        "bookingStatus",
+        samePlace.map(i -> i.get("bookingStatus")).orElse("NONE")
+      );
+      restored.put(
+        "bookingReason",
+        samePlace.map(i -> i.get("bookingReason")).orElse("")
+      );
+      restored.put("fixed", samePlace.map(i -> i.get("fixed")).orElse(false));
+    }
     if (
       !schedule
         .inspect(
@@ -1168,8 +1242,16 @@ public class TripService {
     Boolean done
   ) {
     access(id, member);
-    if (taskId != null) trips.task(taskId, id, Boolean.TRUE.equals(done));
-    else {
+    if (taskId != null) {
+      if (done == null) throw DomainException.bad(
+        "준비물의 완료 여부를 선택해 주세요."
+      );
+      // ID가 다른 여행의 준비물을 가리키거나 이미 삭제됐다면 성공으로 오인하지 않도록 합니다.
+      if (trips.task(taskId, id, done) != 1) throw new DomainException(
+        404,
+        "준비물을 찾을 수 없어요. 목록을 새로 확인해 주세요."
+      );
+    } else {
       if (
         content == null || content.isBlank() || content.length() > 200
       ) throw DomainException.bad("준비할 내용을 200자 이내로 입력해 주세요.");

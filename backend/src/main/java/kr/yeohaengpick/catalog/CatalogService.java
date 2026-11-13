@@ -2,7 +2,9 @@ package kr.yeohaengpick.catalog;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.*;
 import java.util.*;
+import java.util.concurrent.Semaphore;
 import kr.yeohaengpick.common.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,14 @@ public class CatalogService {
 
   @Value("${app.sample-data:false}")
   private boolean sample;
+
+  @Value("${app.kakao-daily-limit:1000}")
+  private int dailyLimit = 1000;
+
+  private final Clock clock = Clock.systemUTC();
+  private final Semaphore requests = new Semaphore(2);
+  private LocalDate budgetDay;
+  private int calls;
 
   private final JsonCodec json;
   private final RestClient client = RestClient.builder()
@@ -132,6 +142,26 @@ public class CatalogService {
 
   private final Map<String, Cached> cache = new LinkedHashMap<>();
 
+  /**
+   * 공개 장소 검색도 매번 다른 검색어로 외부 쿼터를 소모할 수 있어 캐시 미스 호출에 서버 전체 한도를 둡니다.
+   * 한국 날짜 기준의 단일 JVM 보호 예산이며 공급자 무료 잔량이나 재시작/다중 서버의 과금 방지 장치를 뜻하지 않습니다.
+   * 실제 전송을 시도한 실패도 예산에 포함하고, 캐시 응답이나 동시 처리 거절에는 예산을 쓰지 않습니다.
+   */
+  private synchronized void reserve() {
+    LocalDate today = LocalDate.now(clock.withZone(ZoneId.of("Asia/Seoul")));
+    if (!today.equals(budgetDay)) {
+      budgetDay = today;
+      calls = 0;
+    }
+    if (
+      calls >= Math.max(1, Math.min(10000, dailyLimit))
+    ) throw new DomainException(
+      429,
+      "오늘의 장소 검색 한도에 도달했어요. 내일 다시 검색하거나 공식 지도에서 확인해 주세요."
+    );
+    calls++;
+  }
+
   private List<Place> external(String region, String query) {
     String cacheKey = region + ":" + query;
     synchronized (cache) {
@@ -140,7 +170,12 @@ public class CatalogService {
         hit != null && hit.expires() > System.currentTimeMillis()
       ) return hit.places();
     }
+    if (!requests.tryAcquire()) throw new DomainException(
+      429,
+      "장소 검색이 몰리고 있어요. 잠시 후 다시 검색해 주세요."
+    );
     try {
+      reserve();
       String bounds = TravelRegions.searchBounds(region);
       String response = client
         .get()
@@ -160,6 +195,12 @@ public class CatalogService {
         .retrieve()
         .body(String.class);
       var root = json.mapper().readTree(response);
+      // HTTP 200만으로 검색 성공을 판단하지 않습니다. 오류 객체/깨진 형식을 빈 검색으로 캐시하면
+      // 공급자 장애가 '장소 없음'으로 보이므로 정상 documents 배열이 있는 응답만 사용합니다.
+      if (!root.path("documents").isArray()) throw new DomainException(
+        503,
+        "장소 검색 응답을 확인하지 못했어요. 잠시 후 다시 검색해 주세요."
+      );
       List<Place> places = new ArrayList<>();
       for (var p : root.path("documents")) {
         String group = p.path("category_group_code").asText();
@@ -206,11 +247,15 @@ public class CatalogService {
         );
       }
       return places;
+    } catch (DomainException e) {
+      throw e;
     } catch (Exception e) {
       throw new DomainException(
         503,
         "장소 정보를 가져오지 못했어요. 잠시 후 다시 시도해 주세요."
       );
+    } finally {
+      requests.release();
     }
   }
 

@@ -1,10 +1,14 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Loader2, UserRoundMinus } from "lucide-react";
-import { api, ApiError } from "../../shared/api";
+import { api, ApiError, invalidateSessionRequests } from "../../shared/api";
 import { useToast } from "../../shared/providers";
 import { ErrorState, Loading, Modal } from "../../shared/ui";
+import {
+  clearSessionCache,
+  runSessionTransition,
+} from "../../shared/sessionTransition";
 
 type Preview = {
   ownedTrips: { id: string; title: string; memberCount: number }[];
@@ -50,10 +54,19 @@ function WithdrawalModal({
   const client = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
+  // submit 시점에는 새 계정이 캐시에 먼저 도착했을 수 있습니다. 확인 창을 처음 연 회원을 고정합니다.
+  const owner = useRef(client.getQueryData<{ id: string }>(["me"])?.id);
   const [password, setPassword] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const preview = useQuery({
     queryKey: ["withdrawal-preview"],
     queryFn: () => api<Preview>("/auth/withdrawal"),
@@ -63,6 +76,20 @@ function WithdrawalModal({
   });
   async function withdraw(e: React.FormEvent) {
     e.preventDefault();
+    if (
+      !owner.current ||
+      client.getQueryData<{ id: string }>(["me"])?.id !== owner.current
+    ) {
+      setPassword("");
+      setConfirmed(false);
+      setError(
+        new ApiError(
+          401,
+          "로그인 계정이 바뀌었어요. 현재 계정에서 탈퇴 안내를 다시 열어 주세요.",
+        ),
+      );
+      return;
+    }
     if (
       busyRef.current ||
       !confirmed ||
@@ -76,26 +103,50 @@ function WithdrawalModal({
     busyRef.current = true;
     setBusy(true);
     setError(null);
+    const member = owner.current;
+    const sourcePath = window.location.pathname + window.location.search;
+    const currentOwner = () =>
+      !client.getQueryData<{ id: string }>(["me"]) ||
+      client.getQueryData<{ id: string }>(["me"])?.id === member;
+    const samePath = () =>
+      currentOwner() &&
+      window.location.pathname + window.location.search === sourcePath;
+    const stillHere = () => mounted.current && samePath();
     try {
-      await api("/auth/account", {
-        method: "DELETE",
-        body: { password, confirmed },
+      await runSessionTransition(client, async () => {
+        // 만료 쿠키 응답이 새 로그인 뒤에 도착하지 않도록 응답과 완료 처리까지 같은 전환 안에 둡니다.
+        invalidateSessionRequests();
+        await api("/auth/account", {
+          method: "DELETE",
+          expectedMemberId: member,
+          body: { password, confirmed },
+        });
+        if (!currentOwner()) return;
+        // 본인 요청의 성공이 확인됐고 경로가 그대로라면, 전환 로딩/다른 401 때문에 모달이 먼저 사라졌어도 완료를 안내합니다.
+        // 사용자가 다른 페이지나 계정으로 이동한 경우에는 이 응답이 새 화면을 이동시키지 않습니다.
+        const showCompletion = samePath();
+        clearSessionCache(client);
+        if (showCompletion) {
+          navigate("/account/withdrawn", { replace: true });
+          toast("회원 탈퇴가 완료됐어요.");
+        }
       });
-      setPassword("");
-      // 진행 중인 읽기 요청을 먼저 취소해야 삭제 후 오래된 개인 자료가 캐시에 되돌아오지 않습니다.
-      await client.cancelQueries();
-      client.clear();
-      client.setQueryData(["me"], null);
-      navigate("/account/withdrawn", { replace: true });
-      toast("회원 탈퇴가 완료됐어요.");
     } catch (e) {
-      setPassword("");
-      setConfirmed(false);
-      setError(e as Error);
-      if (e instanceof ApiError && e.status === 409) await preview.refetch();
+      if (stillHere()) {
+        setPassword("");
+        setConfirmed(false);
+        setError(e as Error);
+        if (e instanceof ApiError && e.status === 409) await preview.refetch();
+      }
+      if (
+        currentOwner() &&
+        e instanceof ApiError &&
+        (e.status === 0 || e.status === 401 || e.status >= 500)
+      )
+        clearSessionCache(client);
     } finally {
       busyRef.current = false;
-      setBusy(false);
+      if (stillHere()) setBusy(false);
     }
   }
   return (

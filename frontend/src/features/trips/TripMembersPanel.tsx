@@ -29,6 +29,7 @@ export default function TripMembersPanel({
   groupChat,
   refresh,
   left,
+  actionPending = false,
 }: {
   trip: Trip;
   userId: string;
@@ -36,6 +37,7 @@ export default function TripMembersPanel({
   groupChat: () => void;
   refresh: () => Promise<void>;
   left: () => void;
+  actionPending?: boolean;
 }) {
   const owner = userId === trip.ownerId;
   const [choice, setChoice] = useState<Choice | null>(null);
@@ -108,7 +110,11 @@ export default function TripMembersPanel({
           </p>
         </div>
         {owner && (
-          <button className="button secondary" onClick={invite}>
+          <button
+            className="button secondary"
+            disabled={actionPending}
+            onClick={invite}
+          >
             <Mail size={16} />
             동행 초대
           </button>
@@ -156,7 +162,11 @@ export default function TripMembersPanel({
           현재 참여 중인 동행만 여행 단체 대화를 볼 수 있어요. 개인 메시지 수신
           설정은 별도로 관리돼요.
         </p>
-        <button className="button secondary full" onClick={groupChat}>
+        <button
+          className="button secondary full"
+          disabled={actionPending}
+          onClick={groupChat}
+        >
           <MessageCircle size={17} />
           여행 단체 대화 열기
         </button>

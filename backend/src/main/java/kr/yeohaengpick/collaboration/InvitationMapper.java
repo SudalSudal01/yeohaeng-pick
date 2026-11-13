@@ -6,6 +6,10 @@ import org.apache.ibatis.annotations.*;
 /** 초대 응답을 조건부 UPDATE로 처리해 중복 수락이 참여자를 중복 생성하지 않게 합니다. */
 @Mapper
 public interface InvitationMapper {
+  /** 초대·양방향 차단·공유 가져오기가 같은 회원 잠금을 공유합니다. 호출자는 회원 ID 정렬 순서로 먼저 잠급니다. */
+  @Select("SELECT id FROM members WHERE id=#{id} FOR UPDATE")
+  String lockMember(String id);
+
   @Select(
     "SELECT i.*,t.title,m.nickname FROM invitations i JOIN trips t ON i.trip_id=t.id JOIN members m ON m.id=i.sender_id WHERE i.recipient_id=#{member} AND i.status='PENDING' ORDER BY i.created_at DESC"
   )

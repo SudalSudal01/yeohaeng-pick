@@ -15,6 +15,10 @@ spring:
     properties:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
+      # SMTP 장애가 인증·탈퇴 요청을 무기한 붙잡지 않도록 접속/읽기/쓰기 대기 시간을 제한합니다(밀리초).
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 10000
+      mail.smtp.writetimeout: 10000
 server:
   port: ${SERVER_PORT:18081}
   servlet:
@@ -34,6 +38,8 @@ mybatis:
 app:
   # 키는 서버 환경변수로만 주입합니다. 브라우저용 지도 키와 서버용 REST 키를 분리합니다.
   kakao-rest-key: ${KAKAO_REST_KEY:}
+  # 캐시 미스의 서버 전체 일일 보호 예산입니다. 공급자의 실제 무료 잔량을 의미하지 않습니다.
+  kakao-daily-limit: ${KAKAO_DAILY_LIMIT:1000}
   kakao-js-key: ${KAKAO_JS_KEY:}
   tour-api-key: ${TOUR_API_KEY:}
   tour-api-daily-limit: ${TOUR_API_DAILY_LIMIT:300}

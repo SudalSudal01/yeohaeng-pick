@@ -55,13 +55,20 @@ public class SecurityConfig {
       .authorizeHttpRequests(a ->
         a
           .requestMatchers(
+            "/api/auth/profile",
+            "/api/auth/verify/send",
+            "/api/auth/withdrawal",
+            "/api/auth/account"
+          )
+          .authenticated()
+          .requestMatchers(
             "/api/auth/**",
             "/api/config",
             "/api/catalog/**",
             "/api/share/**"
           )
           .permitAll()
-          .requestMatchers("/api/community/trash")
+          .requestMatchers("/api/community/trash", "/api/community/trash/**")
           .authenticated()
           .requestMatchers(
             org.springframework.http.HttpMethod.GET,

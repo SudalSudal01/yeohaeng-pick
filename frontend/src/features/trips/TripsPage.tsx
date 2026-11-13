@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import {
@@ -33,7 +34,19 @@ export default function TripsPage() {
   });
   const client = useQueryClient();
   const toast = useToast();
+  const responding = useRef(new Set<string>());
+  const [pending, setPending] = useState<string[]>([]);
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   async function respond(id: string, accept: boolean) {
+    if (responding.current.has(id)) return;
+    responding.current.add(id);
+    setPending([...responding.current]);
     try {
       await api("/invitations/" + id + "/respond", {
         method: "POST",
@@ -41,13 +54,17 @@ export default function TripsPage() {
       });
       await client.invalidateQueries({ queryKey: ["invitations"] });
       await client.invalidateQueries({ queryKey: ["trips"] });
-      toast(
-        accept
-          ? "함께 여행을 준비할 수 있어요. 취향도 이번 여행에 반영했어요."
-          : "초대를 거절했어요.",
-      );
+      if (mounted.current)
+        toast(
+          accept
+            ? "함께 여행을 준비할 수 있어요. 취향도 이번 여행에 반영했어요."
+            : "초대를 거절했어요.",
+        );
     } catch (e) {
-      toast((e as Error).message, true);
+      if (mounted.current) toast((e as Error).message, true);
+    } finally {
+      responding.current.delete(id);
+      if (mounted.current) setPending([...responding.current]);
     }
   }
   return (
@@ -62,33 +79,45 @@ export default function TripsPage() {
           <Plus size={18} />새 여행 만들기
         </Link>
       </div>
-      {invites.data?.map((i) => (
-        <div className="invitation" key={i.id}>
-          <Mail size={23} />
-          <div>
-            <strong>{i.nickname}님의 여행 초대</strong>
-            <p>{i.title} · 수락하면 일정 편집에 참여하고 취향을 합쳐요.</p>
+      {/* 조회 실패를 '초대 없음'으로 숨기지 않습니다. 내 여행 조회와 별도로 다시 시도할 수 있습니다. */}
+      {invites.isPending ? (
+        <Loading text="받은 여행 초대를 확인하고 있어요" />
+      ) : invites.error ? (
+        <ErrorState
+          error={invites.error}
+          retry={() => void invites.refetch()}
+        />
+      ) : (
+        invites.data?.map((i) => (
+          <div className="invitation" key={i.id}>
+            <Mail size={23} />
+            <div>
+              <strong>{i.nickname}님의 여행 초대</strong>
+              <p>{i.title} · 수락하면 일정 편집에 참여하고 취향을 합쳐요.</p>
+            </div>
+            <button
+              className="button secondary"
+              disabled={pending.includes(i.id)}
+              onClick={() => respond(i.id, false)}
+            >
+              <X size={16} />
+              거절
+            </button>
+            <button
+              className="button primary"
+              disabled={pending.includes(i.id)}
+              onClick={() => respond(i.id, true)}
+            >
+              <Check size={16} />
+              수락
+            </button>
           </div>
-          <button
-            className="button secondary"
-            onClick={() => respond(i.id, false)}
-          >
-            <X size={16} />
-            거절
-          </button>
-          <button
-            className="button primary"
-            onClick={() => respond(i.id, true)}
-          >
-            <Check size={16} />
-            수락
-          </button>
-        </div>
-      ))}
+        ))
+      )}
       {trips.isPending ? (
         <Loading />
       ) : trips.error ? (
-        <ErrorState error={trips.error} />
+        <ErrorState error={trips.error} retry={() => void trips.refetch()} />
       ) : !trips.data?.length ? (
         <Empty
           title="첫 여행을 담아 볼까요?"

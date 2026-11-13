@@ -1,0 +1,18 @@
+/* 오류 안내와 재시도는 입력폼 안에서도 독립 동작입니다. 좁은 화면에서 문구 옆을 압박하지 않습니다. */
+.notice.error-state {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 8px 12px;
+}
+.error-state > svg {
+  margin-top: 3px;
+}
+.error-state > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.error-state > .text-button {
+  grid-column: 2;
+  justify-self: start;
+  margin-top: 16px;
+}

@@ -1,6 +1,7 @@
 import { Component, Suspense, lazy, type ReactNode } from "react";
 import { useLocation } from "react-router-dom";
 import { ErrorState, Loading } from "../../shared/ui";
+import { useAuth } from "../../shared/providers";
 
 // 홈/일정 화면의 첫 다운로드에 게시글 양식·휴지통 코드를 넣지 않습니다. 해당 경로에 들어갈 때 로드합니다.
 const CommunityPage = lazy(() => import("./CommunityPage"));
@@ -36,8 +37,12 @@ export default function CommunityRoute({
   detail?: boolean;
 }) {
   const location = useLocation();
+  const { user } = useAuth();
   return (
-    <CommunityLoadBoundary key={location.pathname}>
+    // 공개 경로여도 글쓰기·휴지통·신고 초안은 계정에 속합니다. 인증 종료/계정 변경 시 양식을 남기지 않습니다.
+    <CommunityLoadBoundary
+      key={location.pathname + ":" + (user?.id || "anonymous")}
+    >
       <Suspense fallback={<Loading text="여행 이야기를 불러오고 있어요" />}>
         {detail ? <PostPage /> : <CommunityPage />}
       </Suspense>

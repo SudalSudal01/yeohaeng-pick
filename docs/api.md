@@ -2,7 +2,9 @@
 
 직접 확인한 방문 가능 시간·예상 비용 저장 계약과 충돌/복원 규칙은 [방문 조건](visit-conditions.md)에 정리했습니다.
 
-루트는 `/api`입니다. 브라우저는 쿠키 세션을 이용하며 변경 요청 전 `GET /auth/csrf`로 토큰을 얻어 `X-XSRF-TOKEN`에 넣습니다. 공통 오류는 `{message, reference?}`입니다. 401 로그인 필요, 403 권한/CSRF, 409 버전/상태 충돌, 429 요청 제한, 503 외부 준비/장애로 처리합니다.
+루트는 `/api`입니다. 브라우저는 쿠키 세션을 이용하며 변경 요청 전 `GET /auth/csrf`로 토큰을 얻어 `X-XSRF-TOKEN`에 넣습니다. 공통 오류는 `{message, reference?, code?}`입니다. 400 입력 오류, 401 로그인 필요, 403 권한/CSRF, 404 경로/대상 없음, 405 메서드, 415 형식, 409 버전/상태 충돌, 429 요청 제한, 503 외부 준비/장애로 구분합니다.
+
+정수 입력은 소수를 절삭하거나 NULL을 0/false로 바꾸지 않습니다. 프런트의 `X-Travel-Member`는 입력을 작성한 화면의 기대 회원 ID이며 인증 수단이 아닙니다. 있으면 서버 세션의 실제 회원과 비교하고, 다르면 `409`, `X-Travel-Account-Changed: true`, `code: ACCOUNT_CHANGED`로 데이터 변경 없이 종료합니다. 헤더가 없는 기존 호출도 서버 세션·CSRF·객체 권한 검사를 그대로 거칩니다. [전체 검토](quality-review.md)
 
 | 영역 | 경로 | 설명 |
 | --- | --- | --- |
@@ -11,7 +13,7 @@
 | 계정 | GET /auth/me, PUT /auth/profile | 기본 취향과 수신 범위 |
 | 회원 탈퇴 | GET /auth/withdrawal, DELETE /auth/account | 사전 소유 여행 확인, `{password,confirmed:true}`·204. 소유 여행 409·현재 비밀번호·세션/참여 종료. [삭제·보존 계약](account-withdrawal.md) |
 | 메일 | POST /auth/verify/send, /verify, /reset/send, /reset | 발송·일회용 인증·비밀번호 재설정 |
-| 장소 | GET /catalog/places?region=&query=&category= | 서버에서 여행 업종·실제 주소·분류 필터 적용 |
+| 장소 | GET /catalog/places?region=&query=&category= | 업종·주소·분류 필터, 캐시 미스 일일 예산·동시 외부 조회 2개. 예산 초과 429·부하/잘못된 공급자 응답 503, prod 예시 대체 없음 |
 | 관광정보 | GET /catalog/tourism/search?region=&query=&page=, GET /catalog/tourism/{id} | 공개 관광공사 원문·제공 여부·출처·조회 시각. 일정 비변경 |
 | 출발지 검색 | POST /trips/{id}/transport/origins | `{query}` → 회원별 30분 검색 결과 토큰 |
 | 실제 경로 | POST /trips/{id}/transport/routes | 저장 일정·숙소·출발지 토큰 → 경로/요금/좌표 |
@@ -31,14 +33,16 @@
 | 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록 |
 | 여행 투표 | GET/POST /trips/{id}/polls, PUT /trips/{id}/polls/{pollId}/ballot, POST /trips/{id}/polls/{pollId}/close, DELETE /trips/{id}/polls/{pollId} | 참여자 생성·집계/내 선택 조회·재투표/취소. 만든 사람 또는 현재 소유자 마감·삭제. [계약과 개인정보 범위](trip-polls.md) |
 | 알림 센터 | GET /notifications, GET /notifications/unread-count, PUT /notifications/{id}/read, PUT /notifications/read-all | 현재 참여 중인 여행의 투표 생성·수동 마감 알림, 회원별 읽음 상태. [계약과 개인정보 범위](notifications.md) |
-| 초대 | GET/POST /invitations, POST /invitations/{id}/respond | 수락 전 여행 접근 불가 |
+| 초대 | GET/POST /invitations, POST /invitations/{id}/respond | `tripId/email`, 응답의 `accept` 필수. 수락 전 접근 불가·회원→여행 잠금·현재 차단 재검사. [상세](social-stability.md) |
 | 동행 참여 종료 | POST /trips/{id}/leave, POST /trips/{id}/members/{member}/remove | `{version}`·현재 참여/소유자 검사·이전 초대 무효화. [계약과 보존 정책](trip-membership.md) |
 | 소유권 이전 | POST /trips/{id}/ownership/transfer | `{version,memberId}`·현재 소유자/대상 참여 검사·대기 초대 종료·별도 변경 기록. [권한과 계약](trip-ownership.md) |
 | 커뮤니티 | GET/POST /community/posts, GET /community/posts/{id} | 검색·페이지 객체 목록·작성·상세. [검색 계약](community-search.md) |
 | 내 글 관리 | PUT/DELETE /community/posts/{id}, GET /community/trash, POST /community/posts/{id}/restore | 작성자·버전·휴지통·복원. [계약과 보존 정책](community-management.md) |
+| 내 휴지통 페이지 | GET /community/trash/search?page=&pageSize= | 본인 삭제 글만 서버 페이지·본문 제외 최소 응답. 기존 100건 배열은 호환 유지. [상세](social-stability.md) |
 | 댓글/모집 | POST /community/posts/{id}/comments, PUT /community/posts/{id}/status | 댓글과 작성자의 모집 상태. 상태 변경에 `{version,status}` 필요 |
 | 내 댓글 관리 | PUT/DELETE /community/posts/{id}/comments/{commentId} | 댓글 작성자·소속·독립 버전 검사. 수정 `{version,body}`, 삭제 `{version}`. 삭제 댓글은 상세/개수에서 제외하며 복원 불가 |
 | 신고/관리자 | POST /reports, GET /admin/reports, POST /admin/reports/{id}/resolve | 신고 및 처리 |
+| 관리자 신고 페이지 | GET /admin/reports/search?status=&page=&pageSize= | 관리자 전용, OPEN/RESOLVED/ALL 필터 후 페이지. 오래된 미처리 건도 조회. [상세](social-stability.md) |
 | 대화 상대 검색 | GET /messages/recipients?query=, GET /messages/recipients/{member} | 닉네임 2~30자 앞부분 검색·ID 선택, 이메일/개인정보 제외·수신/차단/동행 검사. [메시지 계약](messaging.md) |
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | recipientId 요청·requestCreated·최신 50개/이전 커서·재시도 requestId. 이메일 요청은 400. [메시지 계약](messaging.md) |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |

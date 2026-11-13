@@ -8,7 +8,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 public class JsonCodec {
 
-  private final ObjectMapper mapper = new ObjectMapper();
+  private final ObjectMapper mapper = JsonInputConfig.mapper();
 
   public String write(Object value) {
     return mapper.writeValueAsString(value);

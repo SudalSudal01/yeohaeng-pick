@@ -87,6 +87,15 @@ public class CommunityController {
     return posts.trash(auth.id(a));
   }
 
+  /** 기존 배열 응답을 유지하면서 화면은 제한 없이 내 삭제 기록을 탐색할 수 있는 페이지 계약을 사용합니다. */
+  @GetMapping("/community/trash/search")
+  CommunityPostService.TrashPage trash(
+    @Valid @ModelAttribute CommunityPostService.TrashQuery query,
+    Authentication a
+  ) {
+    return posts.trash(query, auth.id(a));
+  }
+
   @PostMapping("/community/posts/{id}/restore")
   Object restore(
     @PathVariable String id,

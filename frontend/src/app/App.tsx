@@ -3,6 +3,7 @@ import {
   lazy,
   Suspense,
   useEffect,
+  useLayoutEffect,
   useState,
   type ReactNode,
 } from "react";
@@ -37,6 +38,7 @@ import AuthPage from "../features/auth/AuthPage";
 import AccountPage from "../features/auth/AccountPage";
 import CommunityRoute from "../features/community/CommunityRoute";
 import NotificationBell from "../features/notifications/NotificationBell";
+import { commitExpectedMember } from "../shared/api";
 
 // 홈과 로그인·계정 복구는 직접 주소로 자주 진입하므로 즉시 제공합니다. 아래 기능 화면은 해당 경로를 열 때만 받아 모바일 첫 다운로드를 줄입니다.
 const ExplorePage = lazy(() => import("../features/catalog/ExplorePage"));
@@ -98,7 +100,12 @@ function AsyncRoute({
 /** 공통 내비게이션. 현재 위치를 강조하고 모바일에서는 엄지로 접근하기 쉬운 하단 메뉴를 제공합니다. */
 export default function App() {
   useSessionExpiryBoundary();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
+  // 쿼리 함수에서 B를 발견한 순간이 아니라, B 화면과 회원별 private tree가 커밋된 뒤에만 요청 주체를 바꿉니다.
+  // 같은 회원의 실패한 전환도 epoch를 끝낼 수 있으므로 매 App 커밋에서 현재 화면 문맥을 맞춥니다.
+  useLayoutEffect(() => {
+    commitExpectedMember(loading ? null : (user?.id ?? null));
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -234,17 +241,23 @@ export default function App() {
               </RequireAuth>
             }
           />
-          <Route path="/login" element={<AuthPage />} />
-          <Route path="/register" element={<AuthPage register />} />
+          <Route path="/login" element={<AuthPage key={location.key} />} />
+          <Route
+            path="/register"
+            element={<AuthPage key={location.key} register />}
+          />
           <Route
             path="/account/forgot"
-            element={<AccountPage mode="forgot" />}
+            element={<AccountPage key={location.key} mode="forgot" />}
           />
           <Route
             path="/account/verify"
-            element={<AccountPage mode="verify" />}
+            element={<AccountPage key={location.key} mode="verify" />}
           />
-          <Route path="/account/reset" element={<AccountPage mode="reset" />} />
+          <Route
+            path="/account/reset"
+            element={<AccountPage key={location.key} mode="reset" />}
+          />
           <Route
             path="/account/withdrawn"
             element={

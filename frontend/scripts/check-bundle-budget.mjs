@@ -1,10 +1,13 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { gzipSync } from "node:zlib";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dist = join(root, "dist");
+// 별도 출력 경로를 주면 실행 중인 dist를 교체하기 전에 동일한 예산으로 검증할 수 있습니다.
+const dist = process.argv[2]
+  ? resolve(root, process.argv[2])
+  : join(root, "dist");
 const html = readFileSync(join(dist, "index.html"), "utf8");
 
 // 첫 HTML이 직접 요청하거나 modulepreload하는 JS만 합산합니다. 사용자가 다른 화면을 열 때 받는 lazy 청크는 초기 예산에 넣지 않습니다.

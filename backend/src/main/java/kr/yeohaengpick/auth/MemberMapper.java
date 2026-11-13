@@ -17,6 +17,10 @@ public interface MemberMapper {
   @Select("SELECT * FROM members WHERE id=#{id}")
   Map<String, Object> byId(String id);
 
+  /** 서로 다른 재설정 링크도 같은 회원 행을 먼저 잠급니다. 토큰 삭제→회원 변경의 역순 잠금 경합을 막습니다. */
+  @Select("SELECT id FROM members WHERE id=#{id} FOR UPDATE")
+  String lockForCredentials(String id);
+
   @Insert(
     "INSERT INTO members(id,email,password_hash,nickname,role) VALUES(#{id},#{email},#{password},#{nickname},#{role})"
   )

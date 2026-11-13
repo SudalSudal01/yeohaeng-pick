@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Bell, Check, Vote } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../../shared/api";
-import { useToast } from "../../shared/providers";
+import { useAuth, useToast } from "../../shared/providers";
 import { Empty, ErrorState, Loading } from "../../shared/ui";
 import {
   markAllNotificationsRead,
@@ -25,6 +25,10 @@ export default function NotificationPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const client = useQueryClient();
+  const { user } = useAuth();
+  const member = user?.id || "";
+  const pathname = window.location.pathname;
+  const mounted = useRef(false);
   const [params, setParams] = useSearchParams();
   const requestedPage = readNotificationPage(params);
   const unreadOnly = readNotificationUnreadOnly(params);
@@ -34,6 +38,21 @@ export default function NotificationPage() {
   const [reading, setReading] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [accessFailure, setAccessFailure] = useState<unknown>(null);
+  useEffect(() => {
+    mounted.current = true;
+    readMutationBusy.current = false;
+    setReading(false);
+    setMarkingAll(false);
+    setAccessFailure(null);
+    return () => {
+      mounted.current = false;
+    };
+  }, [member]);
+  // 늦은 실패가 이전 회원의 목록을 새 로그인 캐시에 복원하지 못하게 요청을 시작한 계정도 확인합니다.
+  const currentSession = () =>
+    mounted.current &&
+    !!member &&
+    client.getQueryData<{ id: string }>(["me"])?.id === member;
   const query = useQuery({
     queryKey: ["notifications", requestedPage, unreadOnly],
     queryFn: () =>
@@ -48,6 +67,7 @@ export default function NotificationPage() {
 
   /** 접근이 끝난 응답을 받으면 이전 회원의 목록과 헤더 숫자를 한 렌더도 더 사용하지 않습니다. */
   function hidePrivateNotifications(error: unknown) {
+    if (!currentSession()) return;
     setAccessFailure(error);
     client.removeQueries({ queryKey: ["notifications"] });
     client.removeQueries({ queryKey: ["notification-unread-count"] });
@@ -91,7 +111,7 @@ export default function NotificationPage() {
 
   /** 폴링 응답과 낙관 갱신이 서로 덮지 않게 관련 조회를 멈추고 읽음 변경을 하나씩 수행합니다. */
   async function beginReadMutation(all = false) {
-    if (readMutationBusy.current) return false;
+    if (readMutationBusy.current || !currentSession()) return false;
     readMutationBusy.current = true;
     setReading(true);
     setMarkingAll(all);
@@ -99,11 +119,12 @@ export default function NotificationPage() {
       client.cancelQueries({ queryKey: ["notifications"] }),
       client.cancelQueries({ queryKey: ["notification-unread-count"] }),
     ]);
-    return true;
+    return currentSession();
   }
 
   /** 성공·실패 모두 서버 값을 다시 조회합니다. 접근 종료 때는 빈 캐시만 stale 처리하고 재호출하지 않습니다. */
   async function finishReadMutation(accessWasLost: boolean) {
+    if (!currentSession()) return;
     const refetchType = accessWasLost ? "none" : "active";
     await Promise.all([
       client.invalidateQueries({ queryKey: ["notifications"], refetchType }),
@@ -112,14 +133,16 @@ export default function NotificationPage() {
         refetchType,
       }),
     ]);
-    readMutationBusy.current = false;
-    setReading(false);
-    setMarkingAll(false);
+    if (currentSession()) {
+      readMutationBusy.current = false;
+      setReading(false);
+      setMarkingAll(false);
+    }
   }
 
   /** 목록과 헤더 개수를 함께 낙관적으로 바꾸고 실패하면 중단 직전 값으로 되돌립니다. */
   async function markRead(notification: TravelNotification) {
-    if (notification.readAt) return true;
+    if (notification.readAt) return currentSession();
     if (!(await beginReadMutation())) return false;
     const key = ["notifications", requestedPage, unreadOnly] as const;
     const previousPage = client.getQueryData<NotificationPageData>(key);
@@ -142,8 +165,9 @@ export default function NotificationPage() {
     let accessWasLost = false;
     try {
       await api(`/notifications/${notification.id}/read`, { method: "PUT" });
-      return true;
+      return currentSession();
     } catch (error) {
+      if (!currentSession()) return false;
       accessWasLost = notificationAccessLost(error);
       if (accessWasLost) hidePrivateNotifications(error);
       else {
@@ -159,7 +183,14 @@ export default function NotificationPage() {
   }
 
   async function openNotification(notification: TravelNotification) {
-    if (!(await markRead(notification))) return;
+    // 다른 화면의 지연 로딩이 끝나기 전에는 옛 컴포넌트가 아직 마운트되어 있을 수 있습니다.
+    // 읽음 캐시는 같은 계정에 동기화하되 뒤늦은 응답이 사용자의 새 경로를 투표 화면으로 바꾸지 않습니다.
+    if (
+      !(await markRead(notification)) ||
+      !currentSession() ||
+      window.location.pathname !== pathname
+    )
+      return;
     navigate(`/trips/${notification.tripId}#trip-polls`);
   }
 
@@ -178,8 +209,9 @@ export default function NotificationPage() {
     let accessWasLost = false;
     try {
       await api("/notifications/read-all", { method: "PUT" });
-      toast("모든 알림을 읽음으로 표시했어요.");
+      if (currentSession()) toast("모든 알림을 읽음으로 표시했어요.");
     } catch (error) {
+      if (!currentSession()) return;
       accessWasLost = notificationAccessLost(error);
       if (accessWasLost) hidePrivateNotifications(error);
       else {
