@@ -174,14 +174,19 @@ public class TripController {
     trips.delete(id, auth.id(a));
   }
 
-  public record Task(String content, String taskId, Boolean done) {}
+  public record Task(
+    String content,
+    String taskId,
+    Boolean done,
+    String requestId
+  ) {}
 
   @PostMapping("/trips/{id}/tasks")
   Object task(@PathVariable String id, @RequestBody Task t, Authentication a) {
-    return trips.task(id, auth.id(a), t.content, t.taskId, t.done);
+    return trips.task(id, auth.id(a), t.content, t.taskId, t.done, t.requestId);
   }
 
-  public record Expense(String label, int amount) {}
+  public record Expense(String label, int amount, String requestId) {}
 
   @PostMapping("/trips/{id}/expenses")
   Object expense(
@@ -189,6 +194,6 @@ public class TripController {
     @RequestBody Expense e,
     Authentication a
   ) {
-    return trips.expense(id, auth.id(a), e.label, e.amount);
+    return trips.expense(id, auth.id(a), e.label, e.amount, e.requestId);
   }
 }

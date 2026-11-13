@@ -43,6 +43,10 @@ public interface WithdrawalMapper {
   @Delete("DELETE FROM trip_imports WHERE member_id=#{member}")
   void imports(String member);
 
+  /** 생성 요청의 성공 영수증은 회원별 비공개 행동 기록이므로 탈퇴 시 해시·대상 ID까지 제거합니다. */
+  @Delete("DELETE FROM trip_mutations WHERE member_id=#{member}")
+  void tripMutations(String member);
+
   /** 비공개 장소 찜은 탈퇴한 회원 행에 남기지 않습니다. */
   @Delete("DELETE FROM favorite_places WHERE member_id=#{member}")
   void favorites(String member);

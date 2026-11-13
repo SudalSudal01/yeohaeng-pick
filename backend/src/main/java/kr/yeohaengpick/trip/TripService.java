@@ -20,6 +20,7 @@ public class TripService {
   private final WholeSchedule wholeSchedule;
   private final kr.yeohaengpick.favorite.FavoriteService favorites;
   private final kr.yeohaengpick.collaboration.TripOwnershipMapper ownership;
+  private final TripMutationReceipts receipts;
 
   public TripService(
     TripMapper t,
@@ -30,7 +31,8 @@ public class TripService {
     BookingSchedule schedule,
     WholeSchedule wholeSchedule,
     kr.yeohaengpick.collaboration.TripOwnershipMapper ownership,
-    kr.yeohaengpick.favorite.FavoriteService favorites
+    kr.yeohaengpick.favorite.FavoriteService favorites,
+    TripMutationReceipts receipts
   ) {
     trips = t;
     catalog = c;
@@ -41,6 +43,7 @@ public class TripService {
     this.wholeSchedule = wholeSchedule;
     this.ownership = ownership;
     this.favorites = favorites;
+    this.receipts = receipts;
   }
 
   public Map<String, Object> access(String id, String member) {
@@ -91,8 +94,14 @@ public class TripService {
     TripRequest conditions,
     @jakarta.validation.constraints.NotEmpty
     @jakarta.validation.constraints.Size(max = 100)
-    List<Planner.Stop> items
-  ) {}
+    List<Planner.Stop> items,
+    String requestId
+  ) {
+    /** 이전 내부 호출도 재시도 키 없이 기존 저장 계약을 사용할 수 있습니다. */
+    public Create(TripRequest conditions, List<Planner.Stop> items) {
+      this(conditions, items, null);
+    }
+  }
 
   @Transactional
   public Object create(Create create, String member) {
@@ -103,6 +112,18 @@ public class TripService {
       create.items.isEmpty() ||
       create.items.size() > 100
     ) throw DomainException.bad("저장할 일정을 먼저 선택해 주세요.");
+    var command = receipts.begin(
+      member,
+      TripMutationReceipts.Operation.TRIP_CREATE,
+      create.requestId(),
+      create.requestId() == null ? null : creationPayload(create)
+    );
+    // 첫 저장이 성공했다면 현재 장소 공급자가 장애여도 원래 요청을 다시 생성하지 않습니다.
+    // 현재 참여 권한·대상 존재를 검사한 뒤 현재 상세를 반환하므로 옛 응답 캐시도 공개하지 않습니다.
+    if (replayed(command, null, member)) return detail(
+      command.previous().tripId(),
+      member
+    );
     // 클라이언트가 전달한 값은 신뢰하지 않습니다. 장소 ID·좌표·가격을 서버 후보 목록과 대조합니다.
     var candidates = candidates(r, member);
     var available = candidates
@@ -134,7 +155,76 @@ public class TripService {
       "날씨와 준비물 확인하기"
     ))
       trips.addTask(UUID.randomUUID().toString(), id, task);
+    receipts.complete(command, id, id);
     return detail(id, member);
+  }
+
+  private record RequestedStop(
+    int dayIndex,
+    int sortOrder,
+    String placeId,
+    String startTime
+  ) {}
+
+  /** 서버에서 무시하는 임시 stop ID·예약 상태·장소 이름/요금/좌표는 지문에도 사용하지 않습니다. */
+  @SuppressWarnings("unchecked")
+  private Object creationPayload(Create create) {
+    var conditions = json.read(json.write(create.conditions()), Map.class);
+    conditions.put(
+      "lodging",
+      Objects.requireNonNullElse(create.conditions().lodging(), "")
+    );
+    List<RequestedStop> stops = new ArrayList<>();
+    for (var stop : create.items()) {
+      if (
+        stop == null ||
+        stop.place() == null ||
+        stop.place().id() == null ||
+        stop.startTime() == null
+      ) throw DomainException.bad("일정 데이터가 누락됐어요.");
+      stops.add(
+        new RequestedStop(
+          stop.dayIndex(),
+          stop.sortOrder(),
+          stop.place().id(),
+          stop.startTime()
+        )
+      );
+    }
+    stops.sort(
+      Comparator.comparingInt(RequestedStop::dayIndex).thenComparingInt(
+        RequestedStop::sortOrder
+      )
+    );
+    return Map.of("conditions", conditions, "items", stops);
+  }
+
+  /** 영수증이 있어도 현재 권한을 복구하거나 삭제한 대상을 되살리지 않습니다. 잠금 순서는 회원→여행입니다. */
+  private boolean replayed(
+    TripMutationReceipts.Command command,
+    String expectedTrip,
+    String member
+  ) {
+    if (command == null || command.previous() == null) return false;
+    String id = command.previous().tripId();
+    if (
+      id == null || (expectedTrip != null && !expectedTrip.equals(id))
+    ) throw deletedCreation();
+    // 영수증을 읽은 직후 다른 요청이 여행을 삭제할 수 있어 잠금 뒤에도 존재를 재검사합니다.
+    if (trips.lock(id) == null) throw deletedCreation();
+    if (trips.access(id, member) == 0) throw new DomainException(
+      403,
+      "현재 참여 중인 동행만 이 여행에 접근할 수 있어요. 참여가 종료됐다면 새 초대를 받아 주세요."
+    );
+    if (receipts.targetExists(command, id) != 1) throw deletedCreation();
+    return true;
+  }
+
+  private DomainException deletedCreation() {
+    return new DomainException(
+      409,
+      "이미 저장한 대상이 삭제됐어요. 이 요청으로 다시 생성하지 않아요. 새로 추가하려면 새 요청으로 작성해 주세요."
+    );
   }
 
   /**
@@ -1241,8 +1331,24 @@ public class TripService {
     String taskId,
     Boolean done
   ) {
-    access(id, member);
+    return task(id, member, content, taskId, done, null);
+  }
+
+  /** 새 준비물의 재시도만 영수증으로 보호합니다. 완료 여부 수정은 기존 명시적 상태 변경 계약입니다. */
+  @Transactional
+  public Object task(
+    String id,
+    String member,
+    String content,
+    String taskId,
+    Boolean done,
+    String requestId
+  ) {
     if (taskId != null) {
+      if (requestId != null) throw DomainException.bad(
+        "준비물 추가에만 저장 요청 식별자를 사용할 수 있어요."
+      );
+      access(id, member);
       if (done == null) throw DomainException.bad(
         "준비물의 완료 여부를 선택해 주세요."
       );
@@ -1255,14 +1361,35 @@ public class TripService {
       if (
         content == null || content.isBlank() || content.length() > 200
       ) throw DomainException.bad("준비할 내용을 200자 이내로 입력해 주세요.");
-      trips.addTask(UUID.randomUUID().toString(), id, content.trim());
+      var command = receipts.begin(
+        member,
+        TripMutationReceipts.Operation.TASK_ADD,
+        requestId,
+        Map.of("tripId", id, "content", content.trim())
+      );
+      if (!replayed(command, id, member)) {
+        access(id, member);
+        String target = UUID.randomUUID().toString();
+        trips.addTask(target, id, content.trim());
+        receipts.complete(command, id, target);
+      }
     }
     return trips.tasks(id);
   }
 
   @Transactional
   public Object expense(String id, String member, String label, int amount) {
-    access(id, member);
+    return expense(id, member, label, amount, null);
+  }
+
+  @Transactional
+  public Object expense(
+    String id,
+    String member,
+    String label,
+    int amount,
+    String requestId
+  ) {
     if (
       label == null ||
       label.isBlank() ||
@@ -1270,7 +1397,19 @@ public class TripService {
       amount <= 0 ||
       amount > 100000000
     ) throw DomainException.bad("지출 내용과 금액을 확인해 주세요.");
-    trips.expense(UUID.randomUUID().toString(), id, member, label, amount);
+    String normalized = label.trim();
+    var command = receipts.begin(
+      member,
+      TripMutationReceipts.Operation.EXPENSE_ADD,
+      requestId,
+      Map.of("tripId", id, "label", normalized, "amount", amount)
+    );
+    if (!replayed(command, id, member)) {
+      access(id, member);
+      String target = UUID.randomUUID().toString();
+      trips.expense(target, id, member, normalized, amount);
+      receipts.complete(command, id, target);
+    }
     return trips.expenses(id);
   }
 }

@@ -17,7 +17,7 @@ import {
   CheckCircle2,
   Loader2,
 } from "lucide-react";
-import { api, money } from "../../shared/api";
+import { api, ApiError, money } from "../../shared/api";
 import { useAuth, useConfig, useToast } from "../../shared/providers";
 import type { Conditions, Course } from "../../shared/types";
 import { ErrorState } from "../../shared/ui";
@@ -26,6 +26,7 @@ import FavoritePicker from "../favorites/FavoritePicker";
 import RegionChoices from "../catalog/RegionChoices";
 import { planIssue } from "./planValidation";
 import { localToday } from "../trips/sharedTripDates";
+import { RequestAttempts } from "../trips/requestAttempt";
 
 /** 단계별 입력을 유지하고, 생성 중 중복 요청을 막습니다. AI 대체 실행은 engine 값으로 정확히 표시합니다. */
 export default function PlanPage() {
@@ -38,10 +39,13 @@ export default function PlanPage() {
   const today = localToday();
   const mounted = useRef(false);
   const working = useRef(false);
+  const saveAttempts = useRef(new RequestAttempts());
+  const recommendationGeneration = useRef(0);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      saveAttempts.current.clear();
     };
   }, []);
   // 날짜 필드는 input에서도 상태를 갱신해 change가 늦는 브라우저에서 단계 이동 시 값을 잃지 않습니다.
@@ -67,6 +71,15 @@ export default function PlanPage() {
   const [recommendedConditions, setRecommendedConditions] =
     useState<Conditions | null>(null);
   const [selected, setSelected] = useState(1);
+  const [uncertainSaves, setUncertainSaves] = useState<string[]>([]);
+  const saveScope = () =>
+    `${user?.id}:recommendation:${recommendationGeneration.current}:course:${selected}:${courses[selected]?.variant}`;
+  const retryingSave =
+    uncertainSaves.includes(saveScope()) &&
+    saveAttempts.current.matches(saveScope(), {
+      conditions: recommendedConditions,
+      items: courses[selected]?.items,
+    });
   const set = <K extends keyof Conditions>(key: K, value: Conditions[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
   // 지역을 제거하면 이전 지역의 숙소 선택도 지웁니다. 오래된 선택이 새 여행에 섞이지 않습니다.
@@ -127,6 +140,10 @@ export default function PlanPage() {
           "추천 코스를 받지 못했어요. 조건을 확인하고 다시 시도해 주세요.",
         );
       setCourses(result);
+      // 새로 추천한 결과는 별도의 여행 선택입니다. 이전 추천의 미확인 저장 키를 섞지 않습니다.
+      recommendationGeneration.current++;
+      saveAttempts.current.clear();
+      setUncertainSaves([]);
       setRecommendedConditions(snapshot);
       setSelected(Math.min(1, result.length - 1));
       setStep(3);
@@ -139,21 +156,42 @@ export default function PlanPage() {
   }
   async function save() {
     const course = courses[selected];
-    if (working.current || !recommendedConditions || !course) return;
+    if (
+      working.current ||
+      !recommendedConditions ||
+      !course ||
+      !currentAccount()
+    )
+      return;
+    const scope = saveScope();
+    const body = { conditions: recommendedConditions, items: course.items };
+    const requestId = saveAttempts.current.begin(scope, body);
     working.current = true;
     setBusy(true);
     setError(undefined);
     try {
       const trip = await api<{ id: string }>("/trips", {
         method: "POST",
-        body: { conditions: recommendedConditions, items: course.items },
+        body: { ...body, requestId },
       });
+      if (!trip || typeof trip.id !== "string" || !trip.id)
+        throw new ApiError(
+          502,
+          "여행 저장 결과를 확인하지 못했어요. 같은 코스로 다시 확인해 주세요.",
+        );
+      saveAttempts.current.acknowledge(scope, requestId);
       // 다른 화면으로 떠나거나 세션이 끝난 뒤 도착한 응답이 과거 여행으로 강제 이동시키지 않습니다.
       if (!currentAccount()) return;
       toast("여행을 저장했어요. 이제 함께 다듬어 볼까요?");
       navigate("/trips/" + trip.id);
     } catch (e) {
-      if (mounted.current) setError(e as Error);
+      if (currentAccount()) {
+        setError(e as Error);
+        if (!(e instanceof ApiError) || e.status === 0 || e.status >= 500)
+          setUncertainSaves((previous) =>
+            previous.includes(scope) ? previous : [...previous, scope],
+          );
+      }
     } finally {
       working.current = false;
       if (mounted.current) setBusy(false);
@@ -499,7 +537,10 @@ export default function PlanPage() {
                 className={"course-card " + (selected === i ? "selected" : "")}
                 key={c.variant}
                 disabled={busy}
-                onClick={() => setSelected(i)}
+                onClick={() => {
+                  setSelected(i);
+                  setError(undefined);
+                }}
                 aria-pressed={selected === i}
               >
                 <div className="course-top">
@@ -581,6 +622,13 @@ export default function PlanPage() {
             </div>
           </div>
           {error && <ErrorState error={error} />}
+          {retryingSave && (
+            <p id="plan-save-uncertain" className="notice" role="status">
+              저장 응답을 확인하지 못했어요. 같은 코스로 다시 누르면 중복 저장
+              없이 결과를 확인해요. 새로고침하거나 화면을 닫기 전에는 내 여행
+              목록도 확인해 주세요.
+            </p>
+          )}
           <div className="save-plan">
             <div>
               <strong>{courses[selected]?.title}</strong>
@@ -589,6 +637,9 @@ export default function PlanPage() {
             <button
               className="button primary"
               disabled={busy || !courses[selected] || !recommendedConditions}
+              aria-describedby={
+                retryingSave ? "plan-save-uncertain" : undefined
+              }
               onClick={save}
             >
               {busy ? (
@@ -596,7 +647,11 @@ export default function PlanPage() {
               ) : (
                 <Check size={18} />
               )}
-              이 코스로 시작하기
+              {busy
+                ? "저장 중…"
+                : retryingSave
+                  ? "같은 코스로 저장 결과 확인"
+                  : "이 코스로 시작하기"}
             </button>
           </div>
         </>

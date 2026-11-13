@@ -8,7 +8,7 @@
 
 | 영역 | 경로 | 설명 |
 | --- | --- | --- |
-| 공개 설정 | GET /config | 지도 공개 키와 실제 연결 상태. 서버 비밀 키 제외 |
+| 공개 설정 | GET /config | 지도 공개 키와 연결 설정 여부. 공급자 응답 성공 여부와 구분하며 서버 비밀 키 제외 |
 | 인증 | POST /auth/register, /login, /logout | 가입·로그인·로그아웃 |
 | 계정 | GET /auth/me, PUT /auth/profile | 기본 취향과 수신 범위 |
 | 회원 탈퇴 | GET /auth/withdrawal, DELETE /auth/account | 사전 소유 여행 확인, `{password,confirmed:true}`·204. 소유 여행 409·현재 비밀번호·세션/참여 종료. [삭제·보존 계약](account-withdrawal.md) |
@@ -20,7 +20,7 @@
 | 개인 찜 | GET/POST /favorites, DELETE /favorites/{placeId} | 본인 전용. 저장 `{placeId,region,query,category}` → `{place,savedAt}`. 중복 멱등/최대 200곳·해제/탈퇴 정리. [계약](favorites.md) |
 | 찜 숙소 확인 | POST /favorites/lodgings/resolve | 로그인/CSRF. `{placeId,region}` → `{place,checkedAt}`. 본인 숙소 찜·지역·현재 장소 재조회. 객실 요금/재고 확인은 아님 |
 | 추천 | POST /recommendations | 여행 조건과 선택적 `favoriteIds` 최대 5개·`lodgingIds`에 포함된 `favoriteLodgingIds` 최대 5개 → 세 코스. 숙소는 지역별 한 곳. 본인 찜·지역 검사/재조회, 우선 평가·반영/제외 경고 |
-| 여행 | GET/POST /trips, GET/DELETE /trips/{id} | 생성·조회·소유자 삭제 |
+| 여행 | GET/POST /trips, GET/DELETE /trips/{id} | 생성·조회·소유자 삭제. 생성의 선택적 `requestId`로 성공 응답 유실 재시도 중복 방지 |
 | 대안 | GET /trips/{id}/alternatives/{item}?rain= | 중복 제외, 선택적 실내 후보 |
 | 비교/적용 | POST /trips/{id}/preview, /apply | `{itemId,placeId,version,favorite?,rain?}`. 본인 찜 한 곳 재조회와 우천 실내 제한. 선택 필드 생략 시 기존 일반 후보 계약 |
 | 예약 | PUT /trips/{id}/booking, /lodging-booking | `{itemId,status,reason,fixed,version}` |
@@ -30,7 +30,7 @@
 | 공유 | POST /trips/{id}/share | 소유자만 생성/종료, `{enabled}` |
 | 공개 일정 | GET /share/{token} | 안전한 필드만 노출 |
 | 일정 가져오기 | POST /trips/import | 로그인·CSRF·공개 스냅샷·요청 키. `{id}`로 독립 여행 생성, 예약/개인 기록 제외. [복사·중복 방지 계약](shared-trip-import.md) |
-| 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록 |
+| 준비물/경비 | POST /trips/{id}/tasks, /expenses | 참여자 공동 기록. 추가의 선택적 `requestId`로 같은 요청을 한 번만 저장. 기존 준비물 수정은 제외 |
 | 여행 투표 | GET/POST /trips/{id}/polls, PUT /trips/{id}/polls/{pollId}/ballot, POST /trips/{id}/polls/{pollId}/close, DELETE /trips/{id}/polls/{pollId} | 참여자 생성·집계/내 선택 조회·재투표/취소. 만든 사람 또는 현재 소유자 마감·삭제. [계약과 개인정보 범위](trip-polls.md) |
 | 알림 센터 | GET /notifications, GET /notifications/unread-count, PUT /notifications/{id}/read, PUT /notifications/read-all | 현재 참여 중인 여행의 투표 생성·수동 마감 알림, 회원별 읽음 상태. [계약과 개인정보 범위](notifications.md) |
 | 초대 | GET/POST /invitations, POST /invitations/{id}/respond | `tripId/email`, 응답의 `accept` 필수. 수락 전 접근 불가·회원→여행 잠금·현재 차단 재검사. [상세](social-stability.md) |
@@ -47,6 +47,12 @@
 | 대화 | GET/POST /messages, GET/POST /messages/{id} | recipientId 요청·requestCreated·최신 50개/이전 커서·재시도 requestId. 이메일 요청은 400. [메시지 계약](messaging.md) |
 | 수락/단체 | POST /messages/{id}/respond, /messages/trip/{id} | 수락·거절·여행 단체 대화 |
 | 차단 | GET /messages/blocks, PUT /messages/blocks/{member} | 사용자 차단/해제 |
+
+## 여행·준비물·경비 생성 재시도
+
+`POST /trips`는 `{conditions,items,requestId?}`, 준비물 추가는 `{content,requestId?}`, 경비 추가는 `{label,amount,requestId?}`를 받습니다. `requestId`는 표준 UUID이며 소문자로 정규화합니다. 같은 회원·작업의 동일 키와 실효 입력은 최초 저장 한 건을 유지하고, 현재 권한을 확인한 최신 여행 상세/준비물 목록/경비 목록을 기존 응답 형태로 반환합니다. 키 없는 기존 요청은 매번 추가하는 계약을 유지합니다.
+
+같은 키의 다른 입력·다른 여행은 409입니다. 생성 대상이나 여행이 삭제된 후에도 409로 종료하며 다시 만들지 않습니다. 참여가 끝난 요청자는 403입니다. 성공 영수증과 실제 저장은 같은 트랜잭션이며 실패한 요청은 키도 소비하지 않습니다. 회원 탈퇴 시 본인의 비공개 영수증은 제거합니다. [동시성·화면 수명·개인정보 계약](idempotent-creation.md)
 
 ## 여행 공동 의사결정 투표
 

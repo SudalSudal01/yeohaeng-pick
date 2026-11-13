@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import {
   api,
+  ApiError,
   accessEnded,
   money,
   activityPrice,
@@ -52,6 +53,9 @@ import { lodgingBudget, activityBudget } from "./tripBudget";
 import { overnightConnection } from "./transportSchedule";
 import { isVisitChangeProtected } from "./visitComparisonCandidates";
 import TripPollPanel from "./TripPollPanel";
+import { RequestAttempts } from "./requestAttempt";
+
+type Addition = { kind: "task" | "expense"; acknowledged: () => void };
 
 /** 15초마다 서버의 공유 일정을 조회합니다. 비교 화면은 열린 시점 version을 사용해 동행의 수정을 덮지 않습니다. */
 export default function TripPage() {
@@ -62,6 +66,7 @@ export default function TripPage() {
   const routeLocation = useLocation();
   const { user } = useAuth();
   const working = useRef(false);
+  const writeAttempts = useRef(new RequestAttempts());
   const mounted = useRef(false);
   const viewedTrip = useRef(id);
   viewedTrip.current = id;
@@ -130,6 +135,18 @@ export default function TripPage() {
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const [uncertainWrites, setUncertainWrites] = useState<string[]>([]);
+  const writeScope = (kind: Addition["kind"]) =>
+    `${user?.id}:${id}:${kind}:add`;
+  const retryingTask =
+    uncertainWrites.includes(writeScope("task")) &&
+    writeAttempts.current.matches(writeScope("task"), { content: task.trim() });
+  const retryingExpense =
+    uncertainWrites.includes(writeScope("expense")) &&
+    writeAttempts.current.matches(writeScope("expense"), {
+      label: label.trim(),
+      amount: Number(amount),
+    });
   useEffect(() => {
     setDay(0);
     setTab(routeLocation.hash === "#trip-polls" ? "함께 준비" : "일정");
@@ -143,7 +160,10 @@ export default function TripPage() {
     setTask("");
     setLabel("");
     setAmount("");
-  }, [id]);
+    writeAttempts.current.clear();
+    setUncertainWrites([]);
+    return () => writeAttempts.current.clear();
+  }, [id, user?.id]);
   const ended = accessEnded(query.error);
   useEffect(() => {
     if (!ended) return;
@@ -173,22 +193,59 @@ export default function TripPage() {
     body: unknown,
     message: string,
     method = "POST",
+    addition?: Addition,
   ) {
     // React가 disabled 상태를 그리기 전 들어온 연속 클릭도 한 요청만 실행합니다.
-    if (working.current) return false;
+    if (working.current || !currentView()) return false;
     working.current = true;
+    const scope = addition ? writeScope(addition.kind) : undefined;
+    const requestId = scope
+      ? writeAttempts.current.begin(scope, body)
+      : undefined;
+    const payload = requestId
+      ? { ...(body as Record<string, unknown>), requestId }
+      : body;
     setBusy(true);
     try {
-      await api("/trips/" + id + path, { method, body });
+      await api("/trips/" + id + path, { method, body: payload });
+      if (scope && requestId)
+        writeAttempts.current.acknowledge(scope, requestId);
       if (!currentView()) return false;
-      await refresh();
+      // 서버 성공 응답을 받은 순간에만 전송 당시 초안을 정리합니다. 이후 목록 조회 실패는 쓰기 실패가 아닙니다.
+      addition?.acknowledged();
+      if (scope)
+        setUncertainWrites((previous) =>
+          previous.filter((value) => value !== scope),
+        );
+      let refreshed = true;
+      try {
+        await refresh();
+      } catch {
+        refreshed = false;
+      }
       if (!currentView()) return false;
-      toast(message);
+      toast(
+        refreshed
+          ? message
+          : message + " 최신 목록을 불러오지 못했으니 다시 확인해 주세요.",
+        !refreshed,
+      );
       return true;
     } catch (e) {
       if (currentView()) {
+        if (
+          scope &&
+          (!(e instanceof ApiError) || e.status === 0 || e.status >= 500)
+        )
+          setUncertainWrites((previous) =>
+            previous.includes(scope) ? previous : [...previous, scope],
+          );
         toast((e as Error).message, true);
-        await refresh();
+        try {
+          await refresh();
+        } catch {
+          /* 조회 오류는 화면의 재시도 안내로 처리하며 원래 저장 실패를 덮지 않습니다. */
+        }
       }
       return false;
     } finally {
@@ -740,18 +797,25 @@ export default function TripPage() {
               className="inline-form"
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (
-                  await action(
-                    "/tasks",
-                    { content: task },
-                    "준비물을 추가했어요.",
-                  )
-                )
-                  setTask((current) => (current === task ? "" : current));
+                const sent = task;
+                await action(
+                  "/tasks",
+                  { content: sent.trim() },
+                  "준비물을 추가했어요.",
+                  "POST",
+                  {
+                    kind: "task",
+                    acknowledged: () =>
+                      setTask((current) => (current === sent ? "" : current)),
+                  },
+                );
               }}
             >
               <input
                 aria-label="새 준비물"
+                aria-describedby={
+                  retryingTask ? "task-save-uncertain" : undefined
+                }
                 placeholder="함께 준비할 내용"
                 value={task}
                 onChange={(e) => setTask(e.target.value)}
@@ -761,9 +825,22 @@ export default function TripPage() {
               />
               <button className="button primary" disabled={busy}>
                 <Plus size={18} />
-                <span className="sr-only">추가</span>
+                <span className={retryingTask ? "" : "sr-only"}>
+                  {retryingTask ? "결과 확인" : "추가"}
+                </span>
               </button>
             </form>
+            {retryingTask && (
+              <p
+                id="task-save-uncertain"
+                className="notice"
+                role="status"
+                style={{ marginTop: 24 }}
+              >
+                추가 결과를 확인하지 못했어요. 내용을 유지한 채 다시 누르면 같은
+                준비물의 저장 결과를 확인해요.
+              </p>
+            )}
           </section>
           <section className="panel expenses-panel">
             <div className="section-heading">
@@ -796,20 +873,32 @@ export default function TripPage() {
               className="expense-form"
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (
-                  await action(
-                    "/expenses",
-                    { label, amount: Number(amount) },
-                    "지출을 기록했어요.",
-                  )
-                ) {
-                  setLabel((current) => (current === label ? "" : current));
-                  setAmount((current) => (current === amount ? "" : current));
-                }
+                const sentLabel = label,
+                  sentAmount = amount;
+                await action(
+                  "/expenses",
+                  { label: sentLabel.trim(), amount: Number(sentAmount) },
+                  "지출을 기록했어요.",
+                  "POST",
+                  {
+                    kind: "expense",
+                    acknowledged: () => {
+                      setLabel((current) =>
+                        current === sentLabel ? "" : current,
+                      );
+                      setAmount((current) =>
+                        current === sentAmount ? "" : current,
+                      );
+                    },
+                  },
+                );
               }}
             >
               <input
                 aria-label="지출 내용"
+                aria-describedby={
+                  retryingExpense ? "expense-save-uncertain" : undefined
+                }
                 placeholder="예: 점심 식사"
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -819,6 +908,9 @@ export default function TripPage() {
               />
               <input
                 aria-label="지출 금액"
+                aria-describedby={
+                  retryingExpense ? "expense-save-uncertain" : undefined
+                }
                 type="number"
                 min={1}
                 placeholder="금액 (원)"
@@ -829,9 +921,20 @@ export default function TripPage() {
               />
               <button className="button primary" disabled={busy}>
                 <Plus size={16} />
-                기록
+                {retryingExpense ? "결과 확인" : "기록"}
               </button>
             </form>
+            {retryingExpense && (
+              <p
+                id="expense-save-uncertain"
+                className="notice"
+                role="status"
+                style={{ marginTop: 24 }}
+              >
+                기록 결과를 확인하지 못했어요. 내용과 금액을 유지한 채 다시
+                누르면 같은 지출의 저장 결과를 확인해요.
+              </p>
+            )}
           </section>
         </div>
       ) : (
