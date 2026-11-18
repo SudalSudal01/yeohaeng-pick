@@ -218,13 +218,42 @@ dialogBody.addEventListener("click", (event) => {
    촬영 조건은 상세 갤러리에 남겨 원본 화면을 새로 만든 것처럼 표현하지 않습니다. */
 const projectCover = (project) =>
   `<span class="project-cover" data-theme="${e(project.id)}"><span class="cover-label">${e(project.english)}</span><span class="cover-browser"><span class="cover-toolbar" aria-hidden="true"><i></i><i></i><i></i></span><img src="${e(project.media[0].src)}" alt="" width="1440" height="1000" loading="lazy"></span></span>`;
+
+/* 서비스 안에서 호출한 모델과 개발에 사용한 도구를 각 카드에서 설명합니다.
+   프로젝트 버튼은 기존 상세창을 열어 같은 사례와 구현 화면으로 연결합니다. */
+function renderAiPractice(practice, projects) {
+  const cards = practice.cards.map((card) => {
+    const projectLinks = projects
+      .filter((project) => card.projectIds.includes(project.id))
+      .map(
+        (project) =>
+          `<button class="button" type="button" data-open="project" data-id="${e(project.id)}" aria-haspopup="dialog">${e(project.name)} 상세 ↗</button>`,
+      )
+      .join("");
+    return `<article class="ai-practice-card">
+      <p class="ai-practice-tool">${e(card.tool)}</p>
+      <h3>${e(card.title)}</h3>
+      ${prose(card.text)}
+      <div class="ai-practice-links">
+        ${projectLinks}
+        <a class="button" href="${e(card.reference.url)}" target="_blank" rel="noopener noreferrer">${e(card.reference.label)} ↗</a>
+      </div>
+    </article>`;
+  });
+  return `<section id="ai-practice" class="overview-section" aria-labelledby="ai-practice-title">
+    <div class="section-heading"><h2 id="ai-practice-title">${e(practice.title)}</h2></div>
+    <div class="ai-practice-grid">${cards.join("")}</div>
+  </section>`;
+}
+
 async function renderPortfolio() {
-  const response = await fetch("./data.json?v=20261112-personal");
+  const response = await fetch("./data.json?v=20261118-ai");
   if (!response.ok) throw new Error("content unavailable");
   content = await response.json();
-  const { profile, projects, about, skills, education } = content;
+  const { profile, aiPractice, projects, about, skills, education } = content;
   document.querySelector("#main").innerHTML = `
   <section class="hero" aria-labelledby="intro-title"><div class="hero-copy"><p class="kicker"><span class="kicker-line"></span>BACKEND DEVELOPER · PORTFOLIO</p><h1 id="intro-title"><span class="greeting">${e(profile.greeting)}</span><span class="aspiration">${e(profile.aspiration)}</span><span class="name-line"><em>${e(profile.name)}</em>입니다.</span></h1><div class="intro">${prose(profile.intro)}</div><div class="hero-tech" aria-label="주요 사용 기술">${tags(["Java", "Spring", "Oracle"])}</div><div class="actions"><a class="button primary" href="#projects">프로젝트 보기 ↓</a><a class="button" href="./assets/kim-myeonghyeon-portfolio.pdf" download>PDF 내려받기 ↗</a></div></div><aside class="profile-card"><div class="profile-top"><img class="profile-photo" src="${e(profile.photo)}" alt="${e(profile.name)} 프로필 사진" width="104" height="135"><div><p class="eyebrow">ABOUT ME</p><strong>${e(profile.name)}</strong><p>${e(profile.role)}</p><a href="${e(profile.github)}" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></div><div class="profile-projects" aria-label="프로젝트 미리보기"><p>제가 만든 서비스</p>${projects.map((project) => `<button type="button" class="profile-project" data-open="project" data-id="${e(project.id)}" aria-haspopup="dialog" aria-label="${e(project.name)} 프로젝트 미리보기"><span class="profile-number">${e(project.number)}</span><span><strong>${e(project.name)}</strong><small>${e(project.previewRole)}</small></span><span aria-hidden="true">↗</span></button>`).join("")}</div></aside></section>
+  ${renderAiPractice(aiPractice, projects)}
   <section id="about" class="overview-section" aria-labelledby="about-title"><div class="section-heading"><div><p class="kicker">ABOUT ME</p><h2 id="about-title">백엔드를 선택한 과정</h2></div><button class="button" type="button" data-open="about" aria-haspopup="dialog" aria-label="소개 상세 보기">소개 상세 보기 ↗</button></div><div class="about-grid">${about.map((item, index) => `<article class="story-card"><span class="step-label">0${index + 1}</span><h3>${e(item.title)}</h3><p>${e(item.summary)}</p></article>`).join("")}</div><div id="education" class="education-grid" aria-label="학력·교육·자격">${education.map((item) => `<article class="education-card"><p class="card-label">${e(item.kind)}${item.status ? " · " + e(item.status) : ""}</p><h3>${e(item.title)}</h3><p>${e(item.shortTitle ?? item.subtitle)}</p><p class="education-period">${e(item.period)}</p></article>`).join("")}</div></section>
   <section id="skills" class="overview-section" aria-labelledby="skills-title"><div class="section-heading"><div><p class="kicker">SKILLS</p><h2 id="skills-title">프로젝트에서 사용한 기술</h2></div></div><div class="skill-grid">${skills.map((item) => `<button type="button" class="summary-card skill-card" data-open="skill" data-id="${e(item.id)}" aria-haspopup="dialog" aria-label="${e(item.label)} 사용 경험 상세 보기"><span class="skill-icon">${skillIcon(item.id)}</span><span class="skill-content"><span class="card-label">${e(item.label)}</span><strong class="card-title">${e(item.title)}</strong><span class="tags">${tags(item.items)}</span><span class="card-action">사용 경험 보기</span></span><span class="skill-arrow" aria-hidden="true">↗</span></button>`).join("")}</div></section>
   <section id="projects" class="overview-section" aria-labelledby="projects-title"><div class="section-heading"><div><p class="kicker">SELECTED PROJECTS</p><h2 id="projects-title">직접 만들며 쌓은 경험</h2></div><p class="section-caption">제때약 · 여행픽 · 5ASIS</p></div><div class="project-grid">${projects.map((project) => `<button id="${e(project.id)}" class="summary-card project-card" type="button" data-open="project" data-id="${e(project.id)}" aria-haspopup="dialog" aria-label="${e(project.name)} 상세 보기">${projectCover(project)}<span class="project-card-body"><span class="project-top"><span class="project-number">${e(project.number)}</span><span class="card-label">${e(project.type)} · ${e(project.teamSize)}명</span></span><strong class="card-title">${e(project.name)}</strong><span class="project-period">${e(project.period)}</span><span class="card-summary">${e(project.summary)}</span><span class="role-summary">${e(project.previewRole)}</span><span class="tags">${tags(project.stack.slice(0, 3))}</span><span class="card-action">프로젝트 상세 보기 ↗</span></span></button>`).join("")}</div></section>
@@ -235,7 +264,9 @@ async function renderPortfolio() {
   });
   const links = [...document.querySelectorAll("#primary-nav a")];
   const sections = [
-    ...document.querySelectorAll("#about,#skills,#projects,#contact"),
+    ...document.querySelectorAll(
+      "#ai-practice,#about,#skills,#projects,#contact",
+    ),
   ];
   let navigationFrame;
   // 마지막 영역은 페이지가 짧으면 관찰 화면의 중앙까지 올라오지 못합니다.

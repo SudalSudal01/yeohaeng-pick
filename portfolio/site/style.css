@@ -378,6 +378,47 @@ footer {
   font-size: 30px;
   font-weight: 750;
 }
+.ai-practice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.ai-practice-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--white);
+  box-shadow: var(--shadow);
+}
+.ai-practice-tool {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+.ai-practice-card h3 {
+  margin: 8px 0 16px;
+  font-size: 20px;
+}
+.ai-practice-card .sentence-group {
+  color: var(--muted);
+  font-size: 15px;
+}
+/* 짧은 카드와 긴 카드의 실행 영역을 맞추고, 좁은 화면에서는 줄을 나눕니다. */
+.ai-practice-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+.ai-practice-links .button {
+  min-height: 44px;
+  padding: 8px 12px;
+}
 .section-caption {
   font-size: 14px;
   color: var(--muted);
@@ -1305,6 +1346,7 @@ details[open] > summary {
     display: none;
   }
   .about-grid,
+  .ai-practice-grid,
   .education-grid,
   .project-grid {
     grid-template-columns: 1fr;
@@ -1451,22 +1493,7 @@ details[open] > summary {
     font-size: 14px;
   }
 }
-@media (max-width: 560px) {
-  html {
-    scroll-padding-top: 90px;
-  }
-  .header {
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-  .brand {
-    font-size: 24px;
-    gap: 12px;
-  }
-  .brand span {
-    font-size: 12px;
-    letter-spacing: 0.08em;
-  }
+@media (max-width: 680px) {
   .menu-toggle {
     display: block;
   }
@@ -1489,6 +1516,26 @@ details[open] > summary {
   }
   #primary-nav a {
     min-height: 48px;
+  }
+  #primary-nav a:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 560px) {
+  html {
+    scroll-padding-top: 90px;
+  }
+  .header {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .brand {
+    font-size: 24px;
+    gap: 12px;
+  }
+  .brand span {
+    font-size: 12px;
+    letter-spacing: 0.08em;
   }
   .hero .greeting {
     font-size: 23px;

@@ -7,7 +7,7 @@
     "photo": "./assets/profile.png",
     "github": "https://github.com/SudalSudal01",
     "headline": "안녕하세요. 백엔드 개발자를 꿈꾸는 김명현입니다.",
-    "intro": "Java와 Spring을 사용하여 AI 상담, 여행 일정 관리, 외부 API 연동 기능을 구현하였습니다. 두 번의 팀 프로젝트와 개인 프로젝트에서 제가 맡은 작업을 정리하였습니다.",
+    "intro": "Java와 Spring으로 AI 상담, 여행 일정 관리, 외부 API 연동을 구현하였습니다. 제때약과 여행픽에 Gemini API를 연결하고, 여행픽 개발에는 Codex를 활용하였습니다.",
     "strengths": [
       {
         "title": "답변에 사용할 데이터부터 정하였습니다",
@@ -25,6 +25,31 @@
     "greeting": "안녕하세요.",
     "aspiration": "백엔드 개발자를 꿈꾸는",
     "introductionName": "김명현입니다."
+  },
+  "aiPractice": {
+    "title": "AI를 이렇게 활용하였습니다",
+    "cards": [
+      {
+        "title": "상담과 추천에 AI를 연결하였습니다",
+        "tool": "서비스 기능 · Gemini API",
+        "text": "제때약에서는 질문에서 추출한 조건을 서버에서 확인하고, 의약품 DB와 DUR 주의정보를 조회하였습니다. 여행픽에서는 Gemini가 순서를 매긴 장소 ID를 조회한 후보와 대조하고, 서버에서 세 가지 코스를 계산하였습니다.",
+        "projectIds": ["jette-yak", "travel-pick"],
+        "reference": {
+          "label": "여행픽 추천 코드",
+          "url": "https://github.com/SudalSudal01/yeohaeng-pick/blob/646d1cf/backend/src/main/java/kr/yeohaengpick/integration/AiRankingService.java"
+        }
+      },
+      {
+        "title": "오류를 재현하고 수정하는 데 활용하였습니다",
+        "tool": "개발 과정 · Codex",
+        "text": "여행픽에서 서버가 저장한 뒤 응답이 끊겨도 재시도하면 한 건만 남도록 목표를 정했습니다. Codex를 활용해 요청 ID를 적용하고 테스트를 작성하였습니다. 브라우저에서 응답을 끊은 뒤 같은 요청을 보내 저장 결과를 확인하였습니다.",
+        "projectIds": ["travel-pick"],
+        "reference": {
+          "label": "저장 재시도 검증 기록",
+          "url": "https://github.com/SudalSudal01/yeohaeng-pick/blob/646d1cf/docs/verification.md"
+        }
+      }
+    ]
   },
   "projects": [
     {
@@ -49,17 +74,17 @@
       "upstream": "https://github.com/jws909/Jette-Yak",
       "flow": [
         "사용자 질문",
-        "의도·조건 검증",
-        "DB·DUR 조회",
-        "근거 중심 응답"
+        "Gemini 질문 분류",
+        "조건 검증·DB 조회",
+        "DUR·조회 근거 안내"
       ],
       "cases": [
         {
           "title": "AI 상담의 조회 조건 검증",
-          "problem": "AI가 해석한 질문을 그대로 검색 조건에 사용하면 사용자가 말하지 않은 제품이나 조건이 포함될 수 있다고 보았습니다.",
-          "action": "질문의 의도와 검색 조건을 분리하였습니다. 허용한 조회 항목인지, 제품명과 조건이 실제 질문에 포함되어 있는지 검사하였습니다. 개인 약 정보는 로그인 세션의 사용자 ID로 조회하고, 응급·오남용 표현은 별도 규칙으로 처리하였습니다.",
+          "problem": "Gemini가 질문을 분류할 때 사용자가 말하지 않은 제품이나 조건이 검색에 섞일 수 있어, 서버에서 사용할 값을 먼저 검증해야 했습니다.",
+          "action": "Gemini가 반환한 질문 의도와 검색 조건을 JSON으로 읽었습니다. 허용한 항목과 질문에 등장한 표현인지 확인한 뒤 의약품 DB와 DUR 주의정보를 조회하였습니다. 개인 약 조회는 로그인 세션의 사용자 ID로 제한하고, 응급·오남용 표현은 AI 호출 전 서버 규칙으로 처리하였습니다.",
           "evidence": "QuestionAnalysis · CatalogQuery · MedicationChatService · ChatController",
-          "limit": "의료 진단 기능은 구현하지 않았습니다. 조회 자료가 없을 때는 안전하다고 단정하지 않고, 확인할 수 없는 정보임을 안내하도록 하였습니다."
+          "limit": "조회 기록이 없으면 확인이 어려운 항목임을 알렸습니다. AI로 보완한 안내는 DB에서 확인한 내용과 구분해 표시하였습니다."
         },
         {
           "title": "등록 이력과 복용 상태 구분",
@@ -126,7 +151,7 @@
       "type": "개인 프로젝트",
       "period": "2026.10",
       "subtitle": "취향과 예약을 고려하는 국내 여행 플래너",
-      "overview": "세 가지 여행 코스를 비교하고 동행과 함께 일정을 수정하는 국내 여행 플래너를 만들었습니다. 기획부터 화면·서버 연결, DB 전환, 테스트까지 진행하였습니다. AI 개발 도구를 활용하였으며, 결과는 코드와 실제 요청을 통해 확인하였습니다.",
+      "overview": "세 가지 여행 코스를 비교하고 동행과 일정을 수정하는 국내 여행 플래너를 만들었습니다. Gemini의 장소 후보 순위를 서버에서 검증하고, 일정과 이동 시간을 계산하였습니다. Gemini 호출에 실패하면 조회한 장소 후보로 규칙 기반 추천을 제공하였습니다.",
       "role": "기획 · 프론트/백엔드 연결 · DB · 테스트 · Git 관리",
       "stack": [
         "Java 21",
@@ -136,15 +161,16 @@
         "Oracle 19c",
         "Flyway",
         "React 19",
-        "TypeScript"
+        "TypeScript",
+        "Gemini API"
       ],
       "repo": "https://github.com/SudalSudal01/yeohaeng-pick",
       "private": false,
       "flow": [
         "지역·취향 입력",
-        "조회 후보·AI 평가",
-        "3코스 비교",
-        "저장·변경 검증"
+        "장소 조회·Gemini 순위",
+        "서버 검증·일정 계산",
+        "세 코스 비교"
       ],
       "cases": [
         {
@@ -169,16 +195,16 @@
           "limit": "일정과 메시지는 주기적으로 다시 조회하여 동기화하였습니다. WebSocket 기반 편집과 분산 세션은 구현하지 않았습니다."
         }
       ],
-      "verification": "2026.10 점검에서 H2 전체 203개와 프론트 50개 테스트를 통과하였습니다. Oracle 전체 195개는 이전 알림 단계의 결과이며, 이후 지역 확대 HTTP 2개를 Oracle에서 추가 확인하였습니다. 15개 지역의 합성 검색, 경주→전주 추천·저장, 모바일 화면도 점검하였습니다. 2026.11.12에는 별도 체험 DB와 외부 HTTPS 주소에서 가입·로그인·실제 장소 검색·Gemini 3코스 추천·일정 저장을 확인하였습니다.",
+      "verification": "2026.11.13 H2와 Oracle QA 구성에서 백엔드 테스트를 각각 246개, 프론트 테스트를 91개 통과하였습니다. 공개 체험 환경에서 실제 장소 검색과 Gemini 세 코스 추천을 확인하였습니다. AI 응답을 쓰지 못했을 때는 규칙 기반 추천으로 전환하는 것도 확인하였습니다. 브라우저에서 저장 성공 뒤 응답을 끊고 다시 보내 여행·준비물·경비가 각각 한 건만 남는 것을 확인하였습니다.",
       "learning": "여행 코스를 추천하는 기능을 만든 뒤에는 사용자가 바꾸었을 때의 처리까지 고민하게 되었습니다. 외부에서 조회한 값과 추정값, 사용자가 직접 확인한 값을 나누고 적용 시점에 조건을 다시 검사하도록 구현하였습니다.",
       "teamSize": 1,
       "scheduleStatus": "개발 중",
-      "summary": "여행 코스 비교와 공동 일정 수정을 구현하였습니다.",
-      "previewRole": "일정 비교 · 공동 편집 · Oracle 전환",
+      "summary": "Gemini 후보 평가와 서버 일정 계산을 연결하였습니다.",
+      "previewRole": "AI 코스 추천 · 공동 편집 · Oracle 전환",
       "highlights": [
         {
-          "title": "변경 전 영향 비교",
-          "text": "일정을 바꾸기 전에 예약 충돌과 이후 방문 시각을 비교하도록 구현하였습니다."
+          "title": "AI 평가와 일정 계산",
+          "text": "Gemini의 장소 ID를 서버 후보와 대조하고, 유효한 순위를 반영해 세 코스를 계산하였습니다."
         },
         {
           "title": "공동 편집 권한",
@@ -348,9 +374,10 @@
         "Vitest",
         "SQL Developer",
         "Gemini API",
-        "Steam API"
+        "Steam API",
+        "Codex"
       ],
-      "usage": "Gemini와 Steam API를 연결하고 응답을 서비스에서 사용할 형태로 변환하였습니다. JUnit·Vitest로 기능을 점검하고 Git·GitHub에 변경 이력을 남겼습니다.",
+      "usage": "Gemini와 Steam API 응답을 서비스에서 사용할 형태로 변환하였습니다. 여행픽의 저장 재시도 수정과 테스트 작성에 Codex를 활용하였습니다. JUnit·Vitest로 동작을 확인하고 Git·GitHub에 변경 이력을 남겼습니다.",
       "projectIds": ["jette-yak", "travel-pick", "5asis"]
     }
   ],

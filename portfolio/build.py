@@ -191,11 +191,14 @@ for p in projects:
 y = linked(profile["email"], "mailto:" + profile["email"], M, y + 8, 10.5) + 8
 linked(profile["github"].removeprefix("https://"), profile["github"], M, y, 9.5, MUTED)
 
-# 2. 학력·교육은 초반에, 기술은 숙련도 막대 대신 실제 사용한 항목으로 정리합니다.
-page("ABOUT ME  /  EDUCATION & SKILLS")
-y = title("제가 배워온 과정입니다.", size=26)
-for i, item in enumerate(data["about"]):
-    y = block(f'0{i+1}  {item["title"]}', item["text"], y, BLUE, 9.6)
+# 2. 서비스의 AI 기능과 개발 과정의 AI 사용을 앞에서 읽고 실제 코드와 검증으로 이어집니다.
+page("AI PRACTICE  /  EDUCATION & SKILLS")
+y = title(data["aiPractice"]["title"], size=26)
+for item in data["aiPractice"]["cards"]:
+    y = text(item["tool"], M, y, CW, 9, True, BLUE) + 5
+    y = block(item["title"], item["text"], y, BLUE, 10, background=True) - 12
+    reference = item["reference"]
+    y = linked(reference["label"], reference["url"], M, y, 9.2) + 18
 y = text("학력 · 교육 · 자격", M, y, CW, 15, True) + 14
 for item in data["education"]:
     y = text(item["title"] + "  /  " + item["period"], M, y, CW, 10.5, True) + 3
@@ -242,10 +245,10 @@ y = case(oasis["cases"][0], y, COLORS[oasis["id"]])
 y = block("구현하면서 배운 점", oasis["learning"], y, COLORS[oasis["id"]], 10.5)
 text(oasis["verification"], M, y, CW, 8.7, False, MUTED)
 
-# 10. 실제 저장소와 연락처를 한 곳에 모으며 팀 원본 링크도 유지합니다.
+# 10. 개발을 시작한 이야기와 프로젝트 저장소, 연락처를 모읍니다.
 page("WORKING TOGETHER  /  CONTACT")
-y = title("직접 구현하고,\n결과를 확인하며 배웠습니다.", size=28)
-for item in profile["strengths"]:
+y = title("제가 배워온 과정입니다.", size=28)
+for item in data["about"]:
     y = block(item["title"], item["text"], y, BLUE, 10.5)
 rule(y + 2)
 y = text("프로젝트 코드", M, y + 25, CW, 15, True) + 17
