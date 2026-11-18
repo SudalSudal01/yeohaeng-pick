@@ -124,6 +124,27 @@ def flow(items, top, color):
     return top + 88
 
 
+def practice_steps(steps, top):
+    """제가 정한 기준과 확인한 결과를 같은 높이의 카드에 담아 순서대로 읽도록 합니다."""
+    gap, inset = 10, 12
+    width = (CW - gap * (len(steps) - 1)) / len(steps)
+    inner = width - 2 * inset
+    lines = [
+        (paragraph(step["label"], inner, 9.2, True)[1],
+         paragraph(step["text"], inner, 9.2)[1])
+        for step in steps
+    ]
+    height = 2 * inset + 7 + max(sum(pair) for pair in lines)
+    if top + height > H - 51:
+        raise ValueError(f"페이지 {page_number}: AI 활용 과정이 페이지 아래로 넘쳤습니다.")
+    for i, step in enumerate(steps):
+        x = M + i * (width + gap)
+        rect(x, top, width, height, fill=LIGHT, radius=8, stroke=LINE)
+        y = text(step["label"], x + inset, top + inset, inner, 9.2, True, BLUE) + 7
+        text(step["text"], x + inset, y, inner, 9.2)
+    return top + height + 12
+
+
 def screenshot(media, top, height=292):
     """스크린샷은 비율을 유지해 크게 넣고 가상·로컬 촬영 설명을 항상 함께 둡니다."""
     image = ImageReader(str(SITE / media["src"].removeprefix("./")))
@@ -162,11 +183,14 @@ def project_page(project, media_index=0):
     y = text(project["subtitle"], M, y, CW, 15, True) + 14
     meta = f'{project["type"]} · {project["teamSize"]}명  /  {project["period"]}'
     y = text(meta, M, y, CW, 9.5, False, MUTED) + 22
-    y = text(project["overview"], M, y, CW, 11) + 22
-    y = screenshot(project["media"][media_index], y)
-    y = text(project["mediaNote"], M, y, CW, 8.8, False, MUTED) + 22
-    y = block("제가 맡은 일", project["role"], y, color, 11)
-    text("사용 기술  /  " + " · ".join(project["stack"]), M, y, CW, 9.3, False, MUTED)
+    y = text(project["overview"], M, y, CW, 10.6) + 17
+    y = block("제가 맡은 일", project["role"], y, color, 10.5) - 6
+    y = block("사용한 기술과 이유", project["technologyReason"], y, color, 10, background=True)
+    # 먼저 맡은 범위와 판단을 읽은 다음, 아래 화면으로 실제 작업을 확인합니다.
+    y = screenshot(project["media"][media_index], y, height=234)
+    y = text(project["mediaNote"], M, y, CW, 8.7, False, MUTED) + 15
+    y = text("사용 기술  /  " + " · ".join(project["stack"]), M, y, CW, 9.3, False, MUTED) + 10
+    linked("프로젝트 저장소 보기", project["repo"], M, y, 9.2, color)
 
 
 # 1. 인사와 사진 뒤에는 역할을 짧게 보여 주는 프로젝트 목록을 배치합니다.
@@ -188,37 +212,34 @@ for p in projects:
     text(p["name"], M + 50, y, CW - 50, 16, True)
     bottom = text(p["previewRole"], M + 50, y + 27, CW - 50, 10, False, MUTED)
     y = max(y + 73, bottom + 22)
+y = text("Java · Spring MVC / Spring Boot · MyBatis · Oracle", M, y + 1, CW, 10, True, MUTED) + 9
 y = linked(profile["email"], "mailto:" + profile["email"], M, y + 8, 10.5) + 8
 linked(profile["github"].removeprefix("https://"), profile["github"], M, y, 9.5, MUTED)
 
 # 2. 서비스의 AI 기능과 개발 과정의 AI 사용을 앞에서 읽고 실제 코드와 검증으로 이어집니다.
-page("AI PRACTICE  /  EDUCATION & SKILLS")
+page("AI PRACTICE  /  EDUCATION")
 y = title(data["aiPractice"]["title"], size=26)
 for item in data["aiPractice"]["cards"]:
     y = text(item["tool"], M, y, CW, 9, True, BLUE) + 5
     y = block(item["title"], item["text"], y, BLUE, 10, background=True) - 12
+    if item.get("steps"):
+        y = practice_steps(item["steps"], y)
     reference = item["reference"]
     y = linked(reference["label"], reference["url"], M, y, 9.2) + 18
 y = text("학력 · 교육 · 자격", M, y, CW, 15, True) + 14
 for item in data["education"]:
     y = text(item["title"] + "  /  " + item["period"], M, y, CW, 10.5, True) + 3
     y = text(item.get("shortTitle", item["subtitle"]) + (" · " + item["status"] if item["status"] else ""), M, y, CW, 9.4, False, MUTED) + 12
-rule(y)
-y = text("프로젝트에서 사용한 기술", M, y + 17, CW, 15, True) + 14
-for skill in data["skills"]:
-    bottom = text(skill["title"], M, y, 160, 9.5, True)
-    other = text(" · ".join(skill["items"]), M + 174, y, CW - 174, 9.5, False, MUTED)
-    y = max(bottom, other) + 12
 
 # 3-5. 제때약은 담당 화면과 AI 상담, 내 약 관리·커뮤니티 경험 순서로 읽습니다.
 project_page(jette)
 page("01  /  제때약  /  AI 상담", COLORS[jette["id"]])
-y = title("AI 상담에 쓸 데이터를\n서버에서 조회하였습니다.", size=26)
+y = title("AI 상담에 쓸 정보를\n서버에서 확인했습니다.", size=26)
 y = flow(jette["flow"], y, COLORS[jette["id"]])
 y = case(jette["cases"][0], y, COLORS[jette["id"]])
 block("구현하면서 배운 점", jette["learning"], y, COLORS[jette["id"]], 10.5)
 page("01  /  제때약  /  내 약 관리 · 커뮤니티", COLORS[jette["id"]])
-y = title("사용자와 데이터 상태를\n함께 확인하였습니다.", size=26)
+y = title("누가 어떤 정보를\n바꿀 수 있는지 확인했습니다.", size=26)
 y = case(jette["cases"][1], y, COLORS[jette["id"]], compact=True)
 rule(y - 6)
 y = case(jette["cases"][2], y + 12, COLORS[jette["id"]], compact=True)
@@ -227,7 +248,7 @@ text(jette["verification"], M, y, CW, 8.7, False, MUTED)
 # 6-7. 여행픽은 화면 뒤에 일정 변경·권한·DB 처리 경험을 연결합니다.
 project_page(travel, 1)
 page("02  /  여행픽  /  일정 변경 · 데이터", COLORS[travel["id"]])
-y = title("일정 변경과 데이터 이전을\n직접 구현하였습니다.", size=26)
+y = title("일정을 바꾸고 DB를 옮길 때\n확인한 조건입니다.", size=26)
 for i, item in enumerate(travel["cases"]):
     y = text(item["title"], M, y, CW, 15, True, COLORS[travel["id"]]) + 11
     y = text(item["action"], M, y, CW, 10.3) + 11
@@ -239,7 +260,7 @@ text(travel["verification"], M, y, CW, 8.7, False, MUTED)
 # 8-9. 5ASIS는 메인 화면과 외부 데이터 변환·중복 제어 경험을 설명합니다.
 project_page(oasis)
 page("03  /  5ASIS  /  대시보드 · Steam API", COLORS[oasis["id"]])
-y = title("다른 형태의 데이터를\n대시보드에 연결하였습니다.", size=26)
+y = title("형태가 다른 응답을\n한 화면에 연결했습니다.", size=26)
 y = flow(oasis["flow"], y, COLORS[oasis["id"]])
 y = case(oasis["cases"][0], y, COLORS[oasis["id"]])
 y = block("구현하면서 배운 점", oasis["learning"], y, COLORS[oasis["id"]], 10.5)

@@ -11,6 +11,7 @@
   --soft: #edf1fc;
   --navy: #17263e;
   --shadow: 0 12px 36px #1c2d4a08;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 * {
   box-sizing: border-box;
@@ -25,7 +26,9 @@ html.modal-open {
 }
 body {
   margin: 0;
-  background: var(--paper);
+  background:
+    radial-gradient(ellipse at top right, #e8eefb 0, transparent 40rem),
+    var(--paper);
   color: var(--ink);
   font:
     16px/1.8 "Segoe UI",
@@ -170,8 +173,8 @@ footer {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
   align-items: center;
-  gap: 64px;
-  padding: 62px 0 70px;
+  gap: clamp(32px, 5vw, 68px);
+  padding: clamp(40px, 5vw, 68px) 0 clamp(44px, 6vw, 76px);
 }
 .hero-copy {
   min-width: 0;
@@ -203,7 +206,7 @@ footer {
   color: var(--accent);
 }
 .intro {
-  max-width: 530px;
+  max-width: 56ch;
   color: var(--muted);
   margin-top: 24px;
   font-size: 16px;
@@ -211,6 +214,8 @@ footer {
 .sentence-group {
   display: grid;
   gap: 10px;
+  min-width: 0;
+  line-height: 1.85;
 }
 .sentence-group p {
   margin: 0;
@@ -250,8 +255,9 @@ footer {
   font-size: 14px;
   font-weight: 600;
   transition:
-    background 0.15s,
-    border-color 0.15s;
+    background 0.18s,
+    border-color 0.18s,
+    transform 0.18s var(--motion-ease);
 }
 .button.primary {
   background: var(--navy);
@@ -266,7 +272,7 @@ footer {
   background: #f7f9ff;
 }
 .profile-card {
-  background: var(--navy);
+  background: linear-gradient(135deg, #1c3050, var(--navy) 72%);
   color: #fff;
   border: 1px solid #243653;
   border-radius: 20px;
@@ -291,10 +297,6 @@ footer {
   background: white;
   flex-shrink: 0;
 }
-.profile-top .eyebrow {
-  color: #9db5fd;
-  margin-bottom: 10px;
-}
 .profile-top strong {
   display: block;
   font-size: 24px;
@@ -318,7 +320,7 @@ footer {
   padding-top: 22px;
 }
 .profile-projects > p {
-  font-size: 13px;
+  font-size: 14px;
   color: #b4c3da;
   margin-bottom: 6px;
 }
@@ -341,11 +343,6 @@ footer {
 .profile-projects button > span:last-child {
   margin-left: auto;
   color: #9db5fd;
-}
-.profile-number {
-  font-size: 13px;
-  color: #9db5fd;
-  font-variant-numeric: tabular-nums;
 }
 .profile-projects strong {
   font-size: 16px;
@@ -375,13 +372,14 @@ footer {
   margin-bottom: 12px;
 }
 .section-heading h2 {
-  font-size: 30px;
+  font-size: 33px;
   font-weight: 750;
 }
 .ai-practice-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.15fr);
+  align-items: start;
+  gap: 22px;
 }
 .ai-practice-card {
   display: flex;
@@ -407,7 +405,29 @@ footer {
   color: var(--muted);
   font-size: 15px;
 }
-/* 짧은 카드와 긴 카드의 실행 영역을 맞추고, 좁은 화면에서는 줄을 나눕니다. */
+/* 작업 기준과 실제 확인 내용을 번호가 있는 목록으로 읽을 수 있게 합니다. */
+.practice-steps {
+  display: grid;
+  gap: 16px;
+  width: 100%;
+  margin: 22px 0 0;
+  padding: 18px 18px 18px 40px;
+  background: #f2f5fc;
+  border-radius: 12px;
+}
+.practice-steps li {
+  padding-left: 4px;
+}
+.practice-steps li::marker {
+  color: var(--accent);
+  font-weight: 700;
+}
+.practice-steps strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 15px;
+}
+/* 링크는 본문과 분리하고, 좁은 화면에서는 다음 줄로 이어지게 합니다. */
 .ai-practice-links {
   display: flex;
   flex-wrap: wrap;
@@ -419,32 +439,15 @@ footer {
   min-height: 44px;
   padding: 8px 12px;
 }
-.section-caption {
-  font-size: 14px;
-  color: var(--muted);
-  text-align: right;
-}
-.text-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 22px;
-  min-height: 44px;
-  padding: 8px 0;
-  font-size: 14px;
-  font-weight: 600;
-  border: 0;
-  background: none;
-  white-space: nowrap;
-}
-.text-link:hover {
-  color: var(--accent);
-}
 .about-grid,
 .education-grid,
 .project-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 22px;
+}
+.about-grid {
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
 .story-card {
   padding: 22px 24px;
@@ -453,14 +456,9 @@ footer {
   border-radius: 14px;
   min-width: 0;
 }
-.step-label {
-  font-size: 13px;
-  color: var(--accent);
-  font-weight: 650;
-}
 .story-card h3 {
   font-size: 18px;
-  margin: 12px 0;
+  margin-bottom: 12px;
 }
 .story-card p {
   font-size: 15px;
@@ -520,7 +518,6 @@ footer {
 .summary-card:hover {
   border-color: #9fb2e4;
   box-shadow: 0 14px 35px #1d356f0c;
-  transform: translateY(-3px);
 }
 .skill-card {
   display: flex;
@@ -616,8 +613,7 @@ footer {
   overflow: hidden;
   box-shadow: 0 7px 20px #27324e18;
 }
-.cover-toolbar,
-.browser-chrome {
+.cover-toolbar {
   height: 20px;
   display: flex;
   align-items: center;
@@ -626,8 +622,7 @@ footer {
   background: #fafbfd;
   border-bottom: 1px solid #e8edf3;
 }
-.cover-toolbar i,
-.browser-chrome > span {
+.cover-toolbar i {
   width: 4px;
   height: 4px;
   display: block;
@@ -653,14 +648,9 @@ footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   width: 100%;
-}
-.project-number {
-  font-size: 13px;
-  color: var(--accent);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 .project-card .card-title {
   font-size: 27px;
@@ -671,18 +661,27 @@ footer {
 .project-period {
   font-size: 13px;
   color: var(--muted);
-  margin-top: 9px;
+  font-variant-numeric: tabular-nums;
 }
 .card-summary {
   font-size: 15px;
-  line-height: 1.8;
-  margin-top: 18px;
-  min-height: 54px;
+  margin-top: 12px;
 }
 .role-summary {
-  font-size: 13px;
-  color: var(--muted);
-  margin-top: 12px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f2f5fa;
+  font-size: 14px;
+  color: #44536b;
+  margin-top: 16px;
+}
+.role-summary strong {
+  color: var(--ink);
 }
 .project-card .tags {
   margin-top: 18px;
@@ -866,6 +865,25 @@ footer {
   font-weight: 600;
   line-height: 1.8;
 }
+.technology-reason {
+  padding: 20px 22px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fafbfe;
+}
+.technology-reason h3 {
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.technology-reason .sentence-group {
+  color: #435168;
+  font-size: 15px;
+  max-width: 74ch;
+}
+.technology-reason .tags {
+  margin-top: 16px;
+}
 .detail-tags {
   margin: 22px 0 26px;
 }
@@ -907,7 +925,7 @@ footer {
 }
 .highlight-card h3 {
   font-size: 17px;
-  margin: 10px 0;
+  margin-bottom: 10px;
 }
 .highlight-card p {
   font-size: 15px;
@@ -951,31 +969,11 @@ footer {
   color: white;
   border-color: var(--navy);
 }
-.media-index {
-  font-size: 13px;
-  opacity: 0.7;
-  font-variant-numeric: tabular-nums;
-}
 .media-stage {
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
   background: #f4f6fa;
-}
-.browser-chrome {
-  height: 30px;
-  gap: 5px;
-}
-.browser-chrome > span {
-  width: 5px;
-  height: 5px;
-}
-.browser-chrome em {
-  font-size: 12px;
-  font-style: normal;
-  letter-spacing: 0.08em;
-  color: #65728b;
-  margin: auto;
 }
 .media-stage img {
   display: block;
@@ -1030,11 +1028,6 @@ footer {
   color: var(--muted);
   margin-top: 20px;
 }
-.media-hint {
-  font-size: 13px;
-  color: var(--accent);
-  margin-top: 12px;
-}
 .media-error {
   font-size: 15px;
   padding: 24px;
@@ -1062,15 +1055,6 @@ footer {
   border-bottom: 1px solid var(--line);
   background: #f7f9fd;
 }
-.case-title > span {
-  font-size: 14px;
-  font-weight: 650;
-  line-height: 1.9;
-  color: var(--accent);
-  min-width: 20px;
-  flex-shrink: 0;
-  white-space: nowrap;
-}
 .case-title h4 {
   font-size: 20px;
   line-height: 1.6;
@@ -1083,6 +1067,11 @@ footer {
   color: var(--muted);
   padding-bottom: 8px;
 }
+.case-problem .sentence-group,
+.case-action .sentence-group,
+.learning-section .sentence-group {
+  max-width: 78ch;
+}
 .case-action {
   font-size: 16px;
   line-height: 1.9;
@@ -1092,8 +1081,6 @@ footer {
   font-weight: 650;
   color: var(--accent);
   margin-bottom: 12px;
-}
-.field-label {
   margin-top: 0;
   font-family: inherit;
   letter-spacing: 0;
@@ -1293,7 +1280,7 @@ details[open] > summary {
     padding: 32px;
   }
   .card-summary {
-    min-height: 81px;
+    margin-top: 10px;
   }
 }
 @media (max-width: 760px) {
@@ -1370,9 +1357,6 @@ details[open] > summary {
   .section-heading h2 {
     font-size: 26px;
   }
-  .section-caption {
-    font-size: 14px;
-  }
   .section-heading {
     align-items: flex-start;
   }
@@ -1399,9 +1383,6 @@ details[open] > summary {
   .project-card .card-title {
     font-size: 28px;
   }
-  .card-summary {
-    min-height: 0;
-  }
   .project-card .card-action {
     margin-top: 0;
   }
@@ -1418,9 +1399,6 @@ details[open] > summary {
   }
   .contact p:not(.eyebrow) {
     font-size: 15px;
-  }
-  .section-caption {
-    max-width: 200px;
   }
   .contact-links {
     margin-top: 0;
@@ -1457,6 +1435,9 @@ details[open] > summary {
   .detail-role {
     grid-template-columns: 1fr;
     gap: 8px;
+    padding: 18px;
+  }
+  .technology-reason {
     padding: 18px;
   }
   .detail-jump {
@@ -1591,13 +1572,6 @@ details[open] > summary {
   }
   .section-heading h2 {
     font-size: 25px;
-  }
-  .section-caption {
-    max-width: none;
-    text-align: left;
-  }
-  .section-heading .text-link {
-    margin-top: -6px;
   }
   .story-card h3 {
     font-size: 18px;
@@ -1736,6 +1710,67 @@ details[open] > summary {
   }
   .detail-jump button {
     text-align: left;
+  }
+}
+/* 등장 효과는 한 번만 재생합니다. 모션을 초기화하지 않아도 본문은 보입니다. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal].in-view {
+    animation: enter-view 360ms var(--motion-ease) both;
+    animation-delay: var(--entry-delay, 0ms);
+  }
+  .profile-card,
+  .project-card:nth-child(2),
+  .ai-practice-card:nth-child(2) {
+    --entry-delay: 65ms;
+  }
+  .project-card:nth-child(3) {
+    --entry-delay: 130ms;
+  }
+  [data-reveal].in-view:focus-within {
+    animation: none;
+  }
+  .detail-dialog[open] {
+    animation: open-detail 200ms var(--motion-ease) both;
+  }
+  .detail-dialog[open]::backdrop {
+    animation: fade-in 180ms ease both;
+  }
+  .button:active,
+  .summary-card:active {
+    transform: scale(0.985);
+  }
+}
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .summary-card:hover:not(:active) {
+    transform: translateY(-3px);
+  }
+}
+@keyframes enter-view {
+  from {
+    opacity: 0.72;
+    translate: 0 10px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@keyframes open-detail {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {
